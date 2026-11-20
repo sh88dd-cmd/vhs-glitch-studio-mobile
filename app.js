@@ -11,7 +11,7 @@
   const defaults={
     vhsEnabled:true,filmEnabled:false,preset:'VHS 90s',master:65,seed:123456789,
     fx:{hiss:74,wobble:42,tear:28,chroma:40,rgb:35,grain:35,streaks:0},
-    film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,frameStyle:'none',frameSize:8,caption:false,captionText:'',captionSize:100,customLut:false},
+    film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,blackBorder:false,blackFrameSize:1,frameStyle:'none',frameSize:8,caption:false,captionText:'',captionSize:100,customLut:false},
     edgeBurn:{"enabled":false,"mode":"auto","side":"random","strength":90,"width":35,"roughness":75,"scratches":38,"seed":238711811,"shape":"random","warmEnabled":true,"warmPattern":"random","warmStrength":90,"warmWidth":55,"warmSeed":170730923},
     camera:{date:{on:false,text:'PM 10:28 | JUN 16 1995',position:'right-bottom',size:125},rec:{on:false,position:'left-top',size:125},play:{on:false,position:'left-top',size:125},battery:{on:false,position:'right-top',size:125,level:'LOW'}},
     singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[],previewDock:{enabled:true,collapsed:false}
@@ -21,6 +21,15 @@
     const saved=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');
     if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera},edgeBurn:{...state.edgeBurn,...saved.edgeBurn},previewDock:{...state.previewDock,...saved.previewDock}};if(saved.film?.whiteBorder&&!('frameStyle' in saved.film)){state.film.frameStyle='white';state.film.frameSize=30;}}
   }catch(e){console.warn('Settings unavailable',e);}
+  // Migrate the old mutually exclusive black/white frame selection once.
+  // New independent flags take precedence on all subsequent launches.
+  try{
+    const previous=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');
+    if(previous?.film&&!Object.prototype.hasOwnProperty.call(previous.film,'blackBorder')){
+      state.film.blackBorder=previous.film.frameStyle==='black';
+      state.film.whiteBorder=previous.film.frameStyle==='white'||!!previous.film.whiteBorder;
+    }
+  }catch(e){console.warn('Frame settings migration unavailable',e);}
   if(!Array.isArray(state.favoriteFilms))state.favoriteFilms=[];
   state.previewDock={...defaults.previewDock,...(state.previewDock||{})};
   state.seed=crypto.getRandomValues(new Uint32Array(1))[0];
@@ -67,8 +76,10 @@
     for(const [key,label] of [['grain','Плёночное зерно'],['halation','Halation / засветка света'],['leaks','Light leaks / световые протечки'],['dust','Пыль и царапины'],['vignette','Виньетка']]){
       addControl(film,label,state.film[key],v=>{state.film[key]=v;persist();});
     }
-    addSelect(film,'Рамка фотографии',[['none','Без рамки'],['black','Чёрная рамка'],['white','Белая рамка']],state.film.frameStyle||'none',v=>{state.film.frameStyle=v;state.film.whiteBorder=v==='white';persist();});
-    addControl(film,'Толщина рамки',state.film.frameSize??8,v=>{state.film.frameSize=v;persist();},3,30);
+    addToggle(film,'Чёрная тонкая рамка · непосредственно вокруг фото',!!state.film.blackBorder,v=>{state.film.blackBorder=v;persist();});
+    addControl(film,'Толщина чёрной рамки',state.film.blackFrameSize??1,v=>{state.film.blackFrameSize=v;persist();},1,5);
+    addToggle(film,'Белая рамка · снаружи чёрной',!!state.film.whiteBorder,v=>{state.film.whiteBorder=v;persist();});
+    addControl(film,'Толщина белой рамки',state.film.frameSize??8,v=>{state.film.frameSize=v;persist();},3,30);
     addToggle(film,'Подпись под фотографией',state.film.caption,v=>{state.film.caption=v;persist();});
     const line=document.createElement('label');line.textContent='Текст подписи (Enter — новая строка, до 6 строк)';const f=document.createElement('textarea');f.id='captionTextInput';f.value=state.film.captionText;f.maxLength=320;f.rows=4;f.placeholder='SUMMER 1997 | 35MM FILM';f.addEventListener('input',()=>{state.film.captionText=f.value;persist();schedulePreview();});line.append(f);film.append(line);
     addControl(film,'Размер подписи',state.film.captionSize,v=>{state.film.captionSize=v;persist();},50,220);
@@ -414,35 +425,44 @@ function mountEdgeBurnControls(){
   }
   function drawBorder(canvas,settings){
     const w=canvas.width,h=canvas.height;
-    const frameStyle=['black','white'].includes(settings.frameStyle)?settings.frameStyle:(settings.whiteBorder?'white':'none');
-    const text=String(settings.captionText||'').replace(/\r\n?/g,'\n');
-    const lines=settings.caption&&text?text.split('\n').slice(0,6):[];
-    if(frameStyle==='none'&&!lines.length)return canvas;
-    const percentage=clamp(Number(settings.frameSize??(settings.whiteBorder?30:8)),3,30)/100;
-    const padX=frameStyle==='none'?0:Math.round(w*percentage);
-    const padY=frameStyle==='none'?0:Math.round(h*percentage);
+    const showBlack=!!settings.blackBorder;
+    const showWhite=!!settings.whiteBorder;
+    const caption=String(settings.captionText||'').replace(/\r\n?/g,'\n');
+    const lines=settings.caption&&caption?caption.split('\n').slice(0,6):[];
+    if(!showBlack&&!showWhite&&!lines.length)return canvas;
+    // Thin black border hugs the photo; white mat sits outside it.
+    const blackPad=showBlack?Math.max(1,Math.round(Math.min(w,h)*clamp(Number(settings.blackFrameSize??1),1,5)/100)):0;
+    const whitePercent=clamp(Number(settings.frameSize??8),3,30)/100;
+    const whitePadX=showWhite?Math.round(w*whitePercent):0;
+    const whitePadY=showWhite?Math.round(h*whitePercent):0;
+    const x=whitePadX+blackPad,y=whitePadY+blackPad;
     let fontSize=Math.max(9,Math.round(Math.min(w,h)*.021*clamp(Number(settings.captionSize)/100||1,.5,2.2)));
-    const color=frameStyle==='white'?'#242424':'#f5f5f5';
-    const bg=frameStyle==='white'?'#ffffff':'#080808';
-    const maxW=w+2*padX-Math.max(16,w*.08);
+    const bg=showWhite?'#ffffff':'#080808';
+    const ink=showWhite?'#242424':'#f5f5f5';
+    const maxTextWidth=w+2*x-Math.max(16,w*.08);
     const fontFamily='-apple-system, Helvetica, Arial, sans-serif';
     const probe=newCanvas(2,2).getContext('2d');
     for(let j=0;j<28&&lines.length;j++){
       probe.font='400 '+fontSize+'px '+fontFamily;
-      if(Math.max(...lines.map(str=>probe.measureText(str).width),0)<=maxW||fontSize<=9)break;
+      if(Math.max(...lines.map(str=>probe.measureText(str).width),0)<=maxTextWidth||fontSize<=9)break;
       fontSize=Math.max(9,fontSize*.92);
     }
     const lineHeight=fontSize*1.34,textHeight=lines.length*lineHeight;
-    const bottomPad=lines.length?Math.max(padY,Math.ceil(textHeight+fontSize*1.8)):padY;
-    const out=newCanvas(w+2*padX,h+padY+bottomPad);
+    const lowerBase=whitePadY+blackPad;
+    const lowerPad=lines.length?Math.max(lowerBase,Math.ceil(textHeight+fontSize*1.8)):lowerBase;
+    const out=newCanvas(w+2*x,h+y+lowerPad);
     const ctx=out.getContext('2d');
     ctx.fillStyle=bg;ctx.fillRect(0,0,out.width,out.height);
-    ctx.drawImage(canvas,padX,padY);
+    if(showBlack){
+      ctx.fillStyle='#080808';
+      ctx.fillRect(whitePadX,whitePadY,w+2*blackPad,h+2*blackPad);
+    }
+    ctx.drawImage(canvas,x,y);
     if(lines.length){
-      ctx.fillStyle=color;ctx.font='400 '+fontSize+'px '+fontFamily;
+      ctx.fillStyle=ink;ctx.font='400 '+fontSize+'px '+fontFamily;
       ctx.textAlign='center';ctx.textBaseline='middle';
-      const firstY=padY+h+(bottomPad-textHeight)/2+lineHeight/2;
-      lines.forEach((line,index)=>ctx.fillText(line,out.width/2,firstY+index*lineHeight,maxW));
+      const firstY=y+h+(lowerPad-textHeight)/2+lineHeight/2;
+      lines.forEach((line,index)=>ctx.fillText(line,out.width/2,firstY+index*lineHeight,maxTextWidth));
     }
     return out;
   }
@@ -800,7 +820,7 @@ function mountEdgeBurnControls(){
     if(('serviceWorker' in navigator) && (location.protocol==='https:'||location.hostname==='localhost')){
       await navigator.serviceWorker.register('./sw.js',{scope:'./'});
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.7');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.0.8');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
