@@ -1,0 +1,38 @@
+name: Music catalog live smoke
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/music-catalog-live-smoke.yml'
+      - 'video/music-catalog.js'
+permissions:
+  contents: read
+jobs:
+  providers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Verify official no-key search APIs
+        shell: bash
+        run: |
+          node <<'NODE'
+          const urls={
+            openverse:'https://api.openverse.org/v1/audio/?q=jazz&page_size=20&category=music&license=cc0%2Cpdm%2Cby',
+            commons:'https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=jazz%20filetype%3Aaudio&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url%7Cmime%7Csize%7Cextmetadata&format=json&formatversion=2&origin=*'
+          };
+          async function probe(name,url){
+            try{
+              const c=new AbortController();const timer=setTimeout(()=>c.abort(),18000);
+              const r=await fetch(url,{signal:c.signal,headers:{Origin:'https://sh88dd-cmd.github.io',Accept:'application/json'}});
+              clearTimeout(timer);
+              const text=await r.text();let data=null;try{data=JSON.parse(text)}catch{}
+              const count=name==='openverse'?(data?.results?.length||0):(data?.query?.pages?.length||0);
+              console.log(name,JSON.stringify({http:r.status,cors:r.headers.get('access-control-allow-origin'),matches:count,body:text.slice(0,150)}));
+              return r.ok&&!!data;
+            }catch(e){console.log(name,'NETWORK_ERROR',String(e));return false;}
+          }
+          const entries=await Promise.all(Object.entries(urls).map(async ([k,v])=>[k,await probe(k,v)]));
+          const ok=entries.some(([k,v])=>v);
+          console.log('AT_LEAST_ONE_CATALOG_REACHABLE',ok,'(runner network; Safari must be tested separately)');
+          if(!ok)process.exitCode=1;
+          NODE
