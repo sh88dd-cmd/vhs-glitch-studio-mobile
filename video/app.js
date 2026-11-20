@@ -432,6 +432,16 @@
     'Worker отвечает, но секретный ключ BRIDGE_KEY ещё не настроен на сервере.');
   }catch(e){bridgeStatus('Не удалось подключить Worker: '+e.message);}
  }
+ async function setupTelegramBot(){
+  if(!bridge.url||!bridge.key){if(!storeBridge())return;}
+  bridgeStatus('Подключаю твой Telegram-бот к личному аудиомосту…');
+  try{
+   const result=await window.VHSVideoMusicCatalog.bridgeSetupTelegram(currentBridge(),fetch);
+   bridgeStatus(result?.installed?
+    'Telegram-бот подключён. Перешли ему аудиофайл из другого Telegram-чата, затем нажми «Мои треки из Telegram».':
+    'Telegram не подтвердил подключение. Проверь параметры в Cloudflare.');
+  }catch(e){bridgeStatus('Ошибка подключения Telegram: '+e.message);}
+ }
  async function listTelegramMusic(){
   if(!bridge.url||!bridge.key){if(!storeBridge())return;}
   if(musicLoading)return bridgeStatus('Сначала закончи текущую загрузку музыки.');
@@ -451,6 +461,7 @@
   $('musicBridgeKey').value=bridge.key;
   $('saveMusicBridge').onclick=storeBridge;
   $('testMusicBridge').onclick=testBridge;
+  $('setupTelegramBot').onclick=setupTelegramBot;
   $('refreshTelegramTracks').onclick=listTelegramMusic;
   $('disableMusicBridge').onclick=()=>{
    bridge.url='';bridge.key='';
