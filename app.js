@@ -44,7 +44,7 @@
   ];
   const positions=[['left-top','Слева сверху'],['right-top','Справа сверху'],['left-bottom','Слева снизу'],['right-bottom','Справа снизу']];
   const looks={}; let xmpProfiles=[];let activeLook=null;let cubeLut=null;let filmPage=0;let favoritesPage=0;let batchFiles=[];let batchPage=0;let dialogFileIndex=-1;let dialogRenderToken=0;let busy=false;
-  let original=null, photoName='photo',showingOriginal=false; let latestPreview=null, rendering=false, rerender=false, renderTimer=0, pageToken=0;
+  let original=null, photoName='photo',showingOriginal=false; let mainSeedHistory=[]; let latestPreview=null, rendering=false, rerender=false, renderTimer=0, pageToken=0;
   let mainViewerToken=0; const mainViewerView={zoom:1,x:0,y:0,gesture:null};
   const PREVIEW_MAX=1040, DETAIL_PREVIEW_MAX=1800, BATCH_PREVIEW=440, FILM_PAGE_SIZE=24;
   const power={"VHS 90s":1,"Camcorder 90s":.75,"VHS — мягкий":.4,"VHS — повреждённая кассета":1.25,"Dirty VHS Extreme":1.4,"Tracking Error":1.2,"Аналоговый шум":.8,"Цветные помехи":1.15,"RGB Split":1.0};
@@ -54,6 +54,35 @@
   function rngFrom(seed,stage){let x=(seed^Math.imul(stage,0x9e3779b9))>>>0;return ()=>{x+=0x6D2B79F5;let t=x;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
   const ri=(r,a,b)=>Math.floor(r()*(b-a+1))+a;
   function randomSeed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
+  const SEED_HISTORY_LIMIT=50;
+  function pushSeedHistory(history,seed){
+    history.push(seed>>>0);
+    if(history.length>SEED_HISTORY_LIMIT)history.shift();
+  }
+  function differentSeed(previous){
+    const next=randomSeed();
+    return next===previous?(next+1)>>>0:next;
+  }
+  function updateMainUndoButtons(){
+    const hasPrevious=!!original&&mainSeedHistory.length>0;
+    $('undoMain').disabled=!hasPrevious;
+    const full=$('mainPreviewDialog');
+    $('undoMainViewer').disabled=!hasPrevious||!full.open||$('rerollMainViewer').disabled;
+  }
+  function changeMainSeed(undo){
+    if(!original)return;
+    if($('mainPreviewDialog').open&&$('rerollMainViewer').disabled)return;
+    if(undo){
+      if(!mainSeedHistory.length)return;
+      state.seed=mainSeedHistory.pop();
+    }else{
+      pushSeedHistory(mainSeedHistory,state.seed);
+      state.seed=differentSeed(state.seed);
+    }
+    updateMainUndoButtons();
+    schedulePreview();
+    if($('mainPreviewDialog').open)refreshMainViewer();
+  }
   function newCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
   function toImageData(img,w,h){const c=newCanvas(w,h);const cx=c.getContext('2d',{willReadFrequently:true});cx.drawImage(img,0,0,w,h);return cx.getImageData(0,0,w,h);}
   function setCanvas(dest,src){dest.width=src.width;dest.height=src.height;dest.getContext('2d').drawImage(src,0,0);}
@@ -564,7 +593,7 @@
     $('renderStatus').textContent='Готово · всё обработано на iPhone';$('renderTime').textContent=Math.round(performance.now()-begin)+' мс';
   }catch(err){$('renderStatus').textContent='Ошибка: '+err.message;console.error(err);}finally{rendering=false;if(rerender){rerender=false;schedulePreview();}}}
   async function openSingle(file){if(!file)return;original=await decodeImage(file);latestPreview=null;photoName=file.name.replace(/\.[^.]+$/,'');$('photoLabel').textContent=file.name;refreshDockVisibility();
-    $('sizeLabel').textContent=`${original.naturalWidth} × ${original.naturalHeight}`;state.seed=randomSeed();renderFilmPage();renderFavoritesPage();schedulePreview();$('fileSingle').value='';}
+    $('sizeLabel').textContent=`${original.naturalWidth} × ${original.naturalHeight}`;state.seed=randomSeed();mainSeedHistory=[];updateMainUndoButtons();renderFilmPage();renderFavoritesPage();schedulePreview();$('fileSingle').value='';}
 
   // Main-photo viewer uses its own dialog; it must not interfere with the batch viewer.
   function clampMainViewerPan(){
@@ -630,27 +659,41 @@
     else mainViewerView.gesture=null;
     if(ev.cancelable)ev.preventDefault();
   }
-  function openMainViewer(){
-    if(!original){notify('Сначала выбери фотографию.');return;}
-    const dialog=$('mainPreviewDialog');if(dialog.open)return;
+  // Re-render the enlarged main image whenever the selected VHS seed changes.
+  // Using a request token prevents slower old renders from replacing the new view.
+  function refreshMainViewer(){
+    const dialog=$('mainPreviewDialog');
+    if(!dialog.open||!original)return;
     const token=++mainViewerToken,source=original,seed=state.seed;
-    $('mainViewerTitle').textContent=photoName;
-    $('mainViewerStatus').textContent=latestPreview?'Увеличенный предпросмотр загружается…':'Подготавливаю фотографию…';
-    if(latestPreview)setCanvas($('mainViewerCanvas'),latestPreview);
-    else{const c=$('mainViewerCanvas');c.width=1;c.height=1;c.getContext('2d').clearRect(0,0,1,1);}
-    dialog.showModal();resetMainViewerZoom();
-    // Let the dialog paint before processing a higher-resolution view on the device.
+    const reroll=$('rerollMainViewer'),undo=$('undoMainViewer');
+    reroll.disabled=true;undo.disabled=true;
+    $('mainViewerStatus').textContent='Обновляю крупный просмотр…';
     requestAnimationFrame(()=>setTimeout(async()=>{
       if(token!==mainViewerToken||!dialog.open)return;
       try{
         const img=await processImage(source,seed,{},DETAIL_PREVIEW_MAX);
-        if(token!==mainViewerToken||!dialog.open)return;
-        setCanvas($('mainViewerCanvas'),img);resetMainViewerZoom();
+        if(token!==mainViewerToken||!dialog.open||source!==original||seed!==state.seed)return;
+        setCanvas($('mainViewerCanvas'),img);
+        paintMainViewerTransform();
         $('mainViewerStatus').textContent='Разведи два пальца для приближения; двигай кадр одним пальцем.';
       }catch(e){
         if(token===mainViewerToken&&dialog.open)$('mainViewerStatus').textContent='Крупный предпросмотр недоступен: '+e.message;
+      }finally{
+        if(token===mainViewerToken&&dialog.open){
+          reroll.disabled=false;
+          updateMainUndoButtons();
+        }
       }
     },30));
+  }
+  function openMainViewer(){
+    if(!original){notify('Сначала выбери фотографию.');return;}
+    const dialog=$('mainPreviewDialog');if(dialog.open)return;
+    $('mainViewerTitle').textContent=photoName;
+    if(latestPreview)setCanvas($('mainViewerCanvas'),latestPreview);
+    else{const c=$('mainViewerCanvas');c.width=1;c.height=1;c.getContext('2d').clearRect(0,0,1,1);}
+    dialog.showModal();resetMainViewerZoom();
+    refreshMainViewer();
   }
   function closeMainViewer(){
     ++mainViewerToken;
@@ -661,7 +704,9 @@
     $('mainPreviewTap').addEventListener('click',openMainViewer);
     $('mainPreviewTap').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openMainViewer();}});
     $('closeMainPreview').addEventListener('click',closeMainViewer);
-    $('mainPreviewDialog').addEventListener('close',()=>{++mainViewerToken;mainViewerView.gesture=null;});
+    $('mainPreviewDialog').addEventListener('close',()=>{++mainViewerToken;mainViewerView.gesture=null;updateMainUndoButtons();});
+    $('rerollMainViewer').addEventListener('click',()=>changeMainSeed(false));
+    $('undoMainViewer').addEventListener('click',()=>changeMainSeed(true));
     $('mainZoomOut').addEventListener('click',()=>mainViewerZoomAt(mainViewerView.zoom/1.5));
     $('mainZoomIn').addEventListener('click',()=>mainViewerZoomAt(mainViewerView.zoom*1.5));
     $('mainZoomReset').addEventListener('click',resetMainViewerZoom);
@@ -683,12 +728,14 @@
     if(!shared)saveBlob(blob,outName);notify(shared?'Открылось меню отправки. Выбери «Сохранить изображение» или «Сохранить в Файлы».':`Файл ${outName} (${formatBytes(blob.size)}) сохранён в «Загрузки» Safari или «Файлы».`);
   }
   async function openBatch(files){if(!files||!files.length)return;if(files.length>50){notify('Можно выбрать не больше 50 фотографий.',true);return;}
-    batchFiles=Array.from(files).map((file,index)=>({file,index,seed:randomSeed(),filmSeed:randomSeed(),previewRequest:0}));batchPage=0;showTab('batch');$('batchStatus').textContent=`Выбрано ${batchFiles.length} фото`;
+    batchFiles=Array.from(files).map((file,index)=>({file,index,seed:randomSeed(),filmSeed:randomSeed(),previewRequest:0,seedHistory:[]}));batchPage=0;showTab('batch');$('batchStatus').textContent=`Выбрано ${batchFiles.length} фото`;
     $('batchFiles').value='';await renderBatchPage();}
   // Recalculate just one thumbnail without changing other cards' buffers or seeds.
   async function renderBatchThumbnail(item,canvas,label,reroll,token){
     const request=++item.previewRequest,seed=item.seed;
     reroll.disabled=true;
+    const undo=reroll.parentNode?.querySelector('.batchUndo');
+    if(undo)undo.disabled=true;
     reroll.setAttribute('aria-busy','true');
     try{
       const image=await decodeImage(item.file);
@@ -704,19 +751,29 @@
     }finally{
       if(token===pageToken&&request===item.previewRequest){
         reroll.disabled=busy;
+        if(undo)undo.disabled=busy||!item.seedHistory?.length;
         reroll.removeAttribute('aria-busy');
       }
     }
   }
   function regenerateBatchSeed(item){
-    const old=item.seed;
-    let next=randomSeed();
-    if(next===old)next=(next+1)>>>0;
-    item.seed=next;
+    if(!Array.isArray(item.seedHistory))item.seedHistory=[];
+    pushSeedHistory(item.seedHistory,item.seed);
+    item.seed=differentSeed(item.seed);
+  }
+  function undoBatchSeed(item){
+    if(!item.seedHistory?.length)return false;
+    item.seed=item.seedHistory.pop();
+    return true;
   }
   function rerollOneBatchPhoto(item,canvas,label,reroll,token){
     if(busy||token!==pageToken||!batchFiles.includes(item)||reroll.disabled)return;
     regenerateBatchSeed(item);
+    renderBatchThumbnail(item,canvas,label,reroll,token).catch(e=>notify(e.message,true));
+  }
+  function undoOneBatchPhoto(item,canvas,label,reroll,undo,token){
+    if(busy||token!==pageToken||!batchFiles.includes(item)||reroll.disabled||undo.disabled)return;
+    if(!undoBatchSeed(item))return;
     renderBatchThumbnail(item,canvas,label,reroll,token).catch(e=>notify(e.message,true));
   }
   async function renderBatchPage(){
@@ -737,20 +794,25 @@
       const actions=document.createElement('div');actions.className='batchItemActions';
       const zoom=document.createElement('button');zoom.type='button';zoom.className='btn mini batchZoom';zoom.textContent='Увеличить кадр';
       zoom.addEventListener('click',()=>openBatchZoom(item.index));
+      const undo=document.createElement('button');undo.type='button';
+      undo.className='btn mini batchUndo';undo.textContent='↶';undo.disabled=!item.seedHistory?.length;
+      undo.title='Вернуть предыдущие помехи этого фото';
+      undo.setAttribute('aria-label','Вернуть предыдущие помехи фото '+item.file.name);
       const reroll=document.createElement('button');reroll.type='button';
       reroll.className='btn mini batchReroll';reroll.textContent='↻';
       reroll.title='Новые помехи только для этого фото';
       reroll.setAttribute('aria-label','Новые помехи только для фото '+item.file.name);
       reroll.addEventListener('click',()=>rerollOneBatchPhoto(item,canvas,filename,reroll,token));
-      actions.append(zoom,reroll);box.append(canvas,filename,actions);grid.append(box);
+      undo.addEventListener('click',()=>undoOneBatchPhoto(item,canvas,filename,reroll,undo,token));
+      actions.append(zoom,undo,reroll);box.append(canvas,filename,actions);grid.append(box);
       await renderBatchThumbnail(item,canvas,filename,reroll,token);
       await new Promise(resolve=>setTimeout(resolve,0));
     }
   }
   async function renderBatchZoom(item){
     const generation=++dialogRenderToken,seed=item.seed;
-    const reroll=$('rerollDialog'),save=$('saveDialog'),status=$('dialogRefreshStatus');
-    reroll.disabled=true;reroll.setAttribute('aria-busy','true');
+    const reroll=$('rerollDialog'),undo=$('undoDialog'),save=$('saveDialog'),status=$('dialogRefreshStatus');
+    reroll.disabled=true;undo.disabled=true;reroll.setAttribute('aria-busy','true');
     save.disabled=true;status.textContent='Обновляю изображение…';
     try{
       const im=await decodeImage(item.file);
@@ -765,7 +827,7 @@
       }
     }finally{
       if(generation===dialogRenderToken&&dialogFileIndex===item.index&&$('photoDialog').open){
-        reroll.disabled=busy;reroll.removeAttribute('aria-busy');save.disabled=busy;
+        reroll.disabled=busy;undo.disabled=busy||!item.seedHistory?.length;reroll.removeAttribute('aria-busy');save.disabled=busy;
       }
     }
   }
@@ -778,12 +840,14 @@
     if(!$('photoDialog').open)$('photoDialog').showModal();
     await renderBatchZoom(item);
   }
-  function rerollBatchZoom(){
+  function changeBatchZoomSeed(undo){
     if(busy||dialogFileIndex<0||!$('photoDialog').open||$('rerollDialog').disabled)return;
+    if(undo&&$('undoDialog').disabled)return;
     const item=batchFiles[dialogFileIndex];
     if(!item)return;
-    regenerateBatchSeed(item);
-    // Update only the matching thumbnail, without rerendering the page or other photos.
+    if(undo){if(!undoBatchSeed(item))return;}
+    else regenerateBatchSeed(item);
+    // Refresh only the corresponding thumbnail; all other batch seeds stay intact.
     const card=Array.from($('batchGrid').children).find(el=>Number(el.dataset.batchIndex)===item.index);
     if(card){
       const canvas=card.querySelector('canvas'),label=card.querySelector('.batchItemName'),reroll=card.querySelector('.batchReroll');
@@ -791,6 +855,8 @@
     }
     renderBatchZoom(item).catch(e=>notify(e.message,true));
   }
+  function rerollBatchZoom(){changeBatchZoomSeed(false);}
+  function undoBatchZoom(){changeBatchZoomSeed(true);}
   async function saveZoom(){
     if(dialogFileIndex<0||busy||$('saveDialog').disabled)return;
     const item=batchFiles[dialogFileIndex];
@@ -834,7 +900,7 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.1.2');const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.1.3');const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
@@ -858,7 +924,8 @@
       }catch(err){btn.disabled=false;btn.textContent='↻ Повторить обновление';notify('Ошибка обновления: '+err.message,true);}
     });
     $('fileSingle').addEventListener('change',async e=>{try{await openSingle(e.target.files[0]);}catch(err){notify(err.message,true);}});
-    $('reroll').addEventListener('click',()=>{state.seed=randomSeed();schedulePreview();});
+    $('reroll').addEventListener('click',()=>changeMainSeed(false));
+    $('undoMain').addEventListener('click',()=>changeMainSeed(true));
     $('compare').addEventListener('click',toggleCompare);
     $('saveOne').addEventListener('click',async()=>{try{await saveSingle();}catch(e){notify(e.message,true);}});
     $('vhsEnabled').checked=state.vhsEnabled;$('vhsEnabled').addEventListener('change',e=>{state.vhsEnabled=e.target.checked;schedulePreview();});
@@ -877,7 +944,7 @@
     $('batchFiles').addEventListener('change',e=>openBatch(e.target.files).catch(err=>notify(err.message,true)));
     $('prevPage').addEventListener('click',()=>{batchPage--;renderBatchPage().catch(err=>notify(err.message,true));});
     $('nextPage').addEventListener('click',()=>{batchPage++;renderBatchPage().catch(err=>notify(err.message,true));});
-    $('batchRegen').addEventListener('click',()=>{for(const f of batchFiles)f.seed=randomSeed();renderBatchPage().catch(err=>notify(err.message,true));});
+    $('batchRegen').addEventListener('click',()=>{if(busy)return;for(const f of batchFiles)regenerateBatchSeed(f);renderBatchPage().catch(err=>notify(err.message,true));});
     $('exportBatch').addEventListener('click',()=>exportBatch());
     $('batchSize').value=state.batchSize;$('batchSize').addEventListener('change',e=>{state.batchSize=e.target.value;persist();});
     $('singleSize').value=state.singleSize;$('singleSize').addEventListener('change',e=>{state.singleSize=e.target.value;persist();});
@@ -886,6 +953,7 @@
     $('closeDialog').addEventListener('click',()=>$('photoDialog').close());
     $('photoDialog').addEventListener('close',()=>{dialogRenderToken++;dialogFileIndex=-1;$('dialogRefreshStatus').textContent='';});
     $('rerollDialog').addEventListener('click',rerollBatchZoom);
+    $('undoDialog').addEventListener('click',undoBatchZoom);
     $('saveDialog').addEventListener('click',()=>saveZoom().catch(err=>notify(err.message,true)));
     $('backupExport').addEventListener('click',()=>exportBackup().catch(err=>notify(err.message,true)));
     $('backupImport').addEventListener('change',async e=>{try{await importBackup(e.target.files[0]);}catch(err){notify(err.message,true);}e.target.value='';});
@@ -893,7 +961,7 @@
     $('closeHelp').addEventListener('click',()=>$('helpDialog').close());
   }
   async function init(){
-    mountControls();bindEvents();initMainViewerEvents();mountEdgeBurnControls();initDockPreview();
+    mountControls();bindEvents();initMainViewerEvents();mountEdgeBurnControls();initDockPreview();updateMainUndoButtons();
     try{Object.assign(looks,await (await fetch('./looks.json')).json());}catch(err){notify('Каталог плёнок не загрузился. Открой программу через HTTPS или локальный сервер.');}
     xmpProfiles=await dbAll('xmp');cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
     if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
