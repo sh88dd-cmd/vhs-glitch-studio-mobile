@@ -4,7 +4,7 @@
 (function(root){
 'use strict';
 const MAX_BYTES=18*1024*1024;
-const allowedLicenses=new Set(['cc0','pdm','by']);
+const allowedLicenses=new Set(['cc0','pdm','by','by-sa']);
 const safeURL=u=>{try{const url=new URL(String(u||''));return url.protocol==='https:'?url.href:null}catch{return null}};
 function normalize(row){
  if(!row||typeof row!=='object')return null;
@@ -18,7 +18,7 @@ function normalize(row){
 }
 function attribution(track){
  if(!track)return'';
- const label=track.license==='pdm'?'Public Domain':track.license==='cc0'?'CC0':'CC BY';
+ const label=track.license==='pdm'?'Public Domain':track.license==='cc0'?'CC0':track.license==='by-sa'?'CC BY-SA — условия ShareAlike':'CC BY';
  return [track.title+' — '+track.creator,label,track.licenseURL||'',track.landing||''].filter(Boolean).join('\n');
 }
 async function searchCommons(query,fetchFn=fetch){
@@ -48,8 +48,9 @@ async function searchCommons(query,fetchFn=fetch){
   let license=null;
   if(/\bCC0\b/i.test(label))license='cc0';
   else if(/public.domain|^PD\b/i.test(label))license='pdm';
+  else if(/^CC BY-SA(?:\s|$)/i.test(label))license='by-sa';
   else if(/^CC BY(?:\s|$)/i.test(label))license='by';
-  else continue; // Unknown and share-alike licenses must not be misrepresented.
+  else continue; // Unsupported/unknown licenses are not treated as cleared for video use.
   const url=safeURL(info.url);if(!url)continue;
   const htmlArtist=String(metadata.Artist?.value||'Автор не указан');
   const creator=htmlArtist.replace(/<[^>]*>/g,' ').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
@@ -61,6 +62,11 @@ async function searchCommons(query,fetchFn=fetch){
    landing:landing||'https://commons.wikimedia.org/wiki/'+encodeURIComponent(String(page.title||'')),
    bytes:Number(info.size)||0,duration:0,source:'Wikimedia Commons'});
  }
+ // Prefer small, widely supported MP3/WAV files on iPhone over large Ogg/FLAC.
+ tracks.sort((a,b)=>{
+  const rank=t=>/\.(?:mp3|m4a)(?:$|\?)/i.test(t.url)?0:/\.wav(?:$|\?)/i.test(t.url)?1:/\.(?:ogg|oga|opus|webm)(?:$|\?)/i.test(t.url)?2:3;
+  return rank(a)-rank(b)||a.bytes-b.bytes;
+ });
  return tracks.slice(0,20);
 }
 async function search(query,fetchFn=fetch){
