@@ -14,14 +14,15 @@
     film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,caption:false,captionText:'',captionSize:100,customLut:false},
     edgeBurn:{"enabled":false,"mode":"auto","side":"random","strength":90,"width":35,"roughness":75,"scratches":38,"seed":238711811},
     camera:{date:{on:false,text:'PM 10:28 | JUN 16 1995',position:'right-bottom',size:125},rec:{on:false,position:'left-top',size:125},play:{on:false,position:'left-top',size:125},battery:{on:false,position:'right-top',size:125,level:'LOW'}},
-    singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[]
+    singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[],previewDock:{enabled:true,collapsed:false}
   };
   let state=clone(defaults);
   try{
     const saved=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');
-    if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera},edgeBurn:{...state.edgeBurn,...saved.edgeBurn}};}
+    if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera},edgeBurn:{...state.edgeBurn,...saved.edgeBurn},previewDock:{...state.previewDock,...saved.previewDock}};}
   }catch(e){console.warn('Settings unavailable',e);}
   if(!Array.isArray(state.favoriteFilms))state.favoriteFilms=[];
+  state.previewDock={...defaults.previewDock,...(state.previewDock||{})};
   state.seed=crypto.getRandomValues(new Uint32Array(1))[0];
   const effectDefs=[
     ['hiss','Белые шипящие полосы',74],['wobble','Волны / дрожание строк',42],
@@ -434,14 +435,67 @@
     $('importStatus').textContent='Загружен LUT: '+file.name+' · сохранён локально';schedulePreview();notify('LUT сохранён на телефоне для офлайн-работы.');
   }
 
+
+  // One lightweight copy of the current canvas serves every editing tab.
+  function syncDockCanvas(source=$('previewCanvas')){
+    if(!source||source.width<2||source.height<2)return;
+    const dock=$('dockCanvas'),ratio=Math.min(1,640/Math.max(source.width,source.height));
+    dock.width=Math.max(1,Math.round(source.width*ratio));
+    dock.height=Math.max(1,Math.round(source.height*ratio));
+    dock.getContext('2d').drawImage(source,0,0,dock.width,dock.height);
+  }
+  function refreshDockUi(){
+    const enabled=!!state.previewDock.enabled,collapsed=!!state.previewDock.collapsed;
+    $('dockEnable').textContent=enabled?'▣ Превью: вкл':'▣ Превью: выкл';
+    $('dockEnable').setAttribute('aria-pressed',String(enabled));
+    $('floatingPreview').classList.toggle('is-collapsed',collapsed);
+    $('dockExpand').textContent=collapsed?'Развернуть':'Свернуть';
+    $('dockExpand').setAttribute('aria-expanded',String(!collapsed));
+    $('dockExpand').setAttribute('aria-label',collapsed?'Развернуть закреплённый просмотр':'Свернуть закреплённый просмотр');
+  }
+  function refreshDockVisibility(){
+    const dock=$('floatingPreview'),header=document.querySelector('.top');
+    if(!dock||!header)return;
+    const headerBottom=Math.max(0,header.getBoundingClientRect().bottom);
+    dock.style.top=Math.ceil(headerBottom)+'px';
+    const isEnabled=!!state.previewDock.enabled;
+    const dockHeight=state.previewDock.collapsed?48:(Math.min(220,Math.max(126,window.innerHeight*.24))+50);
+    document.documentElement.style.setProperty('--dock-scroll-offset',Math.ceil(headerBottom+(isEnabled?dockHeight:12)+14)+'px');
+    const r=$('mainPreviewTap').getBoundingClientRect();
+    const mainImageVisible=r.bottom>headerBottom+12&&r.top<window.innerHeight-80;
+    dock.hidden=!isEnabled||!original||mainImageVisible;
+  }
+  function initDockPreview(){
+    refreshDockUi();
+    $('dockEnable').addEventListener('click',()=>{
+      state.previewDock.enabled=!state.previewDock.enabled;
+      persist();refreshDockUi();refreshDockVisibility();
+    });
+    $('dockExpand').addEventListener('click',()=>{
+      state.previewDock.collapsed=!state.previewDock.collapsed;
+      persist();refreshDockUi();refreshDockVisibility();
+    });
+    $('dockOpenFull').addEventListener('click',openMainViewer);
+    $('dockPhoto').addEventListener('click',openMainViewer);
+    let queued=false;
+    function scheduleDockPosition(){
+      if(queued)return;
+      queued=true;
+      requestAnimationFrame(()=>{queued=false;refreshDockVisibility();});
+    }
+    window.addEventListener('scroll',scheduleDockPosition,{passive:true});
+    window.addEventListener('resize',scheduleDockPosition,{passive:true});
+    window.visualViewport?.addEventListener('resize',scheduleDockPosition,{passive:true});
+    scheduleDockPosition();
+  }
   function schedulePreview(){clearTimeout(renderTimer);persist();renderTimer=setTimeout(()=>renderPreview().catch(e=>notify(e.message,true)),120);}
   async function renderPreview(){if(!original)return;if(rendering){rerender=true;return;}rendering=true;const begin=performance.now();$('renderStatus').textContent='Создаю предпросмотр…';try{
     // A short yield lets the UI update before running CPU-bound pixel processing.
     await new Promise(resolve=>requestAnimationFrame(resolve));
-    const cv=await processImage(original,state.seed,{},PREVIEW_MAX);latestPreview=cv;showingOriginal=false;setCanvas($('previewCanvas'),cv);$('emptyMsg').style.display='none';
+    const cv=await processImage(original,state.seed,{},PREVIEW_MAX);latestPreview=cv;showingOriginal=false;setCanvas($('previewCanvas'),cv);syncDockCanvas();refreshDockVisibility();$('emptyMsg').style.display='none';
     $('renderStatus').textContent='Готово · всё обработано на iPhone';$('renderTime').textContent=Math.round(performance.now()-begin)+' мс';
   }catch(err){$('renderStatus').textContent='Ошибка: '+err.message;console.error(err);}finally{rendering=false;if(rerender){rerender=false;schedulePreview();}}}
-  async function openSingle(file){if(!file)return;original=await decodeImage(file);photoName=file.name.replace(/\.[^.]+$/,'');$('photoLabel').textContent=file.name;
+  async function openSingle(file){if(!file)return;original=await decodeImage(file);latestPreview=null;photoName=file.name.replace(/\.[^.]+$/,'');$('photoLabel').textContent=file.name;refreshDockVisibility();
     $('sizeLabel').textContent=`${original.naturalWidth} × ${original.naturalHeight}`;state.seed=randomSeed();renderFilmPage();renderFavoritesPage();schedulePreview();$('fileSingle').value='';}
 
   // Main-photo viewer uses its own dialog; it must not interfere with the batch viewer.
@@ -551,7 +605,7 @@
     stage.addEventListener('wheel',e=>{e.preventDefault();mainViewerZoomAt(mainViewerView.zoom*(e.deltaY<0?1.15:1/1.15),e.clientX,e.clientY);},{passive:false});
     window.addEventListener('resize',()=>{if($('mainPreviewDialog').open)paintMainViewerTransform();});
   }
-  function toggleCompare(){if(!original||!latestPreview)return;showingOriginal=!showingOriginal;if(showingOriginal){const [w,h]=renderSize(original.naturalWidth,original.naturalHeight,String(PREVIEW_MAX));const c=newCanvas(w,h);c.getContext('2d').drawImage(original,0,0,w,h);setCanvas($('previewCanvas'),c);}else setCanvas($('previewCanvas'),latestPreview);}
+  function toggleCompare(){if(!original||!latestPreview)return;showingOriginal=!showingOriginal;if(showingOriginal){const [w,h]=renderSize(original.naturalWidth,original.naturalHeight,String(PREVIEW_MAX));const c=newCanvas(w,h);c.getContext('2d').drawImage(original,0,0,w,h);setCanvas($('previewCanvas'),c);}else setCanvas($('previewCanvas'),latestPreview);syncDockCanvas();}
   function saveBlob(blob,filename){const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),90_000);}
   function canvasBlob(cv,type='image/jpeg',quality=.94){return new Promise((resolve,reject)=>cv.toBlob(b=>b?resolve(b):reject(Error('Не удалось создать изображение — возможно, не хватает памяти.')),type,quality));}
   async function saveSingle(fileIm=original,filename=photoName,seed=state.seed,size=state.singleSize){if(!fileIm)throw Error('Сначала открой фотографию');
@@ -610,7 +664,7 @@
     if(('serviceWorker' in navigator) && (location.protocol==='https:'||location.hostname==='localhost')){
       await navigator.serviceWorker.register('./sw.js',{scope:'./'});
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.4');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.0.5');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
@@ -653,7 +707,7 @@
     $('closeHelp').addEventListener('click',()=>$('helpDialog').close());
   }
   async function init(){
-    mountControls();bindEvents();initMainViewerEvents();mountEdgeBurnControls();
+    mountControls();bindEvents();initMainViewerEvents();mountEdgeBurnControls();initDockPreview();
     try{Object.assign(looks,await (await fetch('./looks.json')).json());}catch(err){notify('Каталог плёнок не загрузился. Открой программу через HTTPS или локальный сервер.');}
     xmpProfiles=await dbAll('xmp');cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
     if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
