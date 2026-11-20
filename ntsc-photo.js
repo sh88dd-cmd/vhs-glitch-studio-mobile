@@ -116,10 +116,10 @@ function tracking(data,w,h,amt,seed){
       const rel=(y-ys)/Math.max(1,ye-ys);
       const dx=Math.round(band.shift*amt*(.7+.3*Math.sin(rel*5.5)));
       const scan=(rand()-.5)*amt*17;
+      const line=rndBias(y,center,ye-ys);
       for(let x=band.x0;x<band.x1;x++){
         const ix=clamp(x-dx,0,w-1),at=off+x*4,src=ix*4;
         const noise=rand();
-        const line=rndBias(y,center,ye-ys);
         const snow=band.glitch&&noise<.003+amt*.015&&x%3===0?100*amt:0;
         data[at]=clamp(row[src]+scan+snow+line*amt,0,255);
         data[at+1]=clamp(row[src+1]+scan+snow+line*amt,0,255);
