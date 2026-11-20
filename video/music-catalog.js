@@ -124,6 +124,10 @@ async function bridgeHealth(config,fetchFn=fetch){
  const res=await bridgeRequest('/status',config,{},fetchFn);
  return res.json();
 }
+async function bridgeSetupTelegram(config,fetchFn=fetch){
+ const res=await bridgeRequest('/telegram/setup',config,{},fetchFn);
+ return res.json();
+}
 async function bridgeTracks(config,fetchFn=fetch,signal){
  const res=await bridgeRequest('/tracks',config,{},fetchFn,signal);
  const json=await res.json();
@@ -180,5 +184,5 @@ async function readAudio(url,fetchFn=fetch,signal,bridge=null){
  if(err)throw Error('Сайт не разрешил браузерную загрузку (CORS) или недоступен. Для разрешённого аудио можно подключить личный аудиомост.');
  throw Error('Загрузка аудио недоступна.');
 }
-root.VHSVideoMusicCatalog=Object.freeze({search,searchCommons,normalize,readAudio,readBridgeAudio,bridgeHealth,bridgeTracks,attribution,MAX_BYTES});
+root.VHSVideoMusicCatalog=Object.freeze({search,searchCommons,normalize,readAudio,readBridgeAudio,bridgeHealth,bridgeSetupTelegram,bridgeTracks,attribution,MAX_BYTES});
 })(window);
