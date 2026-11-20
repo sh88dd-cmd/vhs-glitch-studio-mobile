@@ -12,7 +12,7 @@
     vhsEnabled:true,filmEnabled:false,preset:'VHS 90s',master:65,seed:123456789,
     fx:{hiss:74,wobble:42,tear:28,chroma:40,rgb:35,grain:35,streaks:0},
     film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,caption:false,captionText:'',captionSize:100,customLut:false},
-    edgeBurn:{"enabled":false,"mode":"auto","side":"random","strength":90,"width":35,"roughness":75,"scratches":38,"seed":238711811},
+    edgeBurn:{"enabled":false,"mode":"auto","side":"random","strength":90,"width":35,"roughness":75,"scratches":38,"seed":238711811,"shape":"random","warmEnabled":true,"warmPattern":"random","warmStrength":90,"warmWidth":55,"warmSeed":170730923},
     camera:{date:{on:false,text:'PM 10:28 | JUN 16 1995',position:'right-bottom',size:125},rec:{on:false,position:'left-top',size:125},play:{on:false,position:'left-top',size:125},battery:{on:false,position:'right-top',size:125,level:'LOW'}},
     singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[],previewDock:{enabled:true,collapsed:false}
   };
@@ -82,89 +82,154 @@
     }
   }
 
+const EDGE_SHAPES=['torn','bloom','blister','streaks','double'];
+  const EDGE_SHAPE_NAMES={torn:'Рваная эмульсия',bloom:'Мягкий размытый',blister:'Островки прожога',streaks:'Разрывы и языки',double:'Двойная кромка'};
+  const WARM_PATTERNS=['amber','flame','red','split'];
+  const WARM_NAMES={amber:'Янтарное свечение',flame:'Огненные пятна',red:'Красные прожилки',split:'Двухцветный ореол'};
+  function edgeSides(settings){
+    if(settings.side==='both')return ['left','right'];
+    if(settings.side==='left'||settings.side==='right')return [settings.side];
+    return [rngFrom(settings.seed>>>0,719)()<.5?'left':'right'];
+  }
+  function edgeShapeFor(settings,side){
+    if(EDGE_SHAPES.includes(settings.shape))return settings.shape;
+    return EDGE_SHAPES[Math.floor(rngFrom(settings.seed>>>0,side==='left'?704:705)()*EDGE_SHAPES.length)];
+  }
+  function warmPatternFor(settings,side){
+    if(WARM_PATTERNS.includes(settings.warmPattern))return settings.warmPattern;
+    return WARM_PATTERNS[Math.floor(rngFrom(settings.warmSeed>>>0,side==='left'?706:707)()*WARM_PATTERNS.length)];
+  }
   function paintEdgeBurns(canvas,settings,autoMonochrome){
-  if(!settings||!settings.enabled)return;
-  const w=canvas.width,h=canvas.height;
-  if(w<8||h<8)return;
-  const amount=clamp(Number(settings.strength)/100||0,0,1);
-  if(!amount)return;
-  const random=rngFrom(settings.seed>>>0,719);
-  const sideSetting=settings.side||'random';
-  const sides=sideSetting==='both'?['left','right']:
-    [sideSetting==='random'?(random()<.5?'left':'right'):sideSetting];
-  const mono=settings.mode==='mono'||(settings.mode==='auto'&&autoMonochrome);
-  const rough=clamp(Number(settings.roughness)/100||0,0,1);
-  const scratch=clamp(Number(settings.scratches)/100||0,0,1);
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});
-  for(const side of sides){
-    if(side!=='left'&&side!=='right')continue;
-    const r=rngFrom(settings.seed>>>0,side==='left'?721:723);
-    const base=w*(.012+clamp(Number(settings.width)/100||0,0,1)*.115)*(.82+r()*.35);
-    const reach=Math.min(w*.30,base*2.7);
-    const strip=Math.min(w,Math.max(8,Math.ceil(reach)));
-    const x0=side==='left'?0:w-strip;
-    const img=ctx.getImageData(x0,0,strip,h),p=img.data;
-    const knots=Array.from({length:46},()=>r()*2-1);
-    const phase=r()*Math.PI*2,phase2=r()*Math.PI*2;
-    const coreMod=.78+r()*.17;
-    const palette=mono?[255,255,255]:
-      ([[255,115,34],[255,73,26],[255,155,57],[230,98,72],[121,183,170]][Math.floor(r()*5)]);
-    const scarSeed=(settings.seed>>>0) ^ (side==='left'?0x6E5F1234:0x71347215);
-    const softness=Math.max(1,base*.34);
-    for(let y=0;y<h;y++){
-      const u=y/Math.max(1,h-1);
-      const t=u*(knots.length-1),ix=Math.min(knots.length-2,Math.floor(t)),f=t-ix;
-      const smooth=f*f*(3-2*f);
-      const bend=knots[ix]*(1-smooth)+knots[ix+1]*smooth;
-      const wave=Math.sin(u*25+phase)*.12+Math.sin(u*77+phase2)*.045;
-      const fringe=Math.sin(u*411+phase)*.045*rough;
-      const edge=Math.max(base*.27,base*(coreMod+wave+rough*.33*bend+fringe));
-      for(let x=0;x<strip;x++){
-        const dist=side==='left'?x:strip-1-x;
-        if(dist>reach)continue;
-        const hash=(Math.imul(dist+1,374761393)^Math.imul(y+1,668265263)^scarSeed)>>>0;
-        const noise=(hash&1023)/1023;
-        const feather=(noise-.5)*base*.21*rough;
-        let white=clamp((edge+feather-dist)/softness,0,1);
-        const halo=clamp(1-dist/Math.max(1,reach),0,1);
-        let haze=Math.pow(halo,2.1)*(.48+.23*rough);
-        white=clamp(amount*(white*.98+Math.pow(halo,5)*.13),0,1);
-        haze=clamp(amount*haze*(1-white),0,1);
-        const i=(y*strip+x)*4;
-        if(mono){
-          const lift=clamp(white+haze,0,1);
-          for(let c=0;c<3;c++)p[i+c]=p[i+c]+(255-p[i+c])*lift;
+    if(!settings||!settings.enabled)return;
+    const w=canvas.width,h=canvas.height;
+    if(w<8||h<8)return;
+    const amount=clamp(Number(settings.strength)/100||0,0,1);
+    if(!amount)return;
+    const mono=settings.mode==='mono'||(settings.mode==='auto'&&autoMonochrome);
+    const rough=clamp(Number(settings.roughness)/100||0,0,1);
+    const scratches=clamp(Number(settings.scratches)/100||0,0,1);
+    const width=clamp(Number(settings.width)/100||0,0,1);
+    const warmOn=settings.warmEnabled!==false&&!mono;
+    const warmAmount=clamp(Number(settings.warmStrength)/100||0,0,1);
+    const warmWidth=clamp(Number(settings.warmWidth)/100||0,0,1);
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    for(const side of edgeSides(settings)){
+      const r=rngFrom(settings.seed>>>0,side==='left'?721:723);
+      const rw=rngFrom(settings.warmSeed>>>0,side==='left'?805:807);
+      const shape=edgeShapeFor(settings,side),warmType=warmPatternFor(settings,side);
+      const base=w*(.009+width*.086)*(.82+r()*.34);
+      const reach=Math.min(w*.29,base*(3.2+warmWidth*.45));
+      const strip=Math.min(w,Math.max(2,Math.ceil(reach)));
+      const x0=side==='left'?0:w-strip;
+      const buf=ctx.getImageData(x0,0,strip,h),p=buf.data;
+      const knots=Array.from({length:35},()=>r()*2-1);
+      const steps=Array.from({length:19},()=>r());
+      const blisters=Array.from({length:6},()=>({at:r(),rad:.025+r()*.095,pow:.48+r()*.8}));
+      const warmSpots=Array.from({length:6},()=>({at:rw(),rad:.035+rw()*.13,pow:.4+rw()*.6}));
+      const phase=r()*Math.PI*2,phase2=r()*Math.PI*2;
+      const warmPhase=rw()*Math.PI*2,warmPhase2=rw()*Math.PI*2;
+      const noiseSeed=((settings.seed>>>0)^(side==='left'?0x4a7f12ad:0x67e13c94))>>>0;
+      const bandSize=base*(.52+warmWidth*1.35);
+      const scratchRandom=rngFrom(settings.seed>>>0,side==='left'?837:839);
+      for(let y=0;y<h;y++){
+        const u=y/Math.max(1,h-1);
+        const k=u*(knots.length-1),ki=Math.min(knots.length-2,Math.floor(k)),f=k-ki;
+        const smooth=f*f*(3-2*f);
+        const bend=knots[ki]*(1-smooth)+knots[ki+1]*smooth;
+        const wavy=Math.sin(u*17+phase)*.10+Math.sin(u*59+phase2)*.045;
+        let front;
+        if(shape==='bloom'){
+          front=base*(.64+.12*Math.sin(u*8+phase)+.06*bend);
+        }else if(shape==='blister'){
+          let bubbles=0;
+          for(const b of blisters){const t=(u-b.at)/b.rad;bubbles=Math.max(bubbles,Math.exp(-t*t)*b.pow);}
+          front=base*(.24+1.33*bubbles+.09*rough*bend);
+        }else if(shape==='streaks'){
+          const block=Math.min(steps.length-1,Math.floor(u*steps.length));
+          const jag=(steps[block]-.5)*(.75+rough*.7);
+          front=base*(.50+jag+.09*Math.sin(u*73+phase));
+        }else if(shape==='double'){
+          front=base*(.40+.14*Math.sin(u*12+phase)+.14*rough*bend);
         }else{
-          for(let c=0;c<3;c++){
-            const warmed=p[i+c]+(palette[c]-p[i+c])*haze;
-            p[i+c]=warmed+(255-warmed)*white;
+          front=base*(.72+wavy+.33*rough*bend+.06*rough*Math.sin(u*279+phase));
+        }
+        front=Math.max(base*.12,front);
+        let heatSpots=0;
+        for(const b of warmSpots){const t=(u-b.at)/b.rad;heatSpots=Math.max(heatSpots,Math.exp(-t*t)*b.pow);}
+        const heatStripes=.54+.46*Math.pow(Math.abs(Math.sin(u*49+warmPhase)),5);
+        const heatWaves=.76+.24*Math.sin(u*14+warmPhase2);
+        const secondaryStart=front+base*.21;
+        const outerFront=shape==='double'?secondaryStart+base*.18:front;
+        const feather=Math.max(.8,base*(shape==='bloom'?.46:shape==='streaks'?.075:.14));
+        for(let x=0;x<strip;x++){
+          const dist=side==='left'?x:strip-1-x;
+          const hash=(Math.imul(x+1,374761393)^Math.imul(y+1,668265263)^noiseSeed)>>>0;
+          const grain=((hash&1023)/1023-.5)*base*.14*rough;
+          let white=clamp((front+grain-dist)/feather,0,1);
+          if(shape==='streaks'){
+            const finger=front+base*(.13+.13*Math.sin(u*31+phase2));
+            const narrow=Math.max(.9,base*.035);
+            const streak=clamp(1-Math.abs(dist-finger)/narrow,0,1);
+            white=Math.max(white,streak*.78*(.6+.4*Math.abs(Math.sin(u*28+phase))));
+          }else if(shape==='double'){
+            const thin=Math.max(.9,base*.07);
+            const second=clamp(Math.min((dist-secondaryStart)/thin,(secondaryStart+base*.19-dist)/thin),0,1);
+            white=Math.max(white,second*.79);
           }
-        }
-        // Tiny emulsion holes roughen the exposed strip without affecting the rest.
-        if(dist<edge&&noise<rough*.028){
-          const mark=.42+.35*((hash>>>10)&255)/255;
-          for(let c=0;c<3;c++)p[i+c]*=mark;
+          white=clamp(white*amount,0,1);
+          const silver=clamp(1-dist/Math.max(1,outerFront+base*.42),0,1)*.10*amount*(1-white);
+          const i=(y*strip+x)*4;
+          const orig0=p[i],orig1=p[i+1],orig2=p[i+2];
+          const lift=clamp(white+silver,0,1);
+          let red=orig0+(255-orig0)*lift;
+          let green=orig1+(255-orig1)*lift;
+          let blue=orig2+(255-orig2)*lift;
+          if(warmOn&&warmAmount>0){
+            const start=outerFront+base*.015,span=bandSize;
+            const t=(dist-start)/Math.max(1,span);
+            const near=clamp(1-Math.abs(t-.28)/.73,0,1);
+            let wave=1;
+            if(warmType==='flame')wave=.23+1.35*heatSpots;
+            else if(warmType==='red')wave=heatStripes;
+            else if(warmType==='split')wave=.65+.4*heatWaves;
+            else wave=.85+.18*heatWaves;
+            const strength=clamp(warmAmount*wave*near*near*Math.pow(1-white,2)*1.35,0,.96);
+            if(strength>0){
+              let palette;
+              if(warmType==='amber')palette=[255,201,65];
+              else if(warmType==='flame')palette=[255,114+Math.round(66*heatSpots),29];
+              else if(warmType==='red')palette=[255,72,48];
+              else palette=t<.43?[255,179,54]:[255,55,46];
+              red+=(palette[0]-red)*strength;
+              green+=(palette[1]-green)*strength;
+              blue+=(palette[2]-blue)*strength;
+            }
+          }
+          if(dist<front&&rough>0&&((hash>>>12)&4095)<rough*48){
+            const small=.56+((hash>>>22)&255)/1024;
+            red*=small;green*=small;blue*=small;
+          }
+          p[i]=red;p[i+1]=green;p[i+2]=blue;
         }
       }
-    }
-    ctx.putImageData(img,x0,0);
-    // Individual short emulsion scratches, placed only near the damaged edge.
-    const marks=Math.round(scratch*(12+h/34));
-    if(marks){
-      ctx.save();
-      for(let i=0;i<marks;i++){
-        const y=r()*h,dist=base*(.18+r()*1.05),x=side==='left'?dist:w-dist;
-        const length=h*(.002+r()*.034);
-        ctx.strokeStyle=mono?'rgba(255,255,255,.26)':
-          (r()<.5?'rgba(255,245,220,.30)':'rgba(255,139,90,.20)');
-        ctx.lineWidth=Math.max(.5,w*(.00014+r()*.00025));
-        ctx.beginPath();ctx.moveTo(x,y);
-        ctx.lineTo(x+(r()-.5)*base*.17,Math.min(h,y+length));ctx.stroke();
+      ctx.putImageData(buf,x0,0);
+      if(scratches>0){
+        ctx.save();
+        for(let j=0,n=Math.round(scratches*(10+h/40));j<n;j++){
+          const yy=scratchRandom()*h;
+          const dd=base*(.12+scratchRandom()*1.1);
+          const xx=side==='left'?dd:w-dd;
+          ctx.strokeStyle=mono?'rgba(255,255,255,.24)':
+            (scratchRandom()<.5?'rgba(255,236,190,.27)':'rgba(255,127,71,.22)');
+          ctx.lineWidth=Math.max(.6,w*(.0001+scratchRandom()*.00025));
+          ctx.beginPath();ctx.moveTo(xx,yy);
+          ctx.lineTo(xx+(scratchRandom()-.5)*base*.25,Math.min(h,yy+h*(.002+scratchRandom()*.039)));
+          ctx.stroke();
+        }
+        ctx.restore();
       }
-      ctx.restore();
     }
   }
-}
   function selectedFilmIsMonochrome(){
   if(!state.filmEnabled)return false;
   if(activeLook&&activeLook.fields){
@@ -174,27 +239,56 @@
   }
   return /(?:black.?white|\bb&w\b|ilford|tri.?x|t.?max|verichrome|ortho|delta\s?\d+)/i.test(state.film.name||'');
 }
-  function mountEdgeBurnControls(){
-  const s=state.edgeBurn;
-  $('edgeBurnEnabled').checked=!!s.enabled;
-  $('edgeBurnEnabled').addEventListener('change',e=>{s.enabled=e.target.checked;schedulePreview();});
-  for(const [key,id] of [['mode','edgeBurnMode'],['side','edgeBurnSide']]){
-    const sel=$(id);sel.value=s[key];
-    sel.addEventListener('change',()=>{s[key]=sel.value;schedulePreview();});
+function mountEdgeBurnControls(){
+    const s=state.edgeBurn;
+    $('edgeBurnEnabled').checked=!!s.enabled;
+    $('edgeBurnEnabled').addEventListener('change',e=>{s.enabled=e.target.checked;schedulePreview();});
+    const selects=[['mode','edgeBurnMode'],['side','edgeBurnSide'],['shape','edgeBurnShape'],['warmPattern','edgeBurnWarmPattern']];
+    for(const [key,id] of selects){
+      const el=$(id);el.value=s[key];
+      el.addEventListener('change',()=>{s[key]=el.value;updateEdgeBurnLabels();schedulePreview();});
+    }
+    $('edgeBurnWarmEnabled').checked=!!s.warmEnabled;
+    $('edgeBurnWarmEnabled').addEventListener('change',e=>{s.warmEnabled=e.target.checked;updateEdgeBurnLabels();schedulePreview();});
+    const parent=$('edgeBurnControls');
+    for(const [key,label] of [
+      ['strength','Яркость белой кромки'],
+      ['width','Ширина белой кромки'],
+      ['roughness','Рваность края'],
+      ['scratches','Пыль и царапины']
+    ])addControl(parent,label,s[key],v=>{s[key]=v;},0,100);
+    const warmParent=$('edgeBurnWarmControls');
+    for(const [key,label] of [
+      ['warmStrength','Яркость тёплого свечения'],
+      ['warmWidth','Ширина цветного ореола']
+    ])addControl(warmParent,label,s[key],v=>{s[key]=v;},0,100);
+    $('edgeBurnReroll').addEventListener('click',()=>{
+      const side=edgeSides(s)[0],old=edgeShapeFor(s,side);
+      let next=randomSeed();
+      if(s.shape==='random')for(let i=0;i<10;i++){
+        const probe={...s,seed:next},candidate=edgeSides(probe)[0];
+        if(edgeShapeFor(probe,candidate)!==old)break;
+        next=randomSeed();
+      }
+      s.seed=next;updateEdgeBurnLabels();schedulePreview();
+    });
+    $('edgeBurnWarmReroll').addEventListener('click',()=>{
+      const side=edgeSides(s)[0],old=warmPatternFor(s,side);
+      let next=randomSeed();
+      if(s.warmPattern==='random')for(let i=0;i<10;i++){
+        if(warmPatternFor({...s,warmSeed:next},side)!==old)break;
+        next=randomSeed();
+      }
+      s.warmSeed=next;updateEdgeBurnLabels();schedulePreview();
+    });
+    updateEdgeBurnLabels();
   }
-  const parent=$('edgeBurnControls');
-  for(const [key,label] of [
-    ['strength','Яркость засвета'],
-    ['width','Ширина у края'],
-    ['roughness','Рваный край'],
-    ['scratches','Царапины на засвете']
-  ]){
-    addControl(parent,label,s[key],v=>{s[key]=v;},0,100);
+  function updateEdgeBurnLabels(){
+    const s=state.edgeBurn,sides=edgeSides(s);
+    $('edgeBurnCurrentShape').textContent='Сейчас: '+sides.map(side=>(sides.length===2?(side==='left'?'слева ':'справа '):'')+EDGE_SHAPE_NAMES[edgeShapeFor(s,side)]).join(' · ');
+    $('edgeBurnCurrentWarm').textContent='Ореол: '+sides.map(side=>(sides.length===2?(side==='left'?'слева ':'справа '):'')+WARM_NAMES[warmPatternFor(s,side)]).join(' · ');
+    $('edgeBurnWarmSettings').classList.toggle('warmBurnDisabled',!s.warmEnabled);
   }
-  $('edgeBurnReroll').addEventListener('click',()=>{
-    s.seed=randomSeed();schedulePreview();
-  });
-}
   function imagePixels(src){return src.data;}
   function filmBuiltin(p,recipe,strength){
     if(!recipe||strength<=0)return;
@@ -664,7 +758,7 @@
     if(('serviceWorker' in navigator) && (location.protocol==='https:'||location.hostname==='localhost')){
       await navigator.serviceWorker.register('./sw.js',{scope:'./'});
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.5');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.0.6');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
