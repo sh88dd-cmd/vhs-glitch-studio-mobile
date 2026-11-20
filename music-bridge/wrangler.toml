@@ -1,0 +1,10 @@
+name = "vhs-video-music-bridge"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+# Before using Telegram, create a KV namespace and bind it as TRACKS
+# in Cloudflare dashboard > Workers & Pages > your Worker > Bindings.
+# Required secret: BRIDGE_KEY (random 32+ characters)
+# Optional secrets for Telegram: TELEGRAM_BOT_TOKEN,
+# TELEGRAM_WEBHOOK_SECRET, TELEGRAM_USER_ID.
+# Optional variable: ALLOWED_AUDIO_HOSTS (comma-separated public domains).
