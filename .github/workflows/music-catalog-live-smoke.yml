@@ -25,6 +25,17 @@ jobs:
             }catch(e){console.log('HITMOS_DIRECT_MP3_UNAVAILABLE',String(e));}
           }
           NODE
+      - name: Check unofficial HitMoz catalogue API (metadata only)
+        shell: bash
+        run: |
+          node <<'NODE'
+          const url='https://bakha.me/hitmoz/search?q=Lyutiki&limit=3';
+          try{
+            const res=await fetch(url,{headers:{Origin:'https://sh88dd-cmd.github.io',Accept:'application/json'},signal:AbortSignal.timeout(14000)});
+            const body=await res.text();let data=null;try{data=JSON.parse(body)}catch{}
+            console.log('UNOFFICIAL_HITMOZ_API',JSON.stringify({http:res.status,cors:res.headers.get('access-control-allow-origin'),success:data?.success,count:data?.songs?.length,hasDownload:!!data?.songs?.[0]?.download,hasStream:!!data?.songs?.[0]?.stream}));
+          }catch(e){console.log('UNOFFICIAL_HITMOZ_API_ERROR',String(e));}
+          NODE
       - name: Test actual Commons catalog parsing, licensing and download CORS
         shell: bash
         run: |
