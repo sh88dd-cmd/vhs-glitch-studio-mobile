@@ -96,6 +96,7 @@
 </section>
 <section id="panel-music" class="panel">
   <h2>♫ ПОМЕХИ В ТАКТ МУЗЫКЕ</h2>
+  <button type="button" id="musicActivate" class="button primary full" aria-pressed="false">♫ Включить только музыкальные помехи</button>
   <p class="hint">Включи «♫ МУЗЫКА» выше: будут работать только выбранные эффекты от звуковой дорожки самого видео. Бас и резкие высокие звуки управляют независимыми сбоями; случайные помехи из вкладки ГЛИТЧ не добавляются.</p>
   <div class="musicMeter"><span>БАС <strong id="bassLevel">0%</strong></span><progress id="bassMeter" max="100" value="0"></progress><span>ВЫСОКИЕ <strong id="highLevel">0%</strong></span><progress id="highMeter" max="100" value="0"></progress></div>
   <label>На басах включать<select id="bassEffect"></select></label>
@@ -105,6 +106,7 @@
 </section>
 <section id="panel-timeline" class="panel">
   <h2>▤ ТАЙМЛАЙН ПОВРЕЖДЕНИЙ</h2>
+  <button type="button" id="timelineActivate" class="button primary full" aria-pressed="false">▤ Включить только таймлайн</button>
   <p class="hint">Включи «▤ ТАЙМЛАЙН» выше. Помехи возникнут только в заданные тобой секунды; музыка и случайный генератор не вмешиваются. Время относится к выбранному клипу.</p>
   <div class="timelineHead"><strong>События выбранного клипа</strong><span id="timelineCount">0 событий</span></div>
   <div id="timelineTrack" class="timelineTrack" aria-label="Шкала повреждений"></div>
