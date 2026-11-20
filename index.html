@@ -35,9 +35,28 @@
 <div class="row switch"><span>Включить засветы</span><input type="checkbox" id="edgeBurnEnabled"></div>
 <label>Цвет засвета<select id="edgeBurnMode"><option value="auto">Авто — по типу плёнки</option><option value="mono">Чёрно-белые</option><option value="color">Цветные</option></select></label>
 <label>Расположение<select id="edgeBurnSide"><option value="random">Слева или справа случайно</option><option value="left">Только слева</option><option value="right">Только справа</option><option value="both">С обеих сторон</option></select></label>
+<label>Вид повреждённого края<select id="edgeBurnShape">
+<option value="random">Случайно — разные формы</option><option value="torn">Рваная эмульсия</option><option value="bloom">Мягкий размытый край</option>
+<option value="blister">Островки прожога</option><option value="streaks">Разрывы и языки</option><option value="double">Двойная кромка</option>
+</select></label>
+<p class="hint edgeBurnVariant" id="edgeBurnCurrentShape">Сейчас: выбран случайный вид.</p>
 <div id="edgeBurnControls"></div>
 <button id="edgeBurnReroll" type="button" class="btn full">↻ Новые засветы</button>
-<p class="hint">Засветы работают независимо от VHS и FILM. Кнопка «Новые помехи» не меняет рисунок края, а «Новые засветы» меняет только его.</p>
+<section class="warmBurnSection" id="edgeBurnWarmSettings" aria-label="Тёплые засветы после белой кромки">
+<h4>ТЁПЛЫЙ ОРЕОЛ ПОСЛЕ БЕЛОГО КРАЯ</h4>
+<div class="row switch"><span>Добавить тёплое свечение</span><input id="edgeBurnWarmEnabled" type="checkbox"></div>
+<label>Вид цветного свечения<select id="edgeBurnWarmPattern">
+<option value="random">Случайно — разные виды</option><option value="amber">Золотисто-янтарное</option>
+<option value="flame">Оранжевые огненные пятна</option><option value="red">Красные прожилки</option>
+<option value="split">Жёлто-красный двойной ореол</option>
+</select></label>
+<p class="hint edgeBurnVariant" id="edgeBurnCurrentWarm">Ореол: случайный вид.</p>
+<div id="edgeBurnWarmControls"></div>
+<button id="edgeBurnWarmReroll" type="button" class="btn full">↻ Новый тёплый ореол</button>
+<p class="hint">Свечение накладывается на фотографию сразу за белой кромкой, не поверх неё. При выборе чёрно-белого режима цветное свечение не применяется.</p>
+</section>
+
+<p class="hint">«Новые помехи» меняют VHS, «Новые засветы» — белую кромку, а «Новый тёплый ореол» — только цветное свечение. Все три рисунка независимы.</p>
 </section><details><summary>Дополнительные профили и LUT</summary><p class="hint">Встроено 23 авторских стиля. Большую библиотеку Lightroom XMP можно один раз импортировать и затем применять полностью офлайн. Конвертация XMP приблизительная — это не движок Adobe.</p>
 <label class="btn mini full">＋ Импортировать архив XMP ZIP<input type="file" id="xmpFile" accept=".zip,application/zip,.xmp" multiple hidden></label>
 <label class="btn mini full">＋ Импортировать 3D .cube LUT<input type="file" id="lutFile" accept=".cube,text/plain" hidden></label>
