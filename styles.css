@@ -36,3 +36,11 @@ input[type="file"][hidden], [hidden]{display:none !important}
 .mainViewerActions{display:flex;align-items:center;gap:5px}
 .mainViewerActions .btn{min-width:39px;padding:9px 8px}
 @media(max-width:430px){.mainViewerBottom{flex-wrap:wrap;justify-content:center;text-align:center}.mainViewerBottom #mainViewerStatus{flex-basis:100%}.preview .row.slim{flex-wrap:wrap}.preview .row.slim #renderStatus{flex-basis:100%;order:3;text-align:left}}
+
+/* Independent photochemical edge-burn controls. */
+.edgeBurnPanel{margin:18px 0 14px;padding:15px;background:#1c2730;border:1px solid #49605c;border-radius:13px}
+.edgeBurnPanel h3{font-size:13px;letter-spacing:.55px;color:#82ded2;margin:0 0 14px}
+.edgeBurnPanel .switch{margin-bottom:12px}
+.edgeBurnPanel label{margin-top:9px}
+.edgeBurnPanel .hint{margin-bottom:0}
+.edgeBurnPanel #edgeBurnReroll{background:#31545a;border-color:#6d9c9a;color:#e5fff9;min-height:44px}
