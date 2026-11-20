@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="../icons/icon-192.png">
 <link rel="apple-touch-icon" href="../icons/icon-180.png">
-<link rel="stylesheet" href="./styles.css?v=0.3.1">
+<link rel="stylesheet" href="./styles.css?v=0.4.0">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.3.1 · MONOCHROME TAPE DECK</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.4.0 · AUDIO + TIMELINE</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -54,9 +54,20 @@
     </div>
   </div>
 </aside>
+<section class="specialModeBar" aria-label="Режим работы с помехами">
+  <div class="specialModeLabel">АКТИВНЫЙ РЕЖИМ ПОМЕХ: <strong id="activeFxMode">ОБЫЧНЫЙ VHS</strong></div>
+  <div class="specialModeButtons">
+    <button type="button" id="fxClassic" class="modeChoice active">ОБЫЧНЫЙ</button>
+    <button type="button" id="fxMusic" class="modeChoice">♫ МУЗЫКА</button>
+    <button type="button" id="fxTimeline" class="modeChoice">▤ ТАЙМЛАЙН</button>
+  </div>
+  <p class="hint">Режимы не смешиваются: музыка и таймлайн отключают автоматические случайные помехи. FILM и индикаторы камеры остаются отдельными.</p>
+</section>
 <nav class="tabs" aria-label="Разделы обработки">
   <button class="active" data-tab="vhs">VHS</button>
   <button data-tab="glitch">ГЛИТЧ</button>
+  <button data-tab="music">♫ БИТ</button>
+  <button data-tab="timeline">▤ СЦЕНЫ</button>
   <button data-tab="film">FILM</button>
   <button data-tab="audio">ЗВУК</button>
   <button data-tab="camera">КАМЕРА</button>
@@ -82,6 +93,31 @@
   <div class="presetButtons"><button type="button" class="button mini" id="gentleGlitch">Мягко</button><button type="button" class="button mini" id="chaosGlitch">Повреждено</button><button type="button" class="button mini" id="offGlitch">Выключить всё</button></div>
   <div id="glitchControls"></div>
   <p class="hint">Frame Echo, Pause и Datamosh используют историю кадров. Это браузерные имитации, а не прямое повреждение битового потока кодека. После перемотки история начинается заново.</p>
+</section>
+<section id="panel-music" class="panel">
+  <h2>♫ ПОМЕХИ В ТАКТ МУЗЫКЕ</h2>
+  <p class="hint">Включи «♫ МУЗЫКА» выше: будут работать только выбранные эффекты от звуковой дорожки самого видео. Бас и резкие высокие звуки управляют независимыми сбоями; случайные помехи из вкладки ГЛИТЧ не добавляются.</p>
+  <div class="musicMeter"><span>БАС <strong id="bassLevel">0%</strong></span><progress id="bassMeter" max="100" value="0"></progress><span>ВЫСОКИЕ <strong id="highLevel">0%</strong></span><progress id="highMeter" max="100" value="0"></progress></div>
+  <label>На басах включать<select id="bassEffect"></select></label>
+  <label>На резких звуках включать<select id="highEffect"></select></label>
+  <div id="musicControls"></div>
+  <p class="hint" id="musicStatus">Нажми ▶, чтобы начать анализ музыки из видео. Звуковая дорожка не загружается на сервер.</p>
+</section>
+<section id="panel-timeline" class="panel">
+  <h2>▤ ТАЙМЛАЙН ПОВРЕЖДЕНИЙ</h2>
+  <p class="hint">Включи «▤ ТАЙМЛАЙН» выше. Помехи возникнут только в заданные тобой секунды; музыка и случайный генератор не вмешиваются. Время относится к выбранному клипу.</p>
+  <div class="timelineHead"><strong>События выбранного клипа</strong><span id="timelineCount">0 событий</span></div>
+  <div id="timelineTrack" class="timelineTrack" aria-label="Шкала повреждений"></div>
+  <div class="timelinePlayhead"><span id="timelineNow">00:00</span><button type="button" class="button mini" id="usePlayhead">Использовать текущий момент</button></div>
+  <label>Тип повреждения<select id="timelineEffect"></select></label>
+  <div class="timelinePair">
+    <label>Начало, секунды<input id="timelineStart" type="number" min="0" step="0.1" value="0"></label>
+    <label>Длительность, сек<input id="timelineDuration" type="number" min="0.1" max="30" step="0.1" value="0.7"></label>
+  </div>
+  <div id="timelineControls"></div>
+  <button type="button" id="addTimelineEvent" class="button primary full">＋ Добавить повреждение</button>
+  <div id="timelineEvents" class="timelineEvents"></div>
+  <p class="hint">Нажатие на событие перематывает к нему. ✕ удаляет только выбранное событие. На монтаже из нескольких клипов у каждого свой таймлайн.</p>
 </section>
 <section id="panel-film" class="panel">
   <h2>ПЛЁНОЧНЫЕ ФИЛЬТРЫ</h2>
@@ -127,7 +163,7 @@
     <button id="share" class="button full">Поделиться / Сохранить в «Фото»</button>
   </div>
 </section>
-<footer><span>VHS Video Lab · 0.3.1</span></footer>
+<footer><span>VHS Video Lab · 0.4.0</span></footer>
 </main>
 <dialog id="videoViewer" class="videoViewer" aria-label="Увеличенный видеопросмотр">
   <div class="viewerHead">
@@ -149,9 +185,10 @@
 <script src="../jszip.min.js" defer></script>
 <script src="../ntsc-photo.js?v=1.1.3" defer></script>
 <script src="./film-core.js?v=0.1.0" defer></script>
-<script src="./glitch-engine.js?v=0.2.0" defer></script>
-<script src="./audio-engine.js?v=0.2.0" defer></script>
+<script src="./glitch-engine.js?v=0.4.0" defer></script>
+<script src="./audio-engine.js?v=0.4.0" defer></script>
+<script src="./special-modes.js?v=0.4.0" defer></script>
 <script src="./player-ui.js?v=0.3.1" defer></script>
-<script src="./app.js?v=0.3.1" defer></script>
+<script src="./app.js?v=0.4.0" defer></script>
 </body>
 </html>
