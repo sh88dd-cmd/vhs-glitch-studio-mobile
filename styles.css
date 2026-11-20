@@ -10,3 +10,12 @@ body{padding-bottom:calc(73px + env(safe-area-inset-bottom))}
 a{color:#8fe8da}
 .preview .row.slim{gap:9px}.preview .row.slim #renderStatus{flex:1;font-size:10px;text-align:center}
 input[type="file"][hidden], [hidden]{display:none !important}
+
+/* Favorite film cards: separate star control, without nested buttons. */
+.filmcardWrap{position:relative;min-width:0}
+.filmcardWrap>.filmcard{width:100%;height:100%;color:inherit}
+.favoriteToggle{position:absolute;top:9px;right:9px;z-index:1;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid #657683;border-radius:9px;background:rgba(17,23,30,.88);color:#f5f5f5;font-size:24px;line-height:1;padding:0;touch-action:manipulation}
+.favoriteToggle[aria-pressed="true"]{color:#ffda76;border-color:#bb9552;background:rgba(35,31,25,.94)}
+.favoriteToggle:focus-visible{outline:2px solid #85e3db;outline-offset:2px}
+.tabs button{white-space:nowrap}
+@media(max-width:430px){.tabs{gap:3px;padding-left:5px;padding-right:5px}.tabs button{font-size:11px;padding-left:1px;padding-right:1px}.tabs button[data-tab="favorites"]{font-size:10px}}
