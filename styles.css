@@ -87,3 +87,13 @@ input[type="file"][hidden], [hidden]{display:none !important}
 .batchItem .batchItemActions .batchReroll[aria-busy="true"]{opacity:.48;cursor:progress}
 .batchItem .batchItemActions .batchReroll:focus-visible{outline:2px solid #f4ffff;outline-offset:2px}
 .batchItem .batchItemName{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Individual VHS reroll in the enlarged BATCH photo dialog. */
+#photoDialog .dialogHead{gap:10px;min-width:0}
+#photoDialog #dialogTitle{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#photoDialog .batchDialogTools{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+#photoDialog #rerollDialog{width:37px;height:37px;min-width:37px;border-radius:50%;border:1px solid #a3f6e9;background:#78dfd1;color:#12262b;font-size:24px;line-height:1;padding:0;display:inline-flex;align-items:center;justify-content:center}
+#photoDialog #rerollDialog[aria-busy="true"]{opacity:.55;cursor:progress}
+#photoDialog #rerollDialog:focus-visible{outline:2px solid #f7ffff;outline-offset:2px}
+#photoDialog .batchDialogStatus{display:block;text-align:center;font-size:11px;color:#a6cfc9;min-height:0}
+#photoDialog .batchDialogStatus:not(:empty){padding:7px 2px}
