@@ -20,6 +20,12 @@ class TapeAudio{
   this.ctx=new Context();
   const ctx=this.ctx;
   this.source=ctx.createMediaElementSource(this.element);
+  this.analyser=ctx.createAnalyser();this.analyser.fftSize=1024;this.analyser.smoothingTimeConstant=.65;
+  this.spectrum=new Uint8Array(this.analyser.frequencyBinCount);
+  // Listen to original soundtrack before tape degradation; this branch is silent.
+  this.source.connect(this.analyser);
+  this.analysisSink=ctx.createGain();this.analysisSink.gain.value=0;
+  this.analyser.connect(this.analysisSink);this.analysisSink.connect(ctx.destination);
   this.filter=ctx.createBiquadFilter();this.filter.type='lowpass';
   this.delay=ctx.createDelay(.25);this.delay.delayTime.value=.015;
   this.saturator=ctx.createWaveShaper();this.saturator.oversample='none';
@@ -80,6 +86,18 @@ class TapeAudio{
   this.gain.gain.setTargetAtTime(dropout*(enabled?(1-.16*strength):1),now,.018);
   const noise=enabled&&playing?C((s.hiss||0)/100,0,1)*strength*(type==='hifi'?.006:.025):0;
   this.noiseGain.gain.setTargetAtTime(noise,now,.035);
+ }
+ getLevels(){
+  if(!this.connected||!this.analyser||!this.spectrum||this.ctx?.state==='suspended')return{bass:0,mid:0,high:0,rms:0,available:false};
+  this.analyser.getByteFrequencyData(this.spectrum);
+  const nyquist=this.ctx.sampleRate/2,bins=this.spectrum.length;
+  function band(lo,hi){
+   const a=Math.max(0,Math.ceil(lo/nyquist*bins)),b=Math.min(bins,Math.max(a+1,Math.ceil(hi/nyquist*bins)));
+   let sum=0;for(let i=a;i<b;i++)sum+=this.spectrum[i];
+   return sum/Math.max(1,b-a)/255;
+  }
+  const bass=band.call(this,45,200),mid=band.call(this,200,2200),high=band.call(this,2200,9000);
+  return{bass,mid,high,rms:(bass+mid+high)/3,available:true};
  }
  getTracks(){return this.stream?.getAudioTracks()||[];}
  suspendNoise(){if(this.noiseGain&&this.ctx)this.noiseGain.gain.setTargetAtTime(0,this.ctx.currentTime,.025);}
