@@ -225,7 +225,11 @@
  function drawFrame(canvas){
   if(!file||source.readyState<2||!source.videoWidth)return;
   const ctx=canvas.getContext('2d',{willReadFrequently:true});
-  ctx.drawImage(source,0,0,canvas.width,canvas.height);
+  // Letterbox video; source aspect ratio is never stretched.
+  const scale=Math.min(canvas.width/source.videoWidth,canvas.height/source.videoHeight);
+  const tw=Math.max(1,source.videoWidth*scale),th=Math.max(1,source.videoHeight*scale);
+  ctx.fillStyle='#050707';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(source,(canvas.width-tw)/2,(canvas.height-th)/2,tw,th);
   const image=ctx.getImageData(0,0,canvas.width,canvas.height);
   if(state.filmEnabled){
    const f=selectedFilm(),strength=state.filmStrength/100;
@@ -234,12 +238,26 @@
   }
   ctx.putImageData(image,0,0);
   drawOsd(ctx,canvas.width,canvas.height);
+  const time=source.currentTime||0,frameIndex=Math.floor(time*(Number(state.fps)||15));
+  const seed=(state.seed^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
   if(state.vhsEnabled&&state.master>0){
    const signal=ctx.getImageData(0,0,canvas.width,canvas.height);
-   const extra=state.preset==='damaged'?1.25:state.preset==='camcorder'?.75:1;
-   const frameIndex=Math.floor(source.currentTime*(Number(state.fps)||15));
-   const seed=(state.seed^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
-   window.VHSPhotoEngine.apply(signal.data,canvas.width,canvas.height,{master:clamp(state.master/100*extra,0,1.4),seed,signal:{...state.signal,tapeSpeed:state.speed}});
+   const tape=window.VHSVideoGlitchFX.TAPES.find(t=>t.id===state.tape)||window.VHSVideoGlitchFX.TAPES[1];
+   const preset=state.preset==='damaged'?1.25:state.preset==='camcorder'?.75:1;
+   window.VHSPhotoEngine.apply(signal.data,canvas.width,canvas.height,{
+    master:clamp(state.master/100*preset*tape.level,0,1.4),seed,
+    signal:{...state.signal,noise:Math.min(100,state.signal.noise*tape.noise),tracking:Math.min(100,state.signal.tracking*tape.head),tapeSpeed:state.speed}
+   });
+   ctx.putImageData(signal,0,0);
+  }
+  if(state.glitchEnabled||state.mode!=='vhs'){
+   const signal=ctx.getImageData(0,0,canvas.width,canvas.height);
+   const engine=recording?exportProcessor:previewProcessor;
+   engine.apply(signal.data,canvas.width,canvas.height,{
+    time,seed:state.seed,mode:state.mode,modeStrength:state.modeStrength,
+    tape:state.tape,density:state.eventDensity,
+    strength:state.glitchEnabled?state.glitchStrength/100:0,effects:state.glitchEnabled?state.glitches:{}
+   });
    ctx.putImageData(signal,0,0);
   }
  }
