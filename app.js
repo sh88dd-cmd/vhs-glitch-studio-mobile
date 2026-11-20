@@ -31,7 +31,8 @@
   const positions=[['left-top','Слева сверху'],['right-top','Справа сверху'],['left-bottom','Слева снизу'],['right-bottom','Справа снизу']];
   const looks={}; let xmpProfiles=[];let activeLook=null;let cubeLut=null;let filmPage=0;let favoritesPage=0;let batchFiles=[];let batchPage=0;let dialogFileIndex=-1;let busy=false;
   let original=null, photoName='photo',showingOriginal=false; let latestPreview=null, rendering=false, rerender=false, renderTimer=0, pageToken=0;
-  const PREVIEW_MAX=1040, BATCH_PREVIEW=440, FILM_PAGE_SIZE=24;
+  let mainViewerToken=0; const mainViewerView={zoom:1,x:0,y:0,gesture:null};
+  const PREVIEW_MAX=1040, DETAIL_PREVIEW_MAX=1800, BATCH_PREVIEW=440, FILM_PAGE_SIZE=24;
   const power={"VHS 90s":1,"Camcorder 90s":.75,"VHS — мягкий":.4,"VHS — повреждённая кассета":1.25,"Dirty VHS Extreme":1.4,"Tracking Error":1.2,"Аналоговый шум":.8,"Цветные помехи":1.15,"RGB Split":1.0};
 
   function notify(message, alertToo=false){$('notice').textContent=message;if(alertToo)alert(message);}
@@ -327,6 +328,114 @@
   }catch(err){$('renderStatus').textContent='Ошибка: '+err.message;console.error(err);}finally{rendering=false;if(rerender){rerender=false;schedulePreview();}}}
   async function openSingle(file){if(!file)return;original=await decodeImage(file);photoName=file.name.replace(/\.[^.]+$/,'');$('photoLabel').textContent=file.name;
     $('sizeLabel').textContent=`${original.naturalWidth} × ${original.naturalHeight}`;state.seed=randomSeed();renderFilmPage();renderFavoritesPage();schedulePreview();$('fileSingle').value='';}
+
+  // Main-photo viewer uses its own dialog; it must not interfere with the batch viewer.
+  function clampMainViewerPan(){
+    const stage=$('mainViewerStage'),canvas=$('mainViewerCanvas'),z=mainViewerView.zoom;
+    const limitX=Math.max(0,(canvas.clientWidth*z-stage.clientWidth)/2);
+    const limitY=Math.max(0,(canvas.clientHeight*z-stage.clientHeight)/2);
+    mainViewerView.x=clamp(mainViewerView.x,-limitX,limitX);
+    mainViewerView.y=clamp(mainViewerView.y,-limitY,limitY);
+  }
+  function paintMainViewerTransform(){
+    clampMainViewerPan();
+    $('mainViewerCanvas').style.transform=`translate3d(${mainViewerView.x}px,${mainViewerView.y}px,0) scale(${mainViewerView.zoom})`;
+  }
+  function resetMainViewerZoom(){
+    mainViewerView.zoom=1;mainViewerView.x=0;mainViewerView.y=0;mainViewerView.gesture=null;
+    paintMainViewerTransform();
+  }
+  function mainViewerZoomAt(nextZoom,clientX,clientY){
+    const stage=$('mainViewerStage'),r=stage.getBoundingClientRect(),old=mainViewerView.zoom;
+    const px=(clientX===undefined?r.left+r.width/2:clientX)-r.left-r.width/2;
+    const py=(clientY===undefined?r.top+r.height/2:clientY)-r.top-r.height/2;
+    const scale=clamp(nextZoom,1,6);
+    mainViewerView.x=px-(px-mainViewerView.x)*scale/old;
+    mainViewerView.y=py-(py-mainViewerView.y)*scale/old;
+    mainViewerView.zoom=scale;paintMainViewerTransform();
+  }
+  function mainTouchPoint(t){return{x:t.clientX,y:t.clientY};}
+  function mainTouchDistance(a,b){return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}
+  function startMainViewerGesture(ev){
+    if(ev.touches.length>=2){
+      const a=ev.touches[0],b=ev.touches[1];
+      mainViewerView.gesture={mode:'pinch',distance:Math.max(1,mainTouchDistance(a,b)),zoom:mainViewerView.zoom,x:mainViewerView.x,y:mainViewerView.y,cx:(a.clientX+b.clientX)/2,cy:(a.clientY+b.clientY)/2};
+    }else if(ev.touches.length===1){
+      const p=mainTouchPoint(ev.touches[0]);
+      mainViewerView.gesture={mode:'pan',x:p.x,y:p.y,fromX:mainViewerView.x,fromY:mainViewerView.y};
+    }
+    if(ev.cancelable)ev.preventDefault();
+  }
+  function moveMainViewerGesture(ev){
+    const g=mainViewerView.gesture;
+    if(!g)return;
+    if(ev.touches.length>=2){
+      if(g.mode!=='pinch'){startMainViewerGesture(ev);return;}
+      const a=ev.touches[0],b=ev.touches[1],scale=clamp(g.zoom*mainTouchDistance(a,b)/g.distance,1,6);
+      const stage=$('mainViewerStage').getBoundingClientRect();
+      const startX=g.cx-stage.left-stage.width/2,startY=g.cy-stage.top-stage.height/2;
+      const midX=(a.clientX+b.clientX)/2-stage.left-stage.width/2;
+      const midY=(a.clientY+b.clientY)/2-stage.top-stage.height/2;
+      mainViewerView.zoom=scale;
+      mainViewerView.x=midX-(startX-g.x)*scale/g.zoom;
+      mainViewerView.y=midY-(startY-g.y)*scale/g.zoom;
+      paintMainViewerTransform();
+    }else if(ev.touches.length===1){
+      if(g.mode!=='pan'){startMainViewerGesture(ev);return;}
+      const p=mainTouchPoint(ev.touches[0]);
+      mainViewerView.x=g.fromX+p.x-g.x;mainViewerView.y=g.fromY+p.y-g.y;
+      paintMainViewerTransform();
+    }
+    if(ev.cancelable)ev.preventDefault();
+  }
+  function endMainViewerGesture(ev){
+    if(ev.touches.length)startMainViewerGesture(ev);
+    else mainViewerView.gesture=null;
+    if(ev.cancelable)ev.preventDefault();
+  }
+  function openMainViewer(){
+    if(!original){notify('Сначала выбери фотографию.');return;}
+    const dialog=$('mainPreviewDialog');if(dialog.open)return;
+    const token=++mainViewerToken,source=original,seed=state.seed;
+    $('mainViewerTitle').textContent=photoName;
+    $('mainViewerStatus').textContent=latestPreview?'Увеличенный предпросмотр загружается…':'Подготавливаю фотографию…';
+    if(latestPreview)setCanvas($('mainViewerCanvas'),latestPreview);
+    else{const c=$('mainViewerCanvas');c.width=1;c.height=1;c.getContext('2d').clearRect(0,0,1,1);}
+    dialog.showModal();resetMainViewerZoom();
+    // Let the dialog paint before processing a higher-resolution view on the device.
+    requestAnimationFrame(()=>setTimeout(async()=>{
+      if(token!==mainViewerToken||!dialog.open)return;
+      try{
+        const img=await processImage(source,seed,{},DETAIL_PREVIEW_MAX);
+        if(token!==mainViewerToken||!dialog.open)return;
+        setCanvas($('mainViewerCanvas'),img);resetMainViewerZoom();
+        $('mainViewerStatus').textContent='Разведи два пальца для приближения; двигай кадр одним пальцем.';
+      }catch(e){
+        if(token===mainViewerToken&&dialog.open)$('mainViewerStatus').textContent='Крупный предпросмотр недоступен: '+e.message;
+      }
+    },30));
+  }
+  function closeMainViewer(){
+    ++mainViewerToken;
+    if($('mainPreviewDialog').open)$('mainPreviewDialog').close();
+  }
+  function initMainViewerEvents(){
+    $('openMainPreview').addEventListener('click',openMainViewer);
+    $('mainPreviewTap').addEventListener('click',openMainViewer);
+    $('mainPreviewTap').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openMainViewer();}});
+    $('closeMainPreview').addEventListener('click',closeMainViewer);
+    $('mainPreviewDialog').addEventListener('close',()=>{++mainViewerToken;mainViewerView.gesture=null;});
+    $('mainZoomOut').addEventListener('click',()=>mainViewerZoomAt(mainViewerView.zoom/1.5));
+    $('mainZoomIn').addEventListener('click',()=>mainViewerZoomAt(mainViewerView.zoom*1.5));
+    $('mainZoomReset').addEventListener('click',resetMainViewerZoom);
+    const stage=$('mainViewerStage');
+    stage.addEventListener('touchstart',startMainViewerGesture,{passive:false});
+    stage.addEventListener('touchmove',moveMainViewerGesture,{passive:false});
+    stage.addEventListener('touchend',endMainViewerGesture,{passive:false});
+    stage.addEventListener('touchcancel',endMainViewerGesture,{passive:false});
+    stage.addEventListener('wheel',e=>{e.preventDefault();mainViewerZoomAt(mainViewerView.zoom*(e.deltaY<0?1.15:1/1.15),e.clientX,e.clientY);},{passive:false});
+    window.addEventListener('resize',()=>{if($('mainPreviewDialog').open)paintMainViewerTransform();});
+  }
   function toggleCompare(){if(!original||!latestPreview)return;showingOriginal=!showingOriginal;if(showingOriginal){const [w,h]=renderSize(original.naturalWidth,original.naturalHeight,String(PREVIEW_MAX));const c=newCanvas(w,h);c.getContext('2d').drawImage(original,0,0,w,h);setCanvas($('previewCanvas'),c);}else setCanvas($('previewCanvas'),latestPreview);}
   function saveBlob(blob,filename){const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),90_000);}
   function canvasBlob(cv,type='image/jpeg',quality=.94){return new Promise((resolve,reject)=>cv.toBlob(b=>b?resolve(b):reject(Error('Не удалось создать изображение — возможно, не хватает памяти.')),type,quality));}
@@ -386,7 +495,7 @@
     if(('serviceWorker' in navigator) && (location.protocol==='https:'||location.hostname==='localhost')){
       await navigator.serviceWorker.register('./sw.js',{scope:'./'});
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.2');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.0.3');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
@@ -429,7 +538,7 @@
     $('closeHelp').addEventListener('click',()=>$('helpDialog').close());
   }
   async function init(){
-    mountControls();bindEvents();
+    mountControls();bindEvents();initMainViewerEvents();
     try{Object.assign(looks,await (await fetch('./looks.json')).json());}catch(err){notify('Каталог плёнок не загрузился. Открой программу через HTTPS или локальный сервер.');}
     xmpProfiles=await dbAll('xmp');cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
     if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
