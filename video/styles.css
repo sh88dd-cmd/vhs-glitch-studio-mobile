@@ -1,0 +1,22 @@
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#eaf1f3;background:#10151c;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;padding-bottom:env(safe-area-inset-bottom)}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.43;cursor:default}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#18212b;border-bottom:1px solid #344653;padding:calc(env(safe-area-inset-top) + 12px) 13px 12px}
+.logo{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:800;letter-spacing:.4px}.logo b{color:#81e4d5}.logo small{display:block;font-size:8px;font-weight:500;color:#94adb2;letter-spacing:1.2px;margin-top:4px}.mark{font-size:26px;color:#81e4d5}.photoLink{border:1px solid #46726c;border-radius:8px;color:#b5f9e7;text-decoration:none;padding:9px 10px;font-size:11px;white-space:nowrap}
+main{max-width:940px;margin:auto}.stage{padding:14px 12px 10px}.stageMeta{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#b9cbd0;margin-bottom:9px}.stageMeta strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:65%}
+.stageCanvas{height:min(52svh,490px);min-height:220px;display:flex;align-items:center;justify-content:center;background:#060809;border:1px solid #3a4c56;border-radius:10px;overflow:hidden;position:relative}
+.stageCanvas canvas{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}.empty{position:absolute;display:flex;align-items:center;flex-direction:column;gap:11px;color:#8ba5ac;font-size:12px;pointer-events:none}.empty strong{font-size:23px;color:#83d6c9;letter-spacing:3px}
+#source{position:absolute;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none}#recordCanvas{position:absolute;left:-9999px;top:0;width:1px;height:1px;pointer-events:none}
+.stageButtons{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:7px;padding:11px 0}
+.button{display:inline-flex;align-items:center;justify-content:center;text-align:center;border:1px solid #455866;border-radius:9px;background:#2a3845;color:#e8f3f5;padding:11px 10px;font-size:12px;font-weight:700;min-height:43px;text-decoration:none}.button.primary{background:#79dece;border-color:#79dece;color:#112c30}.button.danger{background:#4c2932;border-color:#7b4555;color:#ffdee4}.button.full{width:100%;margin:8px 0}
+.seekRow{display:flex;align-items:center;gap:8px;font-size:11px;color:#aabfc7}.seekRow input{flex:1;min-width:0}.hint{font-size:11px;line-height:1.6;color:#9cadb8;margin:11px 0}
+.tabs{display:flex;position:sticky;top:0;z-index:4;background:#10151c;border-bottom:1px solid #32434d;padding:6px 10px 0;gap:5px}.tabs button{flex:1;background:none;border:0;border-bottom:3px solid transparent;color:#a8b7be;padding:11px 2px;font-size:12px;font-weight:800}.tabs button.active{color:#81e4d5;border-bottom-color:#81e4d5}
+.panel{display:none;padding:18px 15px 25px}.panel.active{display:block}.panel h2{font-size:14px;color:#d7e8eb;letter-spacing:.8px;margin:0 0 17px}
+label{display:block;color:#d0dde0;font-size:12px}input[type=search],input[type=text],select{display:block;width:100%;padding:11px 10px;margin:7px 0 13px;border:1px solid #4a5c68;border-radius:8px;background:#26313b;color:#f1f7f8;min-height:41px}
+input[type=range]{width:100%;accent-color:#7fe3d0}.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid #334954;background:#1c2933;border-radius:10px;margin:10px 0;color:#d9e8e9;font-size:13px}.switch input{width:22px;height:22px;accent-color:#7ce4d0}
+.control{padding:10px 0;border-bottom:1px solid #2a3c46}.controlHead{display:flex;justify-content:space-between;align-items:center;gap:7px;margin-bottom:4px;font-size:12px}.controlHead em{font-style:normal;color:#83ddca;font-variant-numeric:tabular-nums}
+details{border:1px solid #384953;background:#1c2630;padding:12px;border-radius:11px;margin-top:20px}summary{cursor:pointer;font-size:12px;font-weight:700}
+progress{width:100%;height:12px;accent-color:#7de2d2;margin-top:12px}
+#exportResult{border-top:1px solid #3a515c;padding-top:10px}
+footer{border-top:1px solid #2b3944;padding:14px;color:#92a6b1;display:flex;flex-direction:column;gap:6px;font-size:10px;line-height:1.5}footer a{color:#7fddcd}
+@media(min-width:700px){.stage{padding:20px 35px 12px}.panel{padding:28px 35px}.stageCanvas{height:min(60svh,610px)}}
+@media(max-width:360px){.stageButtons{grid-template-columns:1fr 1fr}.stageButtons .button:first-child{grid-column:span 2}.tabs button{font-size:10px}}
