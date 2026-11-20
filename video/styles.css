@@ -20,3 +20,6 @@ progress{width:100%;height:12px;accent-color:#7de2d2;margin-top:12px}
 footer{border-top:1px solid #2b3944;padding:14px;color:#92a6b1;display:flex;flex-direction:column;gap:6px;font-size:10px;line-height:1.5}footer a{color:#7fddcd}
 @media(min-width:700px){.stage{padding:20px 35px 12px}.panel{padding:28px 35px}.stageCanvas{height:min(60svh,610px)}}
 @media(max-width:360px){.stageButtons{grid-template-columns:1fr 1fr}.stageButtons .button:first-child{grid-column:span 2}.tabs button{font-size:10px}}
+
+/* Hidden must beat author-level flex rules (notably .empty). */
+[hidden]{display:none!important}
