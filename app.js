@@ -11,6 +11,7 @@
   const defaults={
     vhsEnabled:true,filmEnabled:false,preset:'VHS 90s',master:65,seed:123456789,
     fx:{hiss:74,wobble:42,tear:28,chroma:40,rgb:35,grain:35,streaks:0},
+    signal:{"tapeSpeed":"SP","chromaBleed":52,"composite":36,"edgeWave":38,"tracking":53,"noise":36,"chromaLoss":13,"ringing":20},
     film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,blackBorder:false,blackFrameSize:1,frameStyle:'none',frameSize:8,caption:false,captionText:'',captionSize:100,customLut:false},
     edgeBurn:{"enabled":false,"side":"random","strength":90,"width":35,"roughness":75,"scratches":38,"seed":238711811},
     camera:{date:{on:false,text:'PM 10:28 | JUN 16 1995',position:'right-bottom',size:125},rec:{on:false,position:'left-top',size:125},play:{on:false,position:'left-top',size:125},battery:{on:false,position:'right-top',size:125,level:'LOW'}},
@@ -19,7 +20,7 @@
   let state=clone(defaults);
   try{
     const saved=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');
-    if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera},edgeBurn:{...state.edgeBurn,...saved.edgeBurn},previewDock:{...state.previewDock,...saved.previewDock}};if(saved.film?.whiteBorder&&!('frameStyle' in saved.film)){state.film.frameStyle='white';state.film.frameSize=30;}}
+    if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},signal:{...state.signal,...saved.signal},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera},edgeBurn:{...state.edgeBurn,...saved.edgeBurn},previewDock:{...state.previewDock,...saved.previewDock}};if(saved.film?.whiteBorder&&!('frameStyle' in saved.film)){state.film.frameStyle='white';state.film.frameSize=30;}}
   }catch(e){console.warn('Settings unavailable',e);}
   // Migrate the old mutually exclusive black/white frame selection once.
   // New independent flags take precedence on all subsequent launches.
@@ -73,6 +74,17 @@
   function addSelect(parent,label,opts,value,onChange){const wrap=document.createElement('label');wrap.textContent=label;const sel=document.createElement('select');for(const [v,title] of opts){const op=document.createElement('option');op.value=v;op.textContent=title;sel.append(op);}sel.value=value;sel.addEventListener('change',()=>{onChange(sel.value);schedulePreview();});wrap.append(sel);parent.appendChild(wrap);return sel;}
   function mountControls(){
     addControl($('masterControl'),'Общая сила VHS',state.master,v=>{state.master=v;persist();});
+    addSelect($('signalControls'),'Качество записи VHS',[['SP','SP — стандартная запись'],['LP','LP — удлинённая запись'],['EP','EP — самая мягкая запись']],state.signal.tapeSpeed,v=>{state.signal.tapeSpeed=v;persist();});
+    for(const [key,label] of [
+      ['chromaBleed','Chroma Bleed · растекание цвета'],
+      ['composite','Composite · цветовые артефакты сигнала'],
+      ['edgeWave','Edge Wave · нестабильность строк'],
+      ['tracking','Tracking / видеоголовка · 1–4 полосы'],
+      ['noise','Luma Noise / Snow · видеошум'],
+      ['chromaLoss','Chroma Loss · пропадание цвета'],
+      ['ringing','Ringing · контурное эхо']
+    ])addControl($('signalControls'),label,state.signal[key],v=>{state.signal[key]=v;persist();});
+    addToggle($('legacyVhsControls'),'Дополнительные старые глитч-помехи (необязательно)',!!state.legacyVhs,v=>{state.legacyVhs=v;persist();});
     for(const [key,label] of effectDefs){addControl($('effectsControls'),label,state.fx[key],v=>{state.fx[key]=v;persist();});}
     const film=$('filmControls');addControl(film,'Сила плёнки',state.film.strength,v=>{state.film.strength=v;persist();});
     for(const [key,label] of [['grain','Плёночное зерно'],['halation','Halation / засветка света'],['leaks','Light leaks / световые протечки'],['dust','Пыль и царапины'],['vignette','Виньетка']]){
@@ -363,19 +375,31 @@
       filmGrain(p,w,h,state.film.grain/100,seed);
       filmVignette(p,w,h,state.film.vignette/100);
     }
-    if(state.vhsEnabled && state.master>0){const m=clamp(state.master/100*fac,0,1.6),fx=state.fx;
-      vhsWobble(p,w,h,clamp(fx.wobble/100*m,0,1.3),seed);
-      vhsTear(p,w,h,clamp(fx.tear/100*m,0,1.3),seed);
-      vhsChroma(p,w,h,clamp(fx.chroma/100*m,0,1.3),seed);
-      vhsRGB(p,w,h,clamp(fx.rgb/100*m,0,1.3),seed);
-      vhsHiss(p,w,h,clamp(fx.hiss/100*m,0,1.3),seed);
-      vhsStreaks(p,w,h,clamp(fx.streaks/100*m,0,1.3),seed);
-      vhsGrain(p,w,h,clamp(fx.grain/100*m,0,1.3),seed);
-    }
+    // FILM and XMP affect the photo only; these operations are not re-applied to camera OSD.
     ctx.putImageData(img,0,0);
     if(state.filmEnabled)paintFilmExtras(frame,w,h,state.film,seed);
+    // Burn defects are still separate from analog video processing and have their own seed.
     paintEdgeBurns(frame,state.edgeBurn);
+    // Camera OSD is part of the video signal: draw BEFORE VHS so distortion hits
+    // REC/PLAY/date/time/battery exactly as it hits the underlying pixels.
     drawCamera(frame,state.camera);
+    if(state.vhsEnabled && state.master>0){
+      const m=clamp(state.master/100*fac,0,1.35);
+      const video=ctx.getImageData(0,0,w,h);
+      if(!window.VHSPhotoEngine)throw Error('Новый VHS-движок не загружен. Обнови приложение с интернетом.');
+      window.VHSPhotoEngine.apply(video.data,w,h,{master:m,seed,signal:state.signal});
+      if(state.legacyVhs){
+        const px=video.data,fx=state.fx;
+        vhsWobble(px,w,h,clamp(fx.wobble/100*m,0,1.3),seed);
+        vhsTear(px,w,h,clamp(fx.tear/100*m,0,1.3),seed);
+        vhsChroma(px,w,h,clamp(fx.chroma/100*m,0,1.3),seed);
+        vhsRGB(px,w,h,clamp(fx.rgb/100*m,0,1.3),seed);
+        vhsHiss(px,w,h,clamp(fx.hiss/100*m,0,1.3),seed);
+        vhsStreaks(px,w,h,clamp(fx.streaks/100*m,0,1.3),seed);
+        vhsGrain(px,w,h,clamp(fx.grain/100*m,0,1.3),seed);
+      }
+      ctx.putImageData(video,0,0);
+    }
     return drawBorder(frame,state.film);
   }
   // Catalogue: local recipes plus XMP imports persisted in IndexedDB.
@@ -430,11 +454,12 @@
   }
   function renderFavoritesPage(){
     const items=favoriteItems(),pages=Math.max(1,Math.ceil(items.length/FILM_PAGE_SIZE));favoritesPage=clamp(favoritesPage,0,pages-1);
-    $('favoritesCount').textContent=items.length?`${items.length} плёнок в избранном`:
+    $('favoritesCount').textContent=items.length?`${items.length} любимых плёнок`:
       (state.favoriteFilms.length?'Избранные плёнки сейчас недоступны. Проверь импорт XMP.':'Пока пусто — нажми ☆ на понравившихся плёнках в FILM.');
     $('favoritesPageLabel').textContent=items.length?`${favoritesPage+1} / ${pages}`:'';
     $('prevFavoritesPage').disabled=favoritesPage===0;$('nextFavoritesPage').disabled=favoritesPage>=pages-1;
-    renderFilmCards($('favoritesGrid'),items.slice(favoritesPage*FILM_PAGE_SIZE,(favoritesPage+1)*FILM_PAGE_SIZE));
+    if($('favoritesStrip').open)renderFilmCards($('favoritesGrid'),items.slice(favoritesPage*FILM_PAGE_SIZE,(favoritesPage+1)*FILM_PAGE_SIZE));
+    else $('favoritesGrid').replaceChildren();
   }
   function parseXMP(str,filename){const xml=new DOMParser().parseFromString(str,'application/xml');if(xml.querySelector('parsererror'))return null;
     const nodes=Array.from(xml.getElementsByTagName('*'));
@@ -691,7 +716,7 @@
 
   function showTab(id){if(id==='settings'){$('panel-settings').classList.add('active');document.querySelectorAll('.panel').forEach(p=>{if(p.id!=='panel-settings')p.classList.remove('active');});document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));}
     else{document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+id));document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));}
-    if(id==='film')renderFilmPage();if(id==='favorites')renderFavoritesPage();const destination=document.getElementById('panel-'+id);if(destination)destination.scrollIntoView({block:'start',behavior:'smooth'});
+    if(id==='film')renderFilmPage();const destination=document.getElementById('panel-'+id);if(destination)destination.scrollIntoView({block:'start',behavior:'smooth'});
   }
   async function exportBackup(){const payload={kind:'VHS_STUDIO_MOBILE_BACKUP',version:1,created:new Date().toISOString(),settings:state,xmpProfiles:await dbAll('xmp'),lut:await dbAll('assets')};
     const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});saveBlob(blob,'VHS_Studio_BACKUP_'+new Date().toISOString().slice(0,10)+'.json');notify('Резервная копия создана. Сохрани файл в «Файлы» и по возможности на другое устройство.');}
@@ -707,7 +732,7 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.10');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.1.0');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
@@ -741,6 +766,7 @@
     $('filmCategory').addEventListener('change',()=>{filmPage=0;renderFilmPage();});
     $('prevFilmPage').addEventListener('click',()=>{filmPage--;renderFilmPage();});
     $('nextFilmPage').addEventListener('click',()=>{filmPage++;renderFilmPage();});
+    $('favoritesStrip').addEventListener('toggle',()=>renderFavoritesPage());
     $('prevFavoritesPage').addEventListener('click',()=>{favoritesPage--;renderFavoritesPage();});
     $('nextFavoritesPage').addEventListener('click',()=>{favoritesPage++;renderFavoritesPage();});
     $('xmpFile').addEventListener('change',async e=>{try{for(const file of e.target.files)await importXMP(file);}catch(err){$('importStatus').textContent=err.message;notify(err.message,true);}e.target.value='';});
