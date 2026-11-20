@@ -703,13 +703,20 @@
    source.loop=false; // selectClip/onLoaded may have restored preview looping.
    let stream=recordCanvas.captureStream(Number(state.fps));
    recordStream=stream;
-   if(state.keepAudio){
+   if(state.keepAudio||state.fxMode==='music'){
     try{
      const monitor=await ensureAudioGraph();
      await audioEngine.ctx.resume();
-     const tracks=monitor.stream.getAudioTracks();
-     for(const track of tracks)stream.addTrack(track);
-    }catch(e){exportStatus('Звук недоступен: '+e.message+'. Продолжаю без звука.');}
+     // Music-driven glitches need FFT even if the output video is exported mute.
+     if(state.keepAudio){
+      const tracks=monitor.stream.getAudioTracks();
+      for(const track of tracks)stream.addTrack(track);
+     }
+    }catch(e){
+     exportStatus(state.fxMode==='music'?
+       'Не удалось открыть звуковой анализ: '+e.message+'. Музыкальные глитчи могут отсутствовать.':
+       'Звук недоступен: '+e.message+'. Продолжаю без звука.');
+    }
    }
    // A playable processed frame is present before encoding starts.
    drawFrame(recordCanvas,true);
