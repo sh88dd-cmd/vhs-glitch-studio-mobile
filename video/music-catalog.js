@@ -98,12 +98,51 @@ async function search(query,fetchFn=fetch){
  if(commonsError)throw Error('Wikimedia Commons: '+commonsError+'; Openverse не нашёл подходящих треков.');
  return [];
 }
-async function readAudio(url,fetchFn=fetch,signal){
- const remote=safeURL(url);
- if(!remote)throw Error('Нужна прямая HTTPS-ссылка на аудиофайл (MP3, M4A, OGG или WAV).');
+function bridgeURL(config,path,params={}){
+ const base=String(config?.url||'').trim().replace(/\/+$/,'');
+ if(!config?.key||String(config.key).length<20)throw Error('Для личного аудиомоста требуется секретный ключ (минимум 20 символов).');
+ let addr;
+ try{addr=new URL(base+'/')}catch{throw Error('Проверь HTTPS-адрес личного аудиомоста.');}
+ if(addr.protocol!=='https:'||!addr.hostname||addr.username||addr.password)throw Error('Личный аудиомост должен использовать HTTPS.');
+ const u=new URL(path.replace(/^\//,''),addr);
+ for(const [name,value] of Object.entries(params))u.searchParams.set(name,String(value));
+ return u.href;
+}
+async function bridgeRequest(path,config,params={},fetchFn=fetch,signal){
+ const url=bridgeURL(config,path,params);
  let res;
- try{res=await fetchFn(remote,{mode:'cors',credentials:'omit',redirect:'follow',signal});}
- catch(e){if(signal?.aborted)throw Error('Загрузка музыки отменена.');throw Error('Сайт не разрешил получить звук для монтажа (CORS) или нет интернета. Попробуй другой трек.');}
+ try{res=await fetchFn(url,{mode:'cors',credentials:'omit',signal,headers:{'X-VHS-Bridge-Key':config.key}})}
+ catch(e){if(signal?.aborted)throw Error('Загрузка отменена.');throw Error('Не удалось подключиться к личному аудиомосту. Проверь адрес, Cloudflare Worker и интернет.');}
+ if(!res.ok){
+  let detail='HTTP '+res.status;
+  try{const info=await res.json();if(info?.error)detail=String(info.error).slice(0,220)}catch{}
+  throw Error('Аудиомост: '+detail);
+ }
+ return res;
+}
+async function bridgeHealth(config,fetchFn=fetch){
+ const url=new URL(String(config?.url||'').replace(/\/+$/,'')+'/health');
+ if(url.protocol!=='https:')throw Error('Нужен HTTPS-адрес Worker.');
+ const res=await fetchFn(url.href,{mode:'cors',credentials:'omit'});
+ if(!res.ok)throw Error('Worker ответил HTTP '+res.status);
+ return res.json();
+}
+async function bridgeTracks(config,fetchFn=fetch,signal){
+ const res=await bridgeRequest('/tracks',config,{},fetchFn,signal);
+ const json=await res.json();
+ return (Array.isArray(json.tracks)?json.tracks:[]).filter(x=>/^\d{1,20}$/.test(String(x.id)))
+  .map(x=>({id:String(x.id),title:String(x.title||'Telegram аудио').slice(0,160),
+   creator:String(x.creator||'Telegram').slice(0,160),kind:'telegram',source:'Telegram',
+   bytes:Number(x.bytes)||0,duration:Number(x.duration)||0,license:'user',url:null}));
+}
+async function readBridgeAudio(track,config,fetchFn=fetch,signal){
+ if(!config?.url||!config?.key)throw Error('Личный аудиомост не подключён в настройках.');
+ const route=track?.kind==='telegram'?'/telegram/audio':'/audio';
+ const params=track?.kind==='telegram'?{id:track.id}:{url:track.url};
+ const response=await bridgeRequest(route,config,params,fetchFn,signal);
+ return readResponseAudio(response);
+}
+async function readResponseAudio(res){
  if(!res.ok)throw Error('Аудиофайл недоступен (HTTP '+res.status+').');
  const mime=String(res.headers?.get('content-type')||'').toLowerCase();
  if(/text\/html|application\/(?:json|xml)|text\/plain/.test(mime))
@@ -118,7 +157,6 @@ async function readAudio(url,fetchFn=fetch,signal){
  const reader=res.body.getReader(),chunks=[];let total=0;
  while(true){
   const {done,value}=await reader.read();
-  if(signal?.aborted){try{await reader.cancel()}catch{}throw Error('Загрузка музыки отменена.');}
   if(done)break;
   total+=value.byteLength;
   if(total>MAX_BYTES){await reader.cancel();throw Error('Файл больше 18 МБ. Выбери более короткий трек.');}
@@ -128,5 +166,21 @@ async function readAudio(url,fetchFn=fetch,signal){
  for(const chunk of chunks){all.set(chunk,offset);offset+=chunk.byteLength;}
  return all.buffer;
 }
-root.VHSVideoMusicCatalog=Object.freeze({search,searchCommons,normalize,readAudio,attribution,MAX_BYTES});
+async function readAudio(url,fetchFn=fetch,signal,bridge=null){
+ const remote=safeURL(url);
+ if(!remote)throw Error('Нужна прямая HTTPS-ссылка на аудиофайл (MP3, M4A, OGG или WAV).');
+ let res=null,err=null;
+ try{res=await fetchFn(remote,{mode:'cors',credentials:'omit',redirect:'follow',signal});}
+ catch(e){if(signal?.aborted)throw Error('Загрузка музыки отменена.');err=e;}
+ if(res?.ok)return readResponseAudio(res);
+ // Fail over only for a configured personal bridge, never to unknown public proxies.
+ if(bridge?.url&&bridge?.key){
+  if(signal?.aborted)throw Error('Загрузка музыки отменена.');
+  return readBridgeAudio({url:remote},bridge,fetchFn,signal);
+ }
+ if(res)throw Error('Аудиосервер отклонил запрос (HTTP '+res.status+'). Если это твой разрешённый аудиофайл, подключи личный аудиомост.');
+ if(err)throw Error('Сайт не разрешил браузерную загрузку (CORS) или недоступен. Для разрешённого аудио можно подключить личный аудиомост.');
+ throw Error('Загрузка аудио недоступна.');
+}
+root.VHSVideoMusicCatalog=Object.freeze({search,searchCommons,normalize,readAudio,readBridgeAudio,bridgeHealth,bridgeTracks,attribution,MAX_BYTES});
 })(window);
