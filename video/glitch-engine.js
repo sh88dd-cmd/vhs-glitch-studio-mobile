@@ -300,8 +300,8 @@ function crt(p,w,h,amt){
  }
 }
 class Processor{
- constructor(){this.previous=null;this.previousTime=-1;this.lastWidth=0;this.lastHeight=0;}
- reset(){this.previous=null;this.previousTime=-1;}
+ constructor(){this.previous=null;this.previousTime=-1;this.lastWidth=0;this.lastHeight=0;this.heldFrame=null;this.history=[];}
+ reset(){this.previous=null;this.previousTime=-1;this.heldFrame=null;this.history=[];}
  apply(p,w,h,options={}){
   const t=Math.max(0,Number(options.time)||0),seed=(options.seed||0)>>>0;
   const settings=options.effects||{},density=C(Number(options.density??45),0,100),overall=C(Number(options.strength??1),0,1.5);
@@ -319,7 +319,10 @@ class Processor{
   if(options.splicePulse>0)amt.tapeSplice=Math.max(amt.tapeSplice,C(options.splicePulse*Number(settings.tapeSplice||0)/100,0,1.3)*overall);
   // Analog faults. Tape profiles influence their amplitude, not unrelated FILM filters.
   if(amt.tapeChew)tapeChew(p,w,h,C(amt.tapeChew*level,0,1.4),t,seed);
-  if(amt.pause)pauseFrame(p,w,h,C(amt.pause*level,0,1),t,prev,seed);
+  if(amt.pause){
+   if(!this.heldFrame)this.heldFrame=new Uint8ClampedArray(prev||incoming);
+   pauseFrame(p,w,h,C(amt.pause*level,0,1),t,this.heldFrame,seed);
+  }else this.heldFrame=null;
   if(amt.rewind)rewind(p,w,h,C(amt.rewind*level,0,1.3),t,seed);
   if(amt.vhold)rollRows(p,w,h,amt.vhold*h*.42,(t*48)%h);
   if(amt.ghost)ghost(p,w,h,amt.ghost,t);
@@ -328,7 +331,10 @@ class Processor{
   if(amt.dropouts)dropouts(p,w,h,C(amt.dropouts*level,0,1),t,seed);
   if(amt.agc)agc(p,amt.agc,t);
   if(amt.tapeSplice)splice(p,w,h,amt.tapeSplice,t,seed);
-  if(amt.frameEcho)echo(p,prev,amt.frameEcho);
+  if(amt.frameEcho){
+   echo(p,prev,amt.frameEcho);
+   if(this.history.length>1)echo(p,this.history[0],amt.frameEcho*.38);
+  }
   if(amt.interlace)interlace(p,prev,w,h,amt.interlace,t);
   if(amt.datamosh)datamosh(p,prev,w,h,amt.datamosh,t,seed);
   if(amt.pixelSort)pixelSort(p,w,h,amt.pixelSort,t,seed);
@@ -337,7 +343,10 @@ class Processor{
   if(mode==='minidv')minidv(p,w,h,modeAmt,t,seed);
   if(mode==='crt')crt(p,w,h,modeAmt);
   if(mode==='night')night(p,w,h,modeAmt,t,seed);
-  this.previous=incoming;this.previousTime=t;
+  this.previous=incoming;
+  this.history.push(incoming);
+  if(this.history.length>3)this.history.shift();
+  this.previousTime=t;
   return p;
  }
 }
