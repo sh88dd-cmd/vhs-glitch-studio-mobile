@@ -3,26 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#10151c">
+<meta name="theme-color" content="#080808">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="VHS Video">
 <meta name="description" content="VHS Video Lab: видео, аналоговые помехи и фотоплёнки в браузере">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="../icons/icon-192.png">
 <link rel="apple-touch-icon" href="../icons/icon-180.png">
-<link rel="stylesheet" href="./styles.css?v=0.2.0">
+<link rel="stylesheet" href="./styles.css?v=0.3.0">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.2.0 · АНАЛОГОВЫЕ И ЦИФРОВЫЕ СБОИ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.3.0 · MONOCHROME TAPE DECK</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
-<section class="stage" aria-label="Просмотр обрабатываемого видео">
+<section class="stage" id="videoStage" aria-label="Просмотр обрабатываемого видео">
   <div class="stageMeta"><strong id="videoName">Видеофайл не выбран</strong><span id="videoMeta">—</span></div>
   <div class="stageCanvas">
     <canvas id="preview" width="480" height="270"></canvas>
+    <button type="button" id="openViewer" class="stageExpand" aria-label="Увеличить видео на весь экран" title="Полный экран" disabled>⛶</button>
     <div id="empty" class="empty"><strong>VHS / VIDEO</strong><span>Открой видео с iPhone</span></div>
   </div>
   <video id="source" playsinline preload="metadata"></video>
@@ -36,6 +37,22 @@
   <div class="seekRow"><span id="timeCurrent">00:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Позиция видео" disabled><span id="timeTotal">00:00</span></div>
   <p id="status" class="hint" role="status" aria-live="polite">Всё обрабатывается на устройстве. Выбирай одно видео или до 10 клипов подряд. Первую проверку лучше проводить на коротких роликах.</p>
 </section>
+<aside id="monitorDock" class="monitorDock" aria-label="Закреплённый видеомонитор" hidden>
+  <div class="dockUpper">
+    <canvas id="dockCanvas" width="240" height="135" aria-label="Текущий обработанный видеокадр"></canvas>
+    <div class="dockSide">
+      <div id="dockFileName" class="dockName">Видеомонитор</div>
+      <div class="dockActions">
+        <button type="button" id="dockPlay" class="dockButton dockPlay" aria-label="Воспроизвести или остановить видео" disabled>▶</button>
+        <button type="button" id="dockUndo" class="dockButton" aria-label="Вернуть предыдущие помехи" disabled>↶</button>
+        <button type="button" id="dockReroll" class="dockButton" aria-label="Новые помехи" disabled>↻</button>
+        <button type="button" id="dockExpand" class="dockButton" aria-label="Увеличить видео на весь экран" disabled>⛶</button>
+      </div>
+      <div class="dockTimes"><span id="dockTimeCurrent">00:00</span><span id="dockTimeTotal">00:00</span></div>
+    </div>
+  </div>
+  <input id="dockSeek" class="dockSeek" type="range" min="0" max="1000" value="0" aria-label="Перемотка видео в закреплённом мониторе" disabled>
+</aside>
 <nav class="tabs" aria-label="Разделы обработки">
   <button class="active" data-tab="vhs">VHS</button>
   <button data-tab="glitch">ГЛИТЧ</button>
@@ -87,13 +104,10 @@
   <p class="hint">Низкие и высокие частоты, шипение, плавание скорости (wow/flutter), провалы громкости и насыщение. При доступном экспорте звуковые эффекты записываются вместе с видео. Для воспроизведения обработанного звука на iPhone нажми ▶.</p>
 </section>
 <section id="panel-camera" class="panel">
-  <h2>ИНДИКАТОРЫ КАМЕРЫ</h2>
-  <div class="switch"><span>REC</span><input type="checkbox" id="recOn"></div>
-  <div class="switch"><span>PLAY</span><input type="checkbox" id="playOn"></div>
-  <div class="switch"><span>Батарея</span><input type="checkbox" id="batteryOn"></div>
-  <div class="switch"><span>Дата и время</span><input type="checkbox" id="dateOn"></div>
-  <label>Текст даты<input type="text" id="dateText" maxlength="64" placeholder="PM 10:28  JUN 16 1995"></label>
-  <p class="hint">Индикаторы камеры добавляются после FILM, но до VHS: видеопомехи воздействуют на них так же, как на изображение.</p>
+  <h2>КАМЕРА / ПОЛОЖЕНИЕ ИНДИКАТОРОВ</h2>
+  <p class="hint">REC, PLAY, дата и батарея независимы. Для каждого выбери свой угол и размер, а для батареи — уровень заряда, как в фото-редакторе.</p>
+  <div id="cameraControls"></div>
+  <p class="hint">Индикаторы добавляются после FILM, но до VHS. Значит, помехи действуют на дату, REC, PLAY и батарею вместе с изображением и при экспорте.</p>
 </section>
 <section id="panel-export" class="panel">
   <h2>СОХРАНЕНИЕ ВИДЕО</h2>
@@ -112,13 +126,30 @@
     <button id="share" class="button full">Поделиться / Сохранить в «Фото»</button>
   </div>
 </section>
-<footer><span>VHS Video Lab · 0.2.0</span><span>Оригинальная обработка: <a href="https://ntsc.rs" target="_blank" rel="noreferrer">ntsc-rs</a> — источник технического вдохновения, не встроенная библиотека на этом этапе.</span></footer>
+<footer><span>VHS Video Lab · 0.3.0</span><span>Оригинальная обработка: <a href="https://ntsc.rs" target="_blank" rel="noreferrer">ntsc-rs</a> — источник технического вдохновения, не встроенная библиотека на этом этапе.</span></footer>
 </main>
+<dialog id="videoViewer" class="videoViewer" aria-label="Увеличенный видеопросмотр">
+  <div class="viewerHead">
+    <strong id="viewerName">Просмотр видео</strong>
+    <button id="closeViewer" type="button" aria-label="Закрыть увеличенный просмотр">✕</button>
+  </div>
+  <div class="viewerCanvasBox"><canvas id="viewerCanvas" width="480" height="270"></canvas></div>
+  <div class="viewerControls">
+    <div class="viewerSeekRow"><span id="viewerCurrent">00:00</span><input id="viewerSeek" type="range" min="0" max="1000" value="0" aria-label="Перемотка полноэкранного видео" disabled><span id="viewerTotal">00:00</span></div>
+    <div class="viewerButtons">
+      <button id="viewerPrev" type="button" aria-label="Предыдущий клип" disabled>⏮</button>
+      <button id="viewerBack" type="button" aria-label="Назад на 10 секунд" disabled>−10</button>
+      <button id="viewerPlay" type="button" class="viewerPlay" aria-label="Воспроизвести или приостановить видео" disabled>▶</button>
+      <button id="viewerForward" type="button" aria-label="Вперёд на 10 секунд" disabled>+10</button>
+      <button id="viewerNext" type="button" aria-label="Следующий клип" disabled>⏭</button>
+    </div>
+  </div>
+</dialog>
 <script src="../jszip.min.js" defer></script>
 <script src="../ntsc-photo.js?v=1.1.3" defer></script>
 <script src="./film-core.js?v=0.1.0" defer></script>
 <script src="./glitch-engine.js?v=0.2.0" defer></script>
 <script src="./audio-engine.js?v=0.2.0" defer></script>
-<script src="./app.js?v=0.2.0" defer></script>
+<script src="./app.js?v=0.3.0" defer></script>
 </body>
 </html>
