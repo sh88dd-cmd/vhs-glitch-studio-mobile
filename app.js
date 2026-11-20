@@ -12,13 +12,14 @@
     vhsEnabled:true,filmEnabled:false,preset:'VHS 90s',master:65,seed:123456789,
     fx:{hiss:74,wobble:42,tear:28,chroma:40,rgb:35,grain:35,streaks:0},
     film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,caption:false,captionText:'',captionSize:100,customLut:false},
+    edgeBurn:{"enabled":false,"mode":"auto","side":"random","strength":90,"width":35,"roughness":75,"scratches":38,"seed":238711811},
     camera:{date:{on:false,text:'PM 10:28 | JUN 16 1995',position:'right-bottom',size:125},rec:{on:false,position:'left-top',size:125},play:{on:false,position:'left-top',size:125},battery:{on:false,position:'right-top',size:125,level:'LOW'}},
     singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[]
   };
   let state=clone(defaults);
   try{
     const saved=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');
-    if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera}};}
+    if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera},edgeBurn:{...state.edgeBurn,...saved.edgeBurn}};}
   }catch(e){console.warn('Settings unavailable',e);}
   if(!Array.isArray(state.favoriteFilms))state.favoriteFilms=[];
   state.seed=crypto.getRandomValues(new Uint32Array(1))[0];
@@ -80,6 +81,119 @@
     }
   }
 
+  function paintEdgeBurns(canvas,settings,autoMonochrome){
+  if(!settings||!settings.enabled)return;
+  const w=canvas.width,h=canvas.height;
+  if(w<8||h<8)return;
+  const amount=clamp(Number(settings.strength)/100||0,0,1);
+  if(!amount)return;
+  const random=rngFrom(settings.seed>>>0,719);
+  const sideSetting=settings.side||'random';
+  const sides=sideSetting==='both'?['left','right']:
+    [sideSetting==='random'?(random()<.5?'left':'right'):sideSetting];
+  const mono=settings.mode==='mono'||(settings.mode==='auto'&&autoMonochrome);
+  const rough=clamp(Number(settings.roughness)/100||0,0,1);
+  const scratch=clamp(Number(settings.scratches)/100||0,0,1);
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  for(const side of sides){
+    if(side!=='left'&&side!=='right')continue;
+    const r=rngFrom(settings.seed>>>0,side==='left'?721:723);
+    const base=w*(.012+clamp(Number(settings.width)/100||0,0,1)*.115)*(.82+r()*.35);
+    const reach=Math.min(w*.30,base*2.7);
+    const strip=Math.min(w,Math.max(8,Math.ceil(reach)));
+    const x0=side==='left'?0:w-strip;
+    const img=ctx.getImageData(x0,0,strip,h),p=img.data;
+    const knots=Array.from({length:46},()=>r()*2-1);
+    const phase=r()*Math.PI*2,phase2=r()*Math.PI*2;
+    const coreMod=.78+r()*.17;
+    const palette=mono?[255,255,255]:
+      ([[255,115,34],[255,73,26],[255,155,57],[230,98,72],[121,183,170]][Math.floor(r()*5)]);
+    const scarSeed=(settings.seed>>>0) ^ (side==='left'?0x6E5F1234:0x71347215);
+    const softness=Math.max(1,base*.34);
+    for(let y=0;y<h;y++){
+      const u=y/Math.max(1,h-1);
+      const t=u*(knots.length-1),ix=Math.min(knots.length-2,Math.floor(t)),f=t-ix;
+      const smooth=f*f*(3-2*f);
+      const bend=knots[ix]*(1-smooth)+knots[ix+1]*smooth;
+      const wave=Math.sin(u*25+phase)*.12+Math.sin(u*77+phase2)*.045;
+      const fringe=Math.sin(u*411+phase)*.045*rough;
+      const edge=Math.max(base*.27,base*(coreMod+wave+rough*.33*bend+fringe));
+      for(let x=0;x<strip;x++){
+        const dist=side==='left'?x:strip-1-x;
+        if(dist>reach)continue;
+        const hash=(Math.imul(dist+1,374761393)^Math.imul(y+1,668265263)^scarSeed)>>>0;
+        const noise=(hash&1023)/1023;
+        const feather=(noise-.5)*base*.21*rough;
+        let white=clamp((edge+feather-dist)/softness,0,1);
+        const halo=clamp(1-dist/Math.max(1,reach),0,1);
+        let haze=Math.pow(halo,2.1)*(.48+.23*rough);
+        white=clamp(amount*(white*.98+Math.pow(halo,5)*.13),0,1);
+        haze=clamp(amount*haze*(1-white),0,1);
+        const i=(y*strip+x)*4;
+        if(mono){
+          const lift=clamp(white+haze,0,1);
+          for(let c=0;c<3;c++)p[i+c]=p[i+c]+(255-p[i+c])*lift;
+        }else{
+          for(let c=0;c<3;c++){
+            const warmed=p[i+c]+(palette[c]-p[i+c])*haze;
+            p[i+c]=warmed+(255-warmed)*white;
+          }
+        }
+        // Tiny emulsion holes roughen the exposed strip without affecting the rest.
+        if(dist<edge&&noise<rough*.028){
+          const mark=.42+.35*((hash>>>10)&255)/255;
+          for(let c=0;c<3;c++)p[i+c]*=mark;
+        }
+      }
+    }
+    ctx.putImageData(img,x0,0);
+    // Individual short emulsion scratches, placed only near the damaged edge.
+    const marks=Math.round(scratch*(12+h/34));
+    if(marks){
+      ctx.save();
+      for(let i=0;i<marks;i++){
+        const y=r()*h,dist=base*(.18+r()*1.05),x=side==='left'?dist:w-dist;
+        const length=h*(.002+r()*.034);
+        ctx.strokeStyle=mono?'rgba(255,255,255,.26)':
+          (r()<.5?'rgba(255,245,220,.30)':'rgba(255,139,90,.20)');
+        ctx.lineWidth=Math.max(.5,w*(.00014+r()*.00025));
+        ctx.beginPath();ctx.moveTo(x,y);
+        ctx.lineTo(x+(r()-.5)*base*.17,Math.min(h,y+length));ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+}
+  function selectedFilmIsMonochrome(){
+  if(!state.filmEnabled)return false;
+  if(activeLook&&activeLook.fields){
+    const f=activeLook.fields;
+    if(String(f.ConvertToGrayscale||'').toLowerCase()==='true')return true;
+    if(/gray|black.?white|mono/i.test(String(f.Treatment||'')))return true;
+  }
+  return /(?:black.?white|\bb&w\b|ilford|tri.?x|t.?max|verichrome|ortho|delta\s?\d+)/i.test(state.film.name||'');
+}
+  function mountEdgeBurnControls(){
+  const s=state.edgeBurn;
+  $('edgeBurnEnabled').checked=!!s.enabled;
+  $('edgeBurnEnabled').addEventListener('change',e=>{s.enabled=e.target.checked;schedulePreview();});
+  for(const [key,id] of [['mode','edgeBurnMode'],['side','edgeBurnSide']]){
+    const sel=$(id);sel.value=s[key];
+    sel.addEventListener('change',()=>{s[key]=sel.value;schedulePreview();});
+  }
+  const parent=$('edgeBurnControls');
+  for(const [key,label] of [
+    ['strength','Яркость засвета'],
+    ['width','Ширина у края'],
+    ['roughness','Рваный край'],
+    ['scratches','Царапины на засвете']
+  ]){
+    addControl(parent,label,s[key],v=>{s[key]=v;},0,100);
+  }
+  $('edgeBurnReroll').addEventListener('click',()=>{
+    s.seed=randomSeed();schedulePreview();
+  });
+}
   function imagePixels(src){return src.data;}
   function filmBuiltin(p,recipe,strength){
     if(!recipe||strength<=0)return;
@@ -218,6 +332,7 @@
     }
     ctx.putImageData(img,0,0);
     if(state.filmEnabled)paintFilmExtras(frame,w,h,state.film,seed);
+    paintEdgeBurns(frame,state.edgeBurn,selectedFilmIsMonochrome());
     drawCamera(frame,state.camera);
     return state.filmEnabled ? drawBorder(frame,state.film) : frame;
   }
@@ -495,7 +610,7 @@
     if(('serviceWorker' in navigator) && (location.protocol==='https:'||location.hostname==='localhost')){
       await navigator.serviceWorker.register('./sw.js',{scope:'./'});
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.3');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.0.4');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
@@ -538,7 +653,7 @@
     $('closeHelp').addEventListener('click',()=>$('helpDialog').close());
   }
   async function init(){
-    mountControls();bindEvents();initMainViewerEvents();
+    mountControls();bindEvents();initMainViewerEvents();mountEdgeBurnControls();
     try{Object.assign(looks,await (await fetch('./looks.json')).json());}catch(err){notify('Каталог плёнок не загрузился. Открой программу через HTTPS или локальный сервер.');}
     xmpProfiles=await dbAll('xmp');cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
     if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
