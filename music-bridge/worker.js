@@ -132,6 +132,20 @@ export default {
   if(!authorized(request,env))return json({error:'Неверный секретный ключ аудиомоста.'},401,cors);
   if(u.pathname==='/status')return json({ok:true,configured:true,authorized:true,
    telegram:!!(env.TRACKS&&env.TELEGRAM_BOT_TOKEN&&env.TELEGRAM_WEBHOOK_SECRET&&env.TELEGRAM_USER_ID)},200,cors);
+  if(u.pathname==='/telegram/setup'){
+   if(!env.TELEGRAM_BOT_TOKEN||!env.TELEGRAM_WEBHOOK_SECRET||!env.TELEGRAM_USER_ID||!env.TRACKS)
+    return json({error:'Сначала добавь Telegram-секреты и KV TRACKS в Cloudflare.'},503,cors);
+   const destination=new URL('/telegram/webhook',request.url).href;
+   let res;try{
+    res=await fetch('https://api.telegram.org/bot'+env.TELEGRAM_BOT_TOKEN+'/setWebhook',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({url:destination,secret_token:env.TELEGRAM_WEBHOOK_SECRET,allowed_updates:['message'],drop_pending_updates:false})
+    });
+   }catch{return json({error:'Telegram API не ответил.'},502,cors)}
+   let answer;try{answer=await res.json()}catch{return json({error:'Telegram API вернул некорректный ответ.'},502,cors)}
+   if(!res.ok||!answer.ok)return json({error:'Telegram не принял webhook: '+String(answer.description||res.status)},502,cors);
+   return json({ok:true,installed:true,telegram:true},200,cors);
+  }
   if(u.pathname==='/tracks'){
    if(!env.TRACKS||!env.TELEGRAM_BOT_TOKEN)return json({error:'Telegram библиотека не подключена.'},503,cors);
    const listing=await env.TRACKS.list({prefix:'song:',limit:80});
