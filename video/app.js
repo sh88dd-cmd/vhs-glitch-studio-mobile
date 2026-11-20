@@ -359,6 +359,7 @@
   audioEngine.setMusicBuffer(null);musicTrackInfo=null;
   const previewAudio=$('musicSample');
   previewAudio.pause();previewAudio.removeAttribute('src');previewAudio.load();previewAudio.hidden=true;
+  revokePreviewAudio();
   showMusicSelection();
   if(state.selectedTrack){
    musicLoadStatus(state.selectedTrack.kind==='file'?
@@ -373,6 +374,7 @@
   audioEngine.setMusicBuffer(null);
   const sample=$('musicSample');
   sample.pause();sample.removeAttribute('src');sample.load();
+  revokePreviewAudio();
   if(!event?.persisted)audioEngine.release();
  }
  function mountRecommendedMusic(){
@@ -464,7 +466,7 @@
   musicRequest++;musicLoading=false;
   audioEngine.setMusicBuffer(null);
   musicTrackInfo=null;state.selectedTrack=null;
-  const player=$('musicSample');player.pause();player.removeAttribute('src');player.load();
+  const player=$('musicSample');player.pause();player.removeAttribute('src');player.load();revokePreviewAudio();
   musicLoadStatus('Музыка убрана. Оригинальный звук видео остался без изменений.');
   showMusicSelection();persist();syncAudio(!source.paused);
  }
@@ -487,16 +489,28 @@
    listen.addEventListener('click',async()=>{
     const audio=$('musicSample');
     source.pause();
-    if(audio.src!==item.url){audio.pause();audio.src=item.url;}
-    audio.hidden=false;
-    try{if(audio.paused)await audio.play();else audio.pause();}
-    catch(e){$('onlineMusicStatus').textContent='Предпросмотр недоступен у этого источника: '+e.message;}
+    listen.disabled=true;
+    try{
+     if(item.kind==='telegram'){
+      $('onlineMusicStatus').textContent='Загружаю разрешённое аудио из личной Telegram-библиотеки для прослушивания…';
+      audio.pause();audio.removeAttribute('src');audio.load();revokePreviewAudio();
+      const bytes=await window.VHSVideoMusicCatalog.readBridgeAudio(item,currentBridge(),fetch);
+      musicPreviewBlobURL=URL.createObjectURL(new Blob([bytes],{type:'audio/mpeg'}));
+      audio.src=musicPreviewBlobURL;
+     }else if(audio.src!==item.url){
+      audio.pause();audio.removeAttribute('src');audio.load();revokePreviewAudio();
+      audio.src=item.url;
+     }
+     audio.hidden=false;
+     if(audio.paused)await audio.play();else audio.pause();
+    }catch(e){$('onlineMusicStatus').textContent='Предпросмотр недоступен: '+e.message;}
+    finally{listen.disabled=false;}
    });
    const add=document.createElement('button');add.type='button';add.className='button primary';
    add.textContent='＋ Добавить';
    add.addEventListener('click',()=>{
     $('musicSample').pause();
-    loadMusicTrack({...item,kind:'openverse'});
+    loadMusicTrack({...item,kind:item.kind==='telegram'?'telegram':'openverse'});
    });
    actions.append(listen,add);row.append(title,meta,actions);parent.append(row);
   }
