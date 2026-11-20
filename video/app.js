@@ -239,6 +239,11 @@
   ctx.putImageData(image,0,0);
   drawOsd(ctx,canvas.width,canvas.height);
   const time=source.currentTime||0,frameIndex=Math.floor(time*(Number(state.fps)||15));
+  // A mechanical tape splice is strongest at real clip joins.
+  const splicePulse=Math.max(
+   clipIndex>0?clamp(1-time/.33,0,1):0,
+   clipHasNext()&&Number.isFinite(source.duration)?clamp(1-(source.duration-time)/.30,0,1):0
+  );
   const seed=(state.seed^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
   if(state.vhsEnabled&&state.master>0){
    const signal=ctx.getImageData(0,0,canvas.width,canvas.height);
@@ -254,7 +259,7 @@
    const signal=ctx.getImageData(0,0,canvas.width,canvas.height);
    const engine=recording?exportProcessor:previewProcessor;
    engine.apply(signal.data,canvas.width,canvas.height,{
-    time,seed:state.seed,mode:state.mode,modeStrength:state.modeStrength,
+    time,seed:state.seed,mode:state.mode,modeStrength:state.modeStrength,splicePulse,
     tape:state.tape,density:state.eventDensity,
     strength:state.glitchEnabled?state.glitchStrength/100:0,effects:state.glitchEnabled?state.glitches:{}
    });
@@ -372,7 +377,7 @@
   if(clips[clipIndex])clips[clipIndex].duration=Number.isFinite(source.duration)?source.duration:0;
   $('videoMeta').textContent=source.videoWidth+' × '+source.videoHeight+' · '+timeString(source.duration);
   updateClipNav();
-  $('play').disabled=false;$('export').disabled=false;$('regenerate').disabled=false;$('seek').disabled=false;
+  $('play').disabled=!!recording;$('export').disabled=!!recording;$('regenerate').disabled=!!recording;$('seek').disabled=!!recording;
   $('timeTotal').textContent=timeString(source.duration);
   textStatus(clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
   renderCurrentFrame();
@@ -429,6 +434,9 @@
   const mime=chooseMime();
   if(!mime){exportStatus('Этот браузер не поддерживает доступный видеокодек. Требуется альтернативный WebCodecs-экспорт.');return;}
   if(!Number.isFinite(source.duration)||source.duration<=0){exportStatus('Неизвестная длительность видео.');return;}
+  if(clips.length>1&&clips.some(c=>!Number.isFinite(c.duration)||c.duration<=0)){
+   exportStatus('Не удалось определить длительность всех клипов. Проверь форматы каждого видео или попробуй по одному.');return;
+  }
   const [w,h]=videoDimensions(Number(state.size));
   recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();
   try{
@@ -451,7 +459,7 @@
    const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:3_000_000});
    recording=rec;exportStopRequested=false;
    $('exportResult').hidden=true;$('export').disabled=true;$('cancel').hidden=false;$('progress').hidden=false;$('progress').value=0;
-   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;
+   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();
    rec.ondataavailable=e=>{if(e.data?.size)blobs.push(e.data)};
    rec.onerror=e=>{exportStatus('Ошибка записи: '+(e.error?.message||'неизвестная ошибка'));};
    rec.onstop=()=>{
@@ -460,7 +468,7 @@
     for(const tr of recordStream?.getVideoTracks()||[])tr.stop();
     recordStream=null;
     $('cancel').hidden=true;$('progress').hidden=true;$('export').disabled=false;
-    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;
+    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();
     finishExport(blobs,contentType);
     renderCurrentFrame();
    };
@@ -470,7 +478,7 @@
   }catch(e){
    exportStatus('Экспорт не запустился: '+e.message);
    if(recording&&recording.state!=='inactive')try{recording.stop();}catch{}
-   if(!recording){$('export').disabled=false;$('cancel').hidden=true;$('progress').hidden=true;$('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;}
+   if(!recording){$('export').disabled=false;$('cancel').hidden=true;$('progress').hidden=true;$('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();}
   }
  }
  async function shareExport(){
