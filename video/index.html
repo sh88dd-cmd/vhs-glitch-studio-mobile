@@ -28,13 +28,13 @@
   <video id="source" playsinline preload="metadata"></video>
   <canvas id="recordCanvas" width="480" height="270"></canvas>
   <div class="stageButtons">
-    <label class="button primary">＋ Открыть видео<input id="videoInput" type="file" accept="video/*" multiple hidden></label>
+    <label class="button primary">＋ Видео / клипы<input id="videoInput" type="file" accept="video/*" multiple hidden></label>
     <button id="play" class="button" disabled>▶ Просмотр</button>
     <div class="seedActions"><button id="undoGlitch" type="button" class="button seedUndo" disabled title="Предыдущий рисунок помех" aria-label="Вернуть предыдущие помехи">↶</button><button id="regenerate" class="button" disabled title="Новый рисунок помех">↻ Помехи</button></div>
   </div>
   <div class="playlistRow"><span id="clipLabel" class="hint">Один видеоклип</span><button class="button mini" type="button" id="prevClip" disabled>← Клипы</button><button class="button mini" type="button" id="nextClip" disabled>След. →</button></div>
   <div class="seekRow"><span id="timeCurrent">00:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Позиция видео" disabled><span id="timeTotal">00:00</span></div>
-  <p id="status" class="hint" role="status" aria-live="polite">Все файлы остаются на устройстве. Для теста подойдут короткие видеоролики.</p>
+  <p id="status" class="hint" role="status" aria-live="polite">Всё обрабатывается на устройстве. Выбирай одно видео или до 10 клипов подряд. Первую проверку лучше проводить на коротких роликах.</p>
 </section>
 <nav class="tabs" aria-label="Разделы обработки">
   <button class="active" data-tab="vhs">VHS</button>
@@ -52,7 +52,7 @@
   <label>Характер кассеты<select id="vhsPreset"><option value="classic">VHS 90s</option><option value="camcorder">Camcorder 90s</option><option value="damaged">Повреждённая кассета</option></select></label>
   <label>Тип видеокассеты<select id="tapeKind"></select></label>
   <div id="vhsControls"></div>
-  <p class="hint">Это первая браузерная реализация. Для финального движка предусмотрен переход на оригинальное ядро ntsc-rs в WebAssembly. Расположение помех меняется от кадра к кадру.</p>
+  <p class="hint">Браузерный движок обрабатывает сигнал и каждый кадр. Дополнительные аналоговые, временные и цифровые сбои находятся в разделе ГЛИТЧ. Оригинальный Rust/WASM ntsc-rs пока не встроен.</p>
 </section>
 <section id="panel-glitch" class="panel">
   <h2>ДОПОЛНИТЕЛЬНЫЕ ПОВРЕЖДЕНИЯ СИГНАЛА</h2>
@@ -61,7 +61,7 @@
   <div id="eventControls"></div>
   <div class="presetButtons"><button type="button" class="button mini" id="gentleGlitch">Мягко</button><button type="button" class="button mini" id="chaosGlitch">Повреждено</button><button type="button" class="button mini" id="offGlitch">Выключить всё</button></div>
   <div id="glitchControls"></div>
-  <p class="hint">Datamosh и Frame Echo используют предыдущие кадры. После перемотки предпросмотр набирает временную историю заново; для точного результата смотри движение от начала сцены.</p>
+  <p class="hint">Frame Echo, Pause и Datamosh используют историю кадров. Это браузерные имитации, а не прямое повреждение битового потока кодека. После перемотки история начинается заново.</p>
 </section>
 <section id="panel-film" class="panel">
   <h2>ПЛЁНОЧНЫЕ ФИЛЬТРЫ</h2>
