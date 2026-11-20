@@ -129,6 +129,13 @@
   const labels={classic:'ОБЫЧНЫЙ VHS',music:'♫ В ТАКТ МУЗЫКЕ',timeline:'▤ РУЧНОЙ ТАЙМЛАЙН'};
   if(!(state.fxMode in labels))state.fxMode='classic';
   $('activeFxMode').textContent=labels[state.fxMode];
+  for(const [id,mode,label] of [
+   ['musicActivate','music','♫'],['timelineActivate','timeline','▤']
+  ]){
+   const active=state.fxMode===mode;
+   $(id).textContent=active?label+' Режим включён ✓':label+' Включить только '+(mode==='music'?'музыкальные помехи':'таймлайн');
+   $(id).setAttribute('aria-pressed',String(active));
+  }
   for(const [id,mode] of [['fxClassic','classic'],['fxMusic','music'],['fxTimeline','timeline']]){
    $(id).classList.toggle('active',state.fxMode===mode);
    $(id).setAttribute('aria-pressed',String(state.fxMode===mode));
@@ -163,6 +170,8 @@
   $('fxClassic').onclick=()=>selectMode('classic');
   $('fxMusic').onclick=()=>selectMode('music');
   $('fxTimeline').onclick=()=>selectMode('timeline');
+  $('musicActivate').onclick=()=>selectMode(state.fxMode==='music'?'classic':'music');
+  $('timelineActivate').onclick=()=>selectMode(state.fxMode==='timeline'?'classic':'timeline');
   $('usePlayhead').onclick=()=>{$('timelineStart').value=Number(source.currentTime||0).toFixed(1);};
   $('addTimelineEvent').onclick=saveTimelineEvent;
   syncModeUI();renderTimeline();
