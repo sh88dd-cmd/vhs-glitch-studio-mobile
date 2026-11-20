@@ -450,7 +450,7 @@
    musicSearchResults=found;
    renderMusicResults();
    const fromCommons=found.some(x=>x.source==='Wikimedia Commons');
-   $('onlineMusicStatus').textContent='Найдено '+found.length+' треков. Источник: '+(fromCommons?'Wikimedia Commons (резервный каталог)':'Openverse')+'. Лицензии CC0 / Public Domain / CC BY / CC BY-SA — проверь условия перед публикацией.';
+   $('onlineMusicStatus').textContent='Найдено '+found.length+' треков. Источник: '+(fromCommons?'Wikimedia Commons (основной каталог)':'Openverse')+'. Лицензии CC0 / Public Domain / CC BY / CC BY-SA — проверь условия перед публикацией.';
   }catch(e){if(token===musicSearchToken)$('onlineMusicStatus').textContent='Поиск недоступен: '+e.message+' Можно использовать прямую HTTPS-ссылку или файл.';}
   finally{if(token===musicSearchToken)$('searchOnlineMusic').disabled=false;}
  }
