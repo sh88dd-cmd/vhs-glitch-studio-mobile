@@ -278,10 +278,11 @@
    if(recording){
     drawFrame(recordCanvas);
     stage.drawImage(recordCanvas,0,0,preview.width,preview.height);
-    const max=state.exportScope==='full'?(source.duration||30):Math.min(30,source.duration||30);
-    $('progress').value=clamp(source.currentTime/max*100,0,100);
-    exportStatus('Запись: '+timeString(source.currentTime)+' / '+timeString(max)+' · приложение должно оставаться открытым');
-    if(source.currentTime>=max-.04||source.ended)stopExport();
+    const max=state.exportScope==='full'?(clipTotalTime()||source.duration||30):Math.min(30,clipTotalTime()||source.duration||30);
+    const elapsed=globalVideoTime();
+    $('progress').value=clamp(elapsed/max*100,0,100);
+    exportStatus('Запись: '+timeString(elapsed)+' / '+timeString(max)+' · клип '+(clipIndex+1)+'/'+clips.length);
+    if(elapsed>=max-.04||(!clipHasNext()&&source.ended))stopExport();
    }else{drawFrame(preview);}
   }catch(e){
    console.error(e);if(recording){exportStatus('Ошибка обработки видео: '+e.message);stopExport();}
@@ -401,7 +402,7 @@
   downloadUrl=URL.createObjectURL(blob);
   const ext=mime.includes('mp4')?'mp4':'webm';
   const link=$('download');link.href=downloadUrl;
-  link.download=(file?.name||'clip').replace(/\.[^.]+$/,'').slice(0,80)+'_VHS_VIDEO.'+ext;
+  link.download=(clips[0]?.file?.name||'clip').replace(/\.[^.]+$/,'').slice(0,80)+'_VHS_VIDEO.'+ext;
   $('exportResult').hidden=false;
   exportStatus('Готово: '+(blob.size/1048576).toFixed(1)+' МБ · '+ext.toUpperCase()+'. Выбери «Скачать» или «Поделиться».');
  }
@@ -431,7 +432,9 @@
   const [w,h]=videoDimensions(Number(state.size));
   recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();
   try{
-   source.pause();await seekToStart();
+   source.pause();
+   if(clipIndex!==0)await selectClip(0,false);
+   await seekToStart();
    let stream=recordCanvas.captureStream(Number(state.fps));
    recordStream=stream;
    if(state.keepAudio){
@@ -473,7 +476,7 @@
  async function shareExport(){
   if(!exportBlob)return;
   if(!navigator.share||typeof File==='undefined'){exportStatus('Используй «Скачать результат» и затем «Файлы» на iPhone.');return;}
-  const ext=exportMime.includes('mp4')?'mp4':'webm',name=(file?.name||'video').replace(/\.[^.]+$/,'')+'_VHS_VIDEO.'+ext;
+  const ext=exportMime.includes('mp4')?'mp4':'webm',name=(clips[0]?.file?.name||'video').replace(/\.[^.]+$/,'')+'_VHS_VIDEO.'+ext;
   const f=new File([exportBlob],name,{type:exportMime});
   try{
    if(navigator.canShare?.({files:[f]}))await navigator.share({files:[f],title:'VHS Video Lab'});
@@ -485,10 +488,15 @@
    document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b===button));
    document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+button.dataset.tab));
   }));
-  $('videoInput').onchange=e=>{loadVideo(e.target.files?.[0]).catch(err=>textStatus(err.message));e.target.value='';};
+  $('videoInput').onchange=e=>{loadVideo(e.target.files).catch(err=>textStatus(err.message));e.target.value='';};
+  $('prevClip').onclick=()=>{if(recording)return;selectClip(clipIndex-1,false).catch(e=>textStatus(e.message));};
+  $('nextClip').onclick=()=>{if(recording)return;selectClip(clipIndex+1,false).catch(e=>textStatus(e.message));};
   source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);
   source.addEventListener('seeked',redrawAfterSeek);source.addEventListener('timeupdate',updateTime);
-  source.addEventListener('ended',()=>{if(recording)stopExport();$('play').textContent='▶ Просмотр';renderCurrentFrame();});
+  source.addEventListener('ended',()=>{
+   if(clipHasNext())selectClip(clipIndex+1,true).catch(e=>{textStatus(e.message);if(recording)stopExport();});
+   else{if(recording)stopExport();$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();renderCurrentFrame();}
+  });
   source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();});
   source.addEventListener('error',()=>{textStatus('Safari не открыл этот видеоформат. Попробуй MP4 H.264 или экспортируй из «Фото» в совместимом формате.');$('export').disabled=true;});
   $('seek').oninput=()=>{if(recording||!source.duration)return;source.currentTime=Number($('seek').value)/1000*source.duration;};
