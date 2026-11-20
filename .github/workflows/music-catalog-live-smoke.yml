@@ -12,6 +12,33 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
+      - uses: actions/checkout@v4
+      - name: Test actual Commons catalog parsing, licensing and download CORS
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm');
+          const ctx={window:{},URL,fetch,console};
+          vm.runInNewContext(fs.readFileSync('video/music-catalog.js','utf8'),ctx);
+          const api=ctx.window.VHSVideoMusicCatalog;
+          (async()=>{
+            for(const genre of ['jazz','ambient']){
+              let tracks=[];
+              try{
+                tracks=await api.searchCommons(genre);
+                console.log('ELIGIBLE',genre,tracks.length,tracks.slice(0,5).map(x=>({title:x.title,license:x.license,bytes:x.bytes,url:x.url.slice(0,110)})));
+                if(tracks.length){
+                  const sample=tracks.find(x=>/\\.(mp3|wav|ogg|oga)(?:$|[?#])/i.test(x.url))||tracks[0];
+                  try{
+                    const resp=await fetch(sample.url,{method:'HEAD',headers:{Origin:'https://sh88dd-cmd.github.io'},signal:AbortSignal.timeout(14000)});
+                    console.log('DIRECT_AUDIO_HEAD',genre,JSON.stringify({status:resp.status,cors:resp.headers.get('access-control-allow-origin'),type:resp.headers.get('content-type'),url:sample.url.slice(0,140)}));
+                  }catch(e){console.log('DIRECT_AUDIO_HEAD_ERROR',genre,String(e));}
+                }
+              }catch(e){console.log('CATALOG_PARSE_ERROR',genre,String(e));}
+              if(genre==='jazz'&&!tracks.length)process.exitCode=1;
+            }
+          })().catch(e=>{console.error(e);process.exitCode=1});
+          NODE
       - name: Verify official no-key search APIs
         shell: bash
         run: |
