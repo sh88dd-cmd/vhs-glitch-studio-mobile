@@ -43,7 +43,8 @@
   input.addEventListener('input',()=>{count.textContent=input.value+'%';onInput(Number(input.value));persist();renderCurrentFrame();});
   wrap.append(head,input);parent.append(wrap);return input;}
  function resetFrameHistory(){previewProcessor.reset();exportProcessor.reset();}
- function syncAudio(playing=!source.paused){audioEngine.update({...state.audio,seed:state.seed},source.currentTime||0,playing&&!!file);}
+ function clipSeed(){return (state.seed^Math.imul(clipIndex+1,0x6c8e9cf5))>>>0;}
+ function syncAudio(playing=!source.paused){audioEngine.update({...state.audio,seed:clipSeed()},source.currentTime||0,playing&&!!file);}
  function setSeed(value){state.seed=value>>>0;resetFrameHistory();$('undoGlitch').disabled=!seedHistory.length;persist();renderCurrentFrame();}
  function regenerateSeed(){if(!file||recording)return;seedHistory.push(state.seed>>>0);if(seedHistory.length>50)seedHistory.shift();let next=randomSeed();if(next===state.seed)next=(next+1)>>>0;setSeed(next);}
  function undoSeed(){if(!file||recording||!seedHistory.length)return;setSeed(seedHistory.pop());}
@@ -244,7 +245,7 @@
    clipIndex>0?clamp(1-time/.33,0,1):0,
    clipHasNext()&&Number.isFinite(source.duration)?clamp(1-(source.duration-time)/.30,0,1):0
   );
-  const seed=(state.seed^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
+  const seed=(clipSeed()^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
   if(state.vhsEnabled&&state.master>0){
    const signal=ctx.getImageData(0,0,canvas.width,canvas.height);
    const tape=window.VHSVideoGlitchFX.TAPES.find(t=>t.id===state.tape)||window.VHSVideoGlitchFX.TAPES[1];
@@ -259,7 +260,7 @@
    const signal=ctx.getImageData(0,0,canvas.width,canvas.height);
    const engine=recording?exportProcessor:previewProcessor;
    engine.apply(signal.data,canvas.width,canvas.height,{
-    time,seed:state.seed,mode:state.mode,modeStrength:state.modeStrength,splicePulse,
+    time,seed:clipSeed(),mode:state.mode,modeStrength:state.modeStrength,splicePulse,
     tape:state.tape,density:state.eventDensity,
     strength:state.glitchEnabled?state.glitchStrength/100:0,effects:state.glitchEnabled?state.glitches:{}
    });
