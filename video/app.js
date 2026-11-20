@@ -14,11 +14,13 @@
   signal:{chromaBleed:52,composite:35,edgeWave:38,tracking:54,noise:38,chromaLoss:15,ringing:19},
   glitches:glitchDefaults,
   audio:{enabled:false,mode:'linear',strength:65,hiss:48,wow:42,flutter:32,drop:32,saturation:28},
-  camera:{rec:false,play:false,battery:false,date:false,text:'PM 10:28 | JUN 16 1995'},
+  camera:{rec:false,play:false,battery:false,date:false,text:'PM 10:28 | JUN 16 1995',
+   positions:{rec:'left-top',play:'left-top',battery:'right-top',date:'right-bottom'},
+   sizes:{rec:125,play:125,battery:125,date:125},batteryLevel:'LOW'},
   size:'480',fps:15,exportScope:'30',keepAudio:true,seed:91823710};
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem('vhs.video.settings')||'null')}catch{}
- const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{})}};
+ const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
  let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
  let importedDB=null,recording=null,recordStream=null,exportBlob=null,exportMime='';
  let downloadUrl='',exportStopRequested=false,audioContext=null,audioSource=null,audioMonitor=null;
@@ -76,6 +78,51 @@
    for(const def of glitchMeta.filter(x=>x.group===key))control(d,def.name,state.glitches[def.id],v=>{state.glitches[def.id]=v;resetFrameHistory();});
   }
  }
+ function mountCameraControls(){
+  const parent=$('cameraControls');parent.replaceChildren();
+  const corners=[['left-top','Слева сверху'],['right-top','Справа сверху'],['left-bottom','Слева снизу'],['right-bottom','Справа снизу']];
+  const descriptions={rec:'REC / Запись',play:'PLAY / Воспроизведение',date:'Дата и время',battery:'Батарея'};
+  for(const key of ['rec','play','date','battery']){
+   const card=document.createElement('section');card.className='cameraCard';
+   const header=document.createElement('div');header.className='cameraCardTitle';
+   const title=document.createElement('strong');title.textContent=descriptions[key];
+   const toggleLabel=document.createElement('label');toggleLabel.className='cameraSwitch';
+   const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.id=key+'On';checkbox.checked=!!state.camera[key];
+   const toggleTxt=document.createElement('span');toggleTxt.textContent='Вкл.';
+   toggleLabel.append(checkbox,toggleTxt);header.append(title,toggleLabel);card.append(header);
+   checkbox.addEventListener('change',()=>{state.camera[key]=checkbox.checked;persist();renderCurrentFrame();});
+   const options=document.createElement('div');options.className='cameraCardOptions';
+   const posLabel=document.createElement('label');posLabel.textContent='Положение';
+   const position=document.createElement('select');position.id=key+'Position';
+   for(const [id,name] of corners)position.add(new Option(name,id));
+   position.value=state.camera.positions[key];
+   position.addEventListener('change',()=>{state.camera.positions[key]=position.value;persist();renderCurrentFrame();});
+   posLabel.append(position);options.append(posLabel);
+   const sizeLabel=document.createElement('label');sizeLabel.textContent='Размер';
+   const size=document.createElement('select');size.id=key+'Size';
+   for(const n of [70,85,100,125,150,180,220])size.add(new Option(n+'%',String(n)));
+   size.value=String(state.camera.sizes[key]);
+   if(![...size.options].some(x=>x.value===size.value))size.value='125';
+   size.addEventListener('change',()=>{state.camera.sizes[key]=Number(size.value);persist();renderCurrentFrame();});
+   sizeLabel.append(size);options.append(sizeLabel);
+   if(key==='date'){
+    const textLabel=document.createElement('label');textLabel.className='fullRow';textLabel.textContent='Надпись';
+    const input=document.createElement('input');input.type='text';input.id='dateText';input.maxLength=64;
+    input.value=state.camera.text;input.placeholder='PM 10:28 | JUN 16 1995';
+    input.addEventListener('input',()=>{state.camera.text=input.value;persist();renderCurrentFrame();});
+    textLabel.append(input);options.append(textLabel);
+   }
+   if(key==='battery'){
+    const levelLabel=document.createElement('label');levelLabel.className='fullRow';levelLabel.textContent='Уровень заряда';
+    const level=document.createElement('select');level.id='batteryLevel';
+    for(const k of ['FULL','75%','50%','25%','LOW','EMPTY'])level.add(new Option(k,k));
+    level.value=state.camera.batteryLevel||'LOW';
+    level.addEventListener('change',()=>{state.camera.batteryLevel=level.value;persist();renderCurrentFrame();});
+    levelLabel.append(level);options.append(levelLabel);
+   }
+   card.append(options);parent.append(card);
+  }
+ }
  function mountControls(){
   control($('vhsControls'),'Общая сила VHS',state.master,v=>{state.master=v;resetFrameHistory();});
   const tape=document.createElement('label');tape.textContent='Режим видеокассеты';
@@ -130,8 +177,7 @@
   $('outputSize').value=state.size;$('fps').value=String(state.fps);
   $('exportScope').value=state.exportScope;
   $('keepAudio').checked=state.keepAudio;
-  for(const k of ['rec','play','battery','date'])$(k+'On').checked=!!state.camera[k];
-  $('dateText').value=state.camera.text;
+  mountCameraControls();
   $('vhsEnabled').onchange=()=>{state.vhsEnabled=$('vhsEnabled').checked;persist();renderCurrentFrame();};
   $('filmEnabled').onchange=()=>{state.filmEnabled=$('filmEnabled').checked;persist();renderCurrentFrame();};
   $('vhsPreset').onchange=()=>{state.preset=$('vhsPreset').value;persist();renderCurrentFrame();};
@@ -139,8 +185,7 @@
   $('fps').onchange=()=>{state.fps=Number($('fps').value);persist();};
   $('keepAudio').onchange=()=>{state.keepAudio=$('keepAudio').checked;persist();};
   $('exportScope').onchange=()=>{state.exportScope=$('exportScope').value;persist();};
-  for(const k of ['rec','play','battery','date'])$(k+'On').onchange=()=>{state.camera[k]=$(k+'On').checked;persist();renderCurrentFrame();};
-  $('dateText').oninput=()=>{state.camera.text=$('dateText').value;persist();renderCurrentFrame();};
+  // Camera controls mount their own event handlers with independent corner/size state.
  }
  function selectedFilm(){return profiles.find(p=>p.id===state.filmId)||null;}
  function rebuildFilmList(){
@@ -234,15 +279,46 @@
   persist();renderCurrentFrame();
  }
  function drawOsd(ctx,w,h){
-  const p=state.camera,size=Math.max(13,Math.min(w,h)*.034);
-  ctx.save();
-  ctx.textBaseline='top';ctx.font='700 '+size+'px monospace';
-  ctx.shadowColor='#000';ctx.shadowBlur=Math.max(1,size*.08);ctx.shadowOffsetX=Math.max(1,size*.08);
-  const pad=Math.max(12,w*.035);
-  if(p.rec){ctx.fillStyle='#fa5356';ctx.beginPath();ctx.arc(pad+size*.22,pad+size*.45,size*.16,0,Math.PI*2);ctx.fill();ctx.fillText('REC',pad+size*.55,pad);}
-  if(p.play){ctx.fillStyle='#edf3ec';ctx.fillText('PLAY',pad,pad+size*1.6);}
-  if(p.date){ctx.fillStyle='#f4f4e7';ctx.textAlign='right';ctx.fillText(p.text.replace(/\|/g,' '),w-pad,h-pad-size);ctx.textAlign='start';}
-  if(p.battery){const bw=size*1.8,bh=size*.69,x=w-pad-bw-size*.2,y=pad;ctx.strokeStyle='#f8f7e8';ctx.lineWidth=Math.max(1,size*.08);ctx.strokeRect(x,y,bw,bh);ctx.fillStyle='#f5f3ec';ctx.fillRect(x+bw,y+bh*.28,size*.14,bh*.44);ctx.fillRect(x+size*.12,y+size*.10,bw*.58,bh-size*.2);}
+  const c=state.camera,base=Math.min(w,h),marginX=Math.max(8,w*.04),marginY=Math.max(8,h*.04);
+  const positionOf=(key,tw,th)=>{
+   const pos=c.positions[key]||'left-top';
+   return [pos.includes('left')?marginX:w-marginX-tw,pos.includes('top')?marginY:h-marginY-th];
+  };
+  const sizeOf=(key,factor)=>Math.max(9,base*factor*clamp(Number(c.sizes[key]||125)/100,.45,2.8));
+  function drawText(key,message,color,factor){
+   const lines=String(message||'').replace(/\r\n?/g,'\n').replace(/\|/g,'\n').split('\n').slice(0,4);
+   let size=sizeOf(key,factor);
+   ctx.textBaseline='top';
+   for(let tries=0;tries<10;tries++){
+    ctx.font='700 '+size+'px ui-monospace, Menlo, Courier New, monospace';
+    const measured=Math.max(0,...lines.map(line=>ctx.measureText(line).width));
+    if((measured<w*.87&&size*1.23*lines.length<h*.75)||size<=9)break;
+    size=Math.max(9,size*.86);
+   }
+   const width=Math.max(0,...lines.map(line=>ctx.measureText(line).width)),step=size*1.23;
+   const [x,y]=positionOf(key,width,step*lines.length);
+   for(let i=0;i<lines.length;i++){
+    ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillText(lines[i],x+1,y+i*step+1);
+    ctx.fillStyle=color;ctx.fillText(lines[i],x,y+i*step);
+   }
+  }
+  ctx.save();ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=Math.max(1,base*.004);
+  if(c.date)drawText('date',c.text,'#f5f5f5',.05);
+  if(c.play)drawText('play','PLAY','#f7f7f7',.038);
+  if(c.rec){
+   const sz=sizeOf('rec',.038);ctx.font='700 '+sz+'px ui-monospace, Menlo, monospace';
+   const ww=ctx.measureText('REC').width+sz*.85,hh=sz*1.2,[x,y]=positionOf('rec',ww,hh);
+   ctx.textBaseline='top';ctx.fillStyle='#ef5555';ctx.beginPath();
+   ctx.arc(x+sz*.2,y+sz*.55,Math.max(2,sz*.15),0,Math.PI*2);ctx.fill();
+   ctx.fillText('REC',x+sz*.48,y);
+  }
+  if(c.battery){
+   const sz=sizeOf('battery',.034),ww=sz*2.15,hh=sz*.75,[x,y]=positionOf('battery',ww+sz*.25,hh);
+   ctx.strokeStyle='#f5f5f5';ctx.lineWidth=Math.max(1,sz*.07);ctx.strokeRect(x,y,ww,hh);
+   ctx.fillStyle='#f5f5f5';ctx.fillRect(x+ww,y+hh*.3,sz*.15,hh*.4);
+   const count={FULL:4,'75%':3,'50%':2,'25%':1,LOW:1,EMPTY:0}[c.batteryLevel]??1;
+   for(let i=0;i<count;i++)ctx.fillRect(x+sz*.12+i*ww*.225,y+sz*.12,ww*.17,Math.max(1,hh-sz*.24));
+  }
   ctx.restore();
  }
  function drawFrame(canvas,forExport=false){
