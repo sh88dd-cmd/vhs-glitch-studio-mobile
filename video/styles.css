@@ -169,3 +169,36 @@ body.dock-visible .panel{
  .monitorDock .dockUpper{max-width:420px}
  .monitorDock .dockButton{height:26px}
 }
+
+
+/* VHS Video Lab v0.4.0: exclusive music-reactive and manually scheduled modes. */
+.specialModeBar{padding:10px 11px;border-top:1px solid #515151;border-bottom:1px solid #505050;background:#111}
+.specialModeBar .specialModeLabel{font-size:10px;color:#b8b8b8;letter-spacing:.6px}
+.specialModeBar .specialModeLabel strong{color:#f4f4f4;margin-left:5px}
+.specialModeButtons{display:flex;gap:6px;margin-top:8px}
+.specialModeButtons .modeChoice{flex:1;min-width:0;padding:9px 3px;border:1px solid #6a6a6a;border-radius:8px;background:#222;color:#ddd;font-size:10px;font-weight:800}
+.specialModeButtons .modeChoice.active{color:#101010;background:#eee;border-color:#eee}
+.specialModeBar .hint{margin:8px 0 0;font-size:10px}
+.tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;justify-content:flex-start}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;min-width:65px;padding-inline:6px}
+.musicMeter{border:1px solid #555;border-radius:9px;background:#181818;padding:10px 12px;margin-bottom:18px;display:grid;gap:5px;font-size:11px}
+.musicMeter span{display:flex;justify-content:space-between}
+.musicMeter progress{width:100%;height:10px;accent-color:#ddd}
+.timelineHead,.timelinePlayhead{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#ddd}
+.timelineHead strong{font-size:12px}
+.timelineTrack{position:relative;height:58px;background:repeating-linear-gradient(to right,#272727 0px,#272727 1px,#161616 1px,#161616 10%);border:1px solid #656565;border-radius:7px;margin:9px 0 7px;overflow:hidden;touch-action:pan-y}
+.timelineMarker{position:absolute;top:5px;bottom:5px;min-width:4px;border:1px solid #eee;background:#b9b9b966;border-radius:3px;padding:0;font-size:0}
+.timelineMarker:focus-visible{outline:2px solid #fff;outline-offset:1px}
+.timelinePlayhead{margin:7px 0 18px}
+.timelinePair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.timelinePair input{display:block;margin:6px 0 14px;width:100%;min-width:0;background:#202020;color:#eee;border:1px solid #6a6a6a;border-radius:8px;padding:11px 9px;font-size:13px}
+.timelineEvents{display:grid;gap:7px;margin-top:14px}
+.timelineEvent{border:1px solid #4b4b4b;background:#1b1b1b;border-radius:8px;display:flex;align-items:stretch;gap:5px;min-height:46px}
+.timelineEvent .timelineGo{flex:1;min-width:0;border:0;background:transparent;color:#eee;font-size:11px;text-align:left;padding:9px 10px}
+.timelineEvent .timelineGo strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.timelineEvent .timelineGo small{display:block;color:#aaa;margin-top:3px}
+.timelineEvent .timelineDelete{flex:0 0 39px;background:#2b2b2b;border:0;border-left:1px solid #555;color:#eee;border-radius:0 8px 8px 0;font-size:18px}
+.timelineEmpty{font-size:11px;color:#999;padding:12px;text-align:center;border:1px dashed #555;border-radius:7px}
+body.dock-visible .specialModeBar{scroll-margin-top:calc(var(--dock-height,280px) + 35px)}
+@media(max-width:360px){.tabs button{min-width:61px;font-size:9px}.specialModeButtons .modeChoice{font-size:9px}}
