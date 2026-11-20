@@ -122,8 +122,11 @@ class TapeAudio{
  stopMusic(){
   if(this.musicSource){
    const old=this.musicSource;this.musicSource=null;
+   old.onended=null;
    try{old.stop()}catch{}
    try{old.disconnect()}catch{}
+   // Release the source's strong reference to the decoded audio buffer.
+   try{old.buffer=null}catch{}
   }
   this.musicPlayAt=-1;
  }
@@ -172,6 +175,19 @@ class TapeAudio{
   }
   const bass=band.call(this,45,200),mid=band.call(this,200,2200),high=band.call(this,2200,9000);
   return{bass,mid,high,rms:(bass+mid+high)/3,available:true};
+ }
+ getMusicMemoryMB(){
+  if(!this.musicBuffer)return 0;
+  return Math.round((Number(this.musicBuffer.length)||0)*(Number(this.musicBuffer.numberOfChannels)||2)*4/1048576*10)/10;
+ }
+ // Called during real navigation/close; garbage collection timing is browser-controlled.
+ release(){
+  this.stopMusic();this.musicBuffer=null;
+  this.suspendNoise();
+  if(this.noise){try{this.noise.stop()}catch{}try{this.noise.disconnect()}catch{}this.noise=null;}
+  const ctx=this.ctx;
+  if(ctx){try{ctx.close()}catch{}}
+  this.connected=false;this.stream=null;this.spectrum=null;
  }
  getTracks(){return this.stream?.getAudioTracks()||[];}
  suspendNoise(){if(this.noiseGain&&this.ctx)this.noiseGain.gain.setTargetAtTime(0,this.ctx.currentTime,.025);}
