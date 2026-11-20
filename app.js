@@ -818,9 +818,11 @@ function mountEdgeBurnControls(){
   }
   async function checkOffline(){let ready=false;try{
     if(('serviceWorker' in navigator) && (location.protocol==='https:'||location.hostname==='localhost')){
-      await navigator.serviceWorker.register('./sw.js',{scope:'./'});
+      const reg=await navigator.serviceWorker.register('./sw.js',{scope:'./'});
+      // Trigger an update check on every online launch, not just Safari's periodic check.
+      if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.8');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.0.9');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
@@ -830,6 +832,19 @@ function mountEdgeBurnControls(){
   function bindEvents(){
     document.querySelectorAll('.tabs button').forEach(btn=>btn.addEventListener('click',()=>showTab(btn.dataset.tab)));
     $('openSettings').addEventListener('click',()=>showTab('settings'));
+    $('checkForUpdates').addEventListener('click',async()=>{
+      const btn=$('checkForUpdates');btn.disabled=true;btn.textContent='Проверяю новую версию…';
+      try{
+        if('serviceWorker' in navigator){
+          const registration=await navigator.serviceWorker.getRegistration('./');
+          if(registration)await registration.update();
+        }
+        // A unique navigation URL bypasses older cache-first workers without deleting
+        // IndexedDB (the imported XMP catalog) or localStorage (favorites/settings).
+        const u=new URL(location.href);u.searchParams.set('app-update',Date.now().toString());
+        location.replace(u.href);
+      }catch(err){btn.disabled=false;btn.textContent='↻ Повторить обновление';notify('Ошибка обновления: '+err.message,true);}
+    });
     $('fileSingle').addEventListener('change',async e=>{try{await openSingle(e.target.files[0]);}catch(err){notify(err.message,true);}});
     $('reroll').addEventListener('click',()=>{state.seed=randomSeed();schedulePreview();});
     $('compare').addEventListener('click',toggleCompare);
