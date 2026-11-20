@@ -11,6 +11,8 @@
  const defaults={vhsEnabled:true,filmEnabled:false,glitchEnabled:true,preset:'classic',master:65,
   mode:'vhs',modeStrength:75,tape:'used',signalWidth:'auto',eventDensity:48,glitchStrength:85,
   fxMode:'classic',music:{bassEffect:'vhold',highEffect:'dropouts',sensitivity:60,threshold:25,strength:85,release:35},timelineEvents:[],timelineStrength:85,
+  mix:{videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicLoop:true},
+  selectedTrack:null,
   speed:'SP',filmId:'builtin:Нейтральный / без плёнки',filmStrength:85,
   signal:{chromaBleed:52,composite:35,edgeWave:38,tracking:54,noise:38,chromaLoss:15,ringing:19},
   glitches:glitchDefaults,
@@ -21,7 +23,7 @@
   size:'480',fps:15,exportScope:'30',keepAudio:true,seed:91823710};
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem('vhs.video.settings')||'null')}catch{}
- const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
+ const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},mix:{...defaults.mix,...(saved?.mix||{})},selectedTrack:saved?.selectedTrack||null,timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
  let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
  let importedDB=null,recording=null,recordStream=null,exportBlob=null,exportMime='';
  let downloadUrl='',exportStopRequested=false,audioContext=null,audioSource=null,audioMonitor=null;
@@ -34,6 +36,7 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
+ let musicSearchResults=[],musicTrackInfo=null,musicRequest=0,musicLoading=false;
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
@@ -66,7 +69,12 @@
   }
  }
  function clipSeed(){return (state.seed^Math.imul(clipIndex+1,0x6c8e9cf5))>>>0;}
- function syncAudio(playing=!source.paused){audioEngine.update({...state.audio,seed:clipSeed()},source.currentTime||0,playing&&!!file);}
+ function syncAudio(playing=!source.paused){
+  const active=playing&&!!file&&!source.paused;
+  audioEngine.setMix(state.mix);
+  audioEngine.update({...state.audio,seed:clipSeed()},source.currentTime||0,active);
+  audioEngine.syncMusic(globalVideoTime(),active);
+}
  function setSeed(value){state.seed=value>>>0;resetFrameHistory();$('undoGlitch').disabled=!seedHistory.length;persist();renderCurrentFrame();videoUI?.sync();}
  function regenerateSeed(){if(!file||recording)return;seedHistory.push(state.seed>>>0);if(seedHistory.length>50)seedHistory.shift();let next=randomSeed();if(next===state.seed)next=(next+1)>>>0;setSeed(next);}
  function undoSeed(){if(!file||recording||!seedHistory.length)return;setSeed(seedHistory.pop());}
@@ -654,7 +662,7 @@
    else{source.pause();$('play').textContent='▶ Просмотр';}
   }catch(e){textStatus('Не удалось воспроизвести: '+e.message);}
  }
- function redrawAfterSeek(){updateTime();resetFrameHistory();renderCurrentFrame();}
+ function redrawAfterSeek(){updateTime();resetFrameHistory();syncAudio(!source.paused);renderCurrentFrame();}
  function chooseMime(){
   if(typeof MediaRecorder==='undefined')return null;
   const supported=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp8,opus','video/webm'];
@@ -699,6 +707,9 @@
   const mime=chooseMime();
   if(!mime){exportStatus('Этот браузер не поддерживает доступный видеокодек. Требуется альтернативный WebCodecs-экспорт.');return;}
   if(!Number.isFinite(source.duration)||source.duration<=0){exportStatus('Неизвестная длительность видео.');return;}
+  if(state.selectedTrack&&!audioEngine.musicBuffer){
+   exportStatus('Выбранная музыка ещё не загружена. Открой «♫ ТРЕКИ» и нажми «Восстановить», затем повтори экспорт.');return;
+  }
   if(clips.length>1&&clips.some(c=>!Number.isFinite(c.duration)||c.duration<=0)){
    exportStatus('Не удалось определить длительность всех клипов. Проверь форматы каждого видео или попробуй по одному.');return;
   }
@@ -797,7 +808,8 @@
     source.play().catch(e=>textStatus('Не удалось повторить видео: '+e.message));
    }
   });
-  source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();});
+  source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();audioEngine.stopMusic();});
+  source.addEventListener('play',()=>{try{syncAudio(true)}catch(e){textStatus('Музыка: '+e.message);}});
   source.addEventListener('error',()=>{textStatus('Safari не открыл этот видеоформат. Попробуй MP4 H.264 или экспортируй из «Фото» в совместимом формате.');$('export').disabled=true;});
   $('seek').oninput=()=>{if(recording||!source.duration)return;source.currentTime=Number($('seek').value)/1000*source.duration;};
   $('play').onclick=togglePlay;
@@ -824,7 +836,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoSpecialModes||!window.VHSVideoMusicCatalog)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
