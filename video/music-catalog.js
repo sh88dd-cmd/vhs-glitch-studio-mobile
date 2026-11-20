@@ -121,10 +121,7 @@ async function bridgeRequest(path,config,params={},fetchFn=fetch,signal){
  return res;
 }
 async function bridgeHealth(config,fetchFn=fetch){
- const url=new URL(String(config?.url||'').replace(/\/+$/,'')+'/health');
- if(url.protocol!=='https:')throw Error('Нужен HTTPS-адрес Worker.');
- const res=await fetchFn(url.href,{mode:'cors',credentials:'omit'});
- if(!res.ok)throw Error('Worker ответил HTTP '+res.status);
+ const res=await bridgeRequest('/status',config,{},fetchFn);
  return res.json();
 }
 async function bridgeTracks(config,fetchFn=fetch,signal){
@@ -140,9 +137,9 @@ async function readBridgeAudio(track,config,fetchFn=fetch,signal){
  const route=track?.kind==='telegram'?'/telegram/audio':'/audio';
  const params=track?.kind==='telegram'?{id:track.id}:{url:track.url};
  const response=await bridgeRequest(route,config,params,fetchFn,signal);
- return readResponseAudio(response);
+ return readResponseAudio(response,signal);
 }
-async function readResponseAudio(res){
+async function readResponseAudio(res,signal){
  if(!res.ok)throw Error('Аудиофайл недоступен (HTTP '+res.status+').');
  const mime=String(res.headers?.get('content-type')||'').toLowerCase();
  if(/text\/html|application\/(?:json|xml)|text\/plain/.test(mime))
@@ -157,6 +154,7 @@ async function readResponseAudio(res){
  const reader=res.body.getReader(),chunks=[];let total=0;
  while(true){
   const {done,value}=await reader.read();
+  if(signal?.aborted){try{await reader.cancel()}catch{}throw Error('Загрузка музыки отменена.');}
   if(done)break;
   total+=value.byteLength;
   if(total>MAX_BYTES){await reader.cancel();throw Error('Файл больше 18 МБ. Выбери более короткий трек.');}
@@ -172,7 +170,7 @@ async function readAudio(url,fetchFn=fetch,signal,bridge=null){
  let res=null,err=null;
  try{res=await fetchFn(remote,{mode:'cors',credentials:'omit',redirect:'follow',signal});}
  catch(e){if(signal?.aborted)throw Error('Загрузка музыки отменена.');err=e;}
- if(res?.ok)return readResponseAudio(res);
+ if(res?.ok)return readResponseAudio(res,signal);
  // Fail over only for a configured personal bridge, never to unknown public proxies.
  if(bridge?.url&&bridge?.key){
   if(signal?.aborted)throw Error('Загрузка музыки отменена.');
