@@ -111,13 +111,13 @@
   <div class="musicRecommendations" aria-label="Рекомендуемые музыкальные подборки">
     <div class="musicRecommendationHeading">РЕКОМЕНДУЕМЫЕ ДЛЯ ВИДЕО</div>
     <div id="musicRecommendationChips" class="musicRecommendationChips"></div>
-    <p class="hint">Тематические подборки по жанрам. Поиск использует Openverse и резервный каталог Wikimedia Commons; результаты не гарантируют право использовать любую композицию.</p>
+    <p class="hint">Тематические подборки по жанрам. Поиск использует Wikimedia Commons и резервный каталог Openverse; результаты не гарантируют право использовать любую композицию.</p>
   </div>
   <div class="musicSearchRow">
     <input id="onlineMusicSearch" type="search" placeholder="Название или жанр: jazz, ambient; либо .mp3 ссылка" autocomplete="off" aria-label="Поиск музыки в интернете">
     <button id="searchOnlineMusic" type="button" class="button primary">Найти</button>
   </div>
-  <p id="onlineMusicStatus" class="hint" role="status">Поиск работает через Openverse (до 20 результатов), при недоступности — Wikimedia Commons. Вводи название или жанр, не адрес страницы песни. Некоторые треки требуют указания автора.</p>
+  <p id="onlineMusicStatus" class="hint" role="status">Основной поиск — Wikimedia Commons (проверенные MP3-ссылки); при отсутствии подходящих файлов подключается Openverse (до 20 результатов). Вводи название или жанр, не адрес страницы песни. Некоторые треки требуют указания автора.</p>
   <div id="onlineMusicResults" class="onlineMusicResults" aria-live="polite"></div>
   <audio id="musicSample" controls preload="none" hidden aria-label="Прослушивание найденной музыки"></audio>
   <details class="importBox">
