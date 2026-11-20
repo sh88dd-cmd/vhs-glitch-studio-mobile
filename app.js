@@ -199,7 +199,7 @@
     const frame=newCanvas(w,h),ctx=frame.getContext('2d',{willReadFrequently:true});ctx.drawImage(im,0,0,w,h);
     let img=ctx.getImageData(0,0,w,h),p=img.data;const fac=power[state.preset]||1;
     if(state.filmEnabled){const s=clamp(state.film.strength/100,0,1);
-      if(activeLook&&activeLook.type==='xmp')filmXMP(p,activeLook,s);
+      if(activeLook&&activeLook.fields)filmXMP(p,activeLook,s);
       else filmBuiltin(p,looks[state.film.name],s);
       if(state.film.customLut&&cubeLut)applyCube(p,cubeLut,s);
       filmGrain(p,w,h,state.film.grain/100,seed);
@@ -354,7 +354,7 @@
     if(('serviceWorker' in navigator) && (location.protocol==='https:'||location.hostname==='localhost')){
       await navigator.serviceWorker.register('./sw.js',{scope:'./'});
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.0');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.0.1');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
