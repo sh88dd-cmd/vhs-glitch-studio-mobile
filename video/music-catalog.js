@@ -72,29 +72,31 @@ async function searchCommons(query,fetchFn=fetch){
 async function search(query,fetchFn=fetch){
  const q=String(query||'').trim().slice(0,120);
  if(q.length<2)throw Error('Введи хотя бы два символа для поиска.');
- if(/^https?:\/\//i.test(q))throw Error('Это ссылка, а не поисковый запрос. Для поиска введи название или жанр; для добавления аудиофайла используй поле ссылки ниже.');
- let primaryError=null;
+ if(/^https?:\/\//i.test(q))throw Error('Это ссылка, а не поисковый запрос. Для поиска введи название или жанр; для добавления аудиофайла используй поле ссылки.');
+ // Wikimedia Commons was verified to provide downloadable, CORS-enabled MP3 music.
+ // Prefer it so a successful search has better odds of working in the VHS mixer.
+ let commonsError=null;
+ try{
+  const tracks=await searchCommons(q,fetchFn);
+  if(tracks.length)return tracks;
+ }catch(e){commonsError=e.message||'ошибка каталога Wikimedia Commons';}
  try{
   const endpoint=new URL('https://api.openverse.org/v1/audio/');
   endpoint.searchParams.set('q',q);
-  endpoint.searchParams.set('page_size','20'); // Anonymous API hard maximum: 30 returns 401.
+  endpoint.searchParams.set('page_size','20'); // Anonymous searches above 20 return HTTP 401.
   endpoint.searchParams.set('category','music');
   endpoint.searchParams.set('license','cc0,pdm,by');
-  const res=await fetchFn(endpoint.toString(),{mode:'cors',credentials:'omit',headers:{Accept:'application/json'}});
-  if(!res.ok)throw Error('HTTP '+res.status);
-  const json=await res.json();
-  const tracks=(Array.isArray(json.results)?json.results:[]).map(normalize).filter(Boolean);
+  const response=await fetchFn(endpoint.toString(),{mode:'cors',credentials:'omit',headers:{Accept:'application/json'}});
+  if(!response.ok)throw Error('Openverse HTTP '+response.status);
+  const body=await response.json();
+  const tracks=(Array.isArray(body.results)?body.results:[]).map(normalize).filter(Boolean);
   if(tracks.length)return tracks;
- }catch(e){primaryError=e.message||'сетевая ошибка';}
- try{
-  const others=await searchCommons(q,fetchFn);
-  if(others.length)return others;
-  if(primaryError)throw Error('Openverse: '+primaryError+'; Wikimedia Commons не нашёл подходящих аудиофайлов.');
-  return [];
  }catch(e){
-  if(primaryError&&!e.message?.includes('Openverse:'))throw Error('Openverse: '+primaryError+'; Wikimedia Commons: '+e.message);
-  throw e;
+  if(commonsError)throw Error('Wikimedia Commons: '+commonsError+'; Openverse: '+e.message);
+  throw new Error('Резервный Openverse недоступен: '+e.message);
  }
+ if(commonsError)throw Error('Wikimedia Commons: '+commonsError+'; Openverse не нашёл подходящих треков.');
+ return [];
 }
 async function readAudio(url,fetchFn=fetch,signal){
  const remote=safeURL(url);
