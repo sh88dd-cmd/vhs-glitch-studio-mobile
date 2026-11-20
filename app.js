@@ -379,7 +379,6 @@
     ctx.putImageData(img,0,0);
     if(state.filmEnabled)paintFilmExtras(frame,w,h,state.film,seed);
     // Burn defects are still separate from analog video processing and have their own seed.
-    paintEdgeBurns(frame,state.edgeBurn);
     // Camera OSD is part of the video signal: draw BEFORE VHS so distortion hits
     // REC/PLAY/date/time/battery exactly as it hits the underlying pixels.
     drawCamera(frame,state.camera);
@@ -400,6 +399,8 @@
       }
       ctx.putImageData(video,0,0);
     }
+    // Film-edge exposure remains independent of VHS rerolls.
+    paintEdgeBurns(frame,state.edgeBurn);
     return drawBorder(frame,state.film);
   }
   // Catalogue: local recipes plus XMP imports persisted in IndexedDB.
@@ -732,7 +733,7 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.1.0');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.1.0');const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
