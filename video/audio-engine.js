@@ -25,10 +25,14 @@ class TapeAudio{
   this.saturator=ctx.createWaveShaper();this.saturator.oversample='none';
   this.gain=ctx.createGain();
   this.monitor=ctx.createMediaStreamDestination();
-  // Same processed graph serves local speakers and the exported audio track.
+  // Dry bypass preserves the unchanged original when VHS AUDIO is switched off.
+  this.dry=ctx.createGain();this.dry.gain.value=1;
+  this.wet=ctx.createGain();this.wet.gain.value=0;
+  this.source.connect(this.dry);this.dry.connect(ctx.destination);this.dry.connect(this.monitor);
+  // Same processed wet graph serves local speakers and the exported audio track.
   this.source.connect(this.filter);
   this.filter.connect(this.saturator);this.saturator.connect(this.delay);this.delay.connect(this.gain);
-  this.gain.connect(ctx.destination);this.gain.connect(this.monitor);
+  this.gain.connect(this.wet);this.wet.connect(ctx.destination);this.wet.connect(this.monitor);
   const buffer=ctx.createBuffer(1,Math.round(ctx.sampleRate*2),ctx.sampleRate);
   const samples=buffer.getChannelData(0);
   for(let i=0;i<samples.length;i++){samples[i]=(rand(73811,i)-.5)*2;}
@@ -51,18 +55,21 @@ class TapeAudio{
   const enabled=!!s.enabled&&strength>0;
   const type=s.mode==='hifi'?'hifi':'linear';
   const hz=enabled?(type==='hifi'?14800-(s.strength||0)*42:4900-(s.strength||0)*27):19500;
+  this.dry.gain.setTargetAtTime(enabled?0:1,now,.015);
+  this.wet.gain.setTargetAtTime(enabled?1:0,now,.015);
   this.filter.frequency.setTargetAtTime(C(hz,1100,19500),now,.028);
   this.filter.Q.setTargetAtTime(.5,now,.025);
   const distort=enabled?strength*C((s.saturation||0)/100,0,1):0;
   // AudioTape effect uses one simple, deterministic analog-like smooth saturation curve.
-  const curve=new Float32Array(257);
-  const drive=1+distort*5;
-  const denom=Math.tanh(drive);
-  for(let i=0;i<curve.length;i++)curve[i]=Math.tanh(((i/128)-1)*drive)/denom;
-  this.saturator.curve=curve;
+  if(distort>.002){
+   const curve=new Float32Array(257);
+   const drive=1+distort*5,denom=Math.tanh(drive);
+   for(let i=0;i<curve.length;i++)curve[i]=Math.tanh(((i/128)-1)*drive)/denom;
+   this.saturator.curve=curve;
+  }else this.saturator.curve=null;
   const wobble=enabled?(s.wow||0)/100*strength:0;
   const flutter=enabled?(s.flutter||0)/100*strength:0;
-  const delaySeconds=.012+wobble*.006*Math.sin(time*2.3)+flutter*.0016*Math.sin(time*26.4);
+  const delaySeconds=enabled?.012+wobble*.006*Math.sin(time*2.3)+flutter*.0016*Math.sin(time*26.4):0;
   this.delay.delayTime.setTargetAtTime(C(delaySeconds,0,.065),now,.018);
   let dropout=1;
   if(enabled&&(s.drop||0)>0){
