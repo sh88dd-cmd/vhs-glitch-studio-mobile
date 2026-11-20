@@ -1,4 +1,4 @@
-/* VHS Video Lab 0.3.0 — sticky monitor + enlarged processed canvas player.
+/* VHS Video Lab 0.3.1 — sticky monitor + enlarged processed canvas player.
  * A pure UI adapter: playback and decoding remain in app.js, and only the
  * already-processed preview is mirrored. No additional effects/render passes.
  */
@@ -10,13 +10,19 @@ const fmt=s=>{if(!Number.isFinite(s)||s<0)return'00:00';const n=Math.floor(s);re
 function create(config){
  const {source,preview,getState,onPlay,onReroll,onUndo,onPrev,onNext,onSeek}=config;
  const dock=$('monitorDock'),viewer=$('videoViewer'),body=document.body;
+ let previousReady=false;
  function state(){return getState()||{}}
  function updateVisibility(){
   const s=state(),rect=$('videoStage').getBoundingClientRect();
   const visible=!!s.file&&source.readyState>=2&&rect.bottom<=0&&!viewer.open;
+  const wasHidden=dock.hidden;
   dock.hidden=!visible;
   body.classList.toggle('dock-visible',visible);
-  if(visible)mirror();
+  if(visible){
+   const height=Math.ceil(dock.getBoundingClientRect().height||0);
+   if(height>0&&body.style?.setProperty)body.style.setProperty('--dock-height',height+'px');
+   if(wasHidden)mirror();
+  }
  }
  function mirror(){
   if(!state().file)return;
@@ -53,13 +59,16 @@ function create(config){
   $('viewerNext').disabled=!usable||!s.hasNext;
   $('dockFileName').textContent=s.file?.name||'Видеомонитор';
   $('viewerName').textContent=s.file?.name||'Просмотр видео';
-  updateVisibility();
+  if(hasVideo!==previousReady){
+   previousReady=hasVideo;
+   updateVisibility();
+  }
  }
  function open(){
   if(!state().file||source.readyState<2||viewer.open)return;
   viewer.showModal();
   body.classList.add('viewer-open');
-  sync();mirror();
+  updateVisibility();sync();mirror();
  }
  function close(){if(viewer.open)viewer.close()}
  function seek(value){
@@ -87,7 +96,7 @@ function create(config){
  for(const event of ['play','pause','timeupdate','seeked','loadedmetadata','loadeddata','ended'])source.addEventListener(event,sync);
  window.addEventListener('scroll',updateVisibility,{passive:true});
  window.addEventListener('resize',updateVisibility);
- sync();
+ sync();updateVisibility();
  return Object.freeze({render:mirror,sync,updateVisibility,open,close});
 }
 root.VHSVideoPlayerUI=Object.freeze({create});
