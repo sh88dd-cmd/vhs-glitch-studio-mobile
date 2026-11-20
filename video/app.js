@@ -223,7 +223,7 @@
   if(p.battery){const bw=size*1.8,bh=size*.69,x=w-pad-bw-size*.2,y=pad;ctx.strokeStyle='#f8f7e8';ctx.lineWidth=Math.max(1,size*.08);ctx.strokeRect(x,y,bw,bh);ctx.fillStyle='#f5f3ec';ctx.fillRect(x+bw,y+bh*.28,size*.14,bh*.44);ctx.fillRect(x+size*.12,y+size*.10,bw*.58,bh-size*.2);}
   ctx.restore();
  }
- function drawFrame(canvas){
+ function drawFrame(canvas,forExport=false){
   if(!file||source.readyState<2||!source.videoWidth)return;
   const ctx=canvas.getContext('2d',{willReadFrequently:true});
   // Letterbox video; source aspect ratio is never stretched.
@@ -258,7 +258,7 @@
   }
   if(state.glitchEnabled||state.mode!=='vhs'){
    const signal=ctx.getImageData(0,0,canvas.width,canvas.height);
-   const engine=recording?exportProcessor:previewProcessor;
+   const engine=forExport||recording?exportProcessor:previewProcessor;
    engine.apply(signal.data,canvas.width,canvas.height,{
     time,seed:clipSeed(),mode:state.mode,modeStrength:state.modeStrength,splicePulse,
     tape:state.tape,density:state.eventDensity,
@@ -282,7 +282,7 @@
   try{
    syncAudio(true);
    if(recording){
-    drawFrame(recordCanvas);
+    drawFrame(recordCanvas,true);
     stage.drawImage(recordCanvas,0,0,preview.width,preview.height);
     const max=state.exportScope==='full'?(clipTotalTime()||source.duration||30):Math.min(30,clipTotalTime()||source.duration||30);
     const elapsed=globalVideoTime();
@@ -456,7 +456,7 @@
     }catch(e){exportStatus('Звук недоступен: '+e.message+'. Продолжаю без звука.');}
    }
    // A playable processed frame is present before encoding starts.
-   drawFrame(recordCanvas);
+   drawFrame(recordCanvas,true);
    const blobs=[];
    const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:3_000_000});
    recording=rec;exportStopRequested=false;
