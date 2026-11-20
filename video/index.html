@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="../icons/icon-192.png">
 <link rel="apple-touch-icon" href="../icons/icon-180.png">
-<link rel="stylesheet" href="./styles.css?v=0.1.0">
+<link rel="stylesheet" href="./styles.css?v=0.2.0">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.1.0 · НА ОСНОВЕ ПРИНЦИПОВ NTSC-RS</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.2.0 · АНАЛОГОВЫЕ И ЦИФРОВЫЕ СБОИ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -28,25 +28,40 @@
   <video id="source" playsinline preload="metadata"></video>
   <canvas id="recordCanvas" width="480" height="270"></canvas>
   <div class="stageButtons">
-    <label class="button primary">＋ Открыть видео<input id="videoInput" type="file" accept="video/*" hidden></label>
+    <label class="button primary">＋ Открыть видео<input id="videoInput" type="file" accept="video/*" multiple hidden></label>
     <button id="play" class="button" disabled>▶ Просмотр</button>
-    <button id="regenerate" class="button" disabled title="Новый рисунок помех">↻ Помехи</button>
+    <div class="seedActions"><button id="undoGlitch" type="button" class="button seedUndo" disabled title="Предыдущий рисунок помех" aria-label="Вернуть предыдущие помехи">↶</button><button id="regenerate" class="button" disabled title="Новый рисунок помех">↻ Помехи</button></div>
   </div>
+  <div class="playlistRow"><span id="clipLabel" class="hint">Один видеоклип</span><button class="button mini" type="button" id="prevClip" disabled>← Клипы</button><button class="button mini" type="button" id="nextClip" disabled>След. →</button></div>
   <div class="seekRow"><span id="timeCurrent">00:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Позиция видео" disabled><span id="timeTotal">00:00</span></div>
   <p id="status" class="hint" role="status" aria-live="polite">Все файлы остаются на устройстве. Для теста подойдут короткие видеоролики.</p>
 </section>
 <nav class="tabs" aria-label="Разделы обработки">
   <button class="active" data-tab="vhs">VHS</button>
+  <button data-tab="glitch">ГЛИТЧ</button>
   <button data-tab="film">FILM</button>
+  <button data-tab="audio">ЗВУК</button>
   <button data-tab="camera">КАМЕРА</button>
   <button data-tab="export">ЭКСПОРТ</button>
 </nav>
 <section id="panel-vhs" class="panel active">
   <h2>АНАЛОГОВЫЙ ВИДЕОСИГНАЛ</h2>
   <div class="switch"><span>Включить VHS</span><input id="vhsEnabled" type="checkbox" checked></div>
+  <label>Режим изображения<select id="modeSelect"><option value="vhs">VHS / Кассета</option><option value="minidv">MiniDV / 2000-е</option><option value="crt">CRT / Сломанный телевизор</option><option value="night">Night Vision / Ночное видение</option></select></label>
+  <div id="modeStrengthControl"></div>
   <label>Характер кассеты<select id="vhsPreset"><option value="classic">VHS 90s</option><option value="camcorder">Camcorder 90s</option><option value="damaged">Повреждённая кассета</option></select></label>
+  <label>Тип видеокассеты<select id="tapeKind"></select></label>
   <div id="vhsControls"></div>
   <p class="hint">Это первая браузерная реализация. Для финального движка предусмотрен переход на оригинальное ядро ntsc-rs в WebAssembly. Расположение помех меняется от кадра к кадру.</p>
+</section>
+<section id="panel-glitch" class="panel">
+  <h2>ДОПОЛНИТЕЛЬНЫЕ ПОВРЕЖДЕНИЯ СИГНАЛА</h2>
+  <div class="switch"><span>Включить дополнительные эффекты</span><input type="checkbox" id="glitchEnabled" checked></div>
+  <p class="hint">Каждая помеха регулируется независимо. Значение 0% — выключена. Сбои возникают в разные моменты, а расположение и сила повторяются при просмотре и экспорте с тем же рисунком.</p>
+  <div id="eventControls"></div>
+  <div class="presetButtons"><button type="button" class="button mini" id="gentleGlitch">Мягко</button><button type="button" class="button mini" id="chaosGlitch">Повреждено</button><button type="button" class="button mini" id="offGlitch">Выключить всё</button></div>
+  <div id="glitchControls"></div>
+  <p class="hint">Datamosh и Frame Echo используют предыдущие кадры. После перемотки предпросмотр набирает временную историю заново; для точного результата смотри движение от начала сцены.</p>
 </section>
 <section id="panel-film" class="panel">
   <h2>ПЛЁНОЧНЫЕ ФИЛЬТРЫ</h2>
@@ -62,6 +77,13 @@
     <p id="filmImportStatus" class="hint"></p>
   </details>
 </section>
+<section id="panel-audio" class="panel">
+  <h2>ЗВУК ВИДЕОКАССЕТЫ / VHS AUDIO DAMAGE</h2>
+  <div class="switch"><span>Повреждать звук</span><input type="checkbox" id="audioEnabled"></div>
+  <label>Тип звуковой дорожки<select id="audioMode"><option value="linear">VHS Linear / SP-LP-EP</option><option value="hifi">VHS Hi-Fi AFM</option></select></label>
+  <div id="audioControls"></div>
+  <p class="hint">Низкие и высокие частоты, шипение, плавание скорости (wow/flutter), провалы громкости и насыщение. При доступном экспорте звуковые эффекты записываются вместе с видео. Для воспроизведения обработанного звука на iPhone нажми ▶.</p>
+</section>
 <section id="panel-camera" class="panel">
   <h2>ИНДИКАТОРЫ КАМЕРЫ</h2>
   <div class="switch"><span>REC</span><input type="checkbox" id="recOn"></div>
@@ -73,11 +95,12 @@
 </section>
 <section id="panel-export" class="panel">
   <h2>СОХРАНЕНИЕ ВИДЕО</h2>
-  <label>Размер видео<select id="outputSize"><option value="480">480p — для первого теста</option><option value="720">720p — выше качество</option></select></label>
+  <label>Размер видео<select id="outputSize"><option value="360">360p — быстрее на iPhone</option><option value="480">480p — баланс качества</option><option value="720">720p — высокая нагрузка</option></select></label>
   <label>Частота кадров<select id="fps"><option value="15">15 кадров/с — быстрее</option><option value="24">24 кадра/с — плавнее</option></select></label>
-  <div class="switch"><span>Сохранить исходный звук, если поддерживается</span><input id="keepAudio" type="checkbox" checked></div>
-  <p class="hint">Тестовый экспорт: первые 30 секунд ролика, в реальном времени. Не сворачивай приложение во время экспорта. MP4 зависит от поддерживаемых iPhone кодеков; в противном случае будет предложен WebM или появится сообщение о несовместимости.</p>
-  <button class="button primary full" id="export" disabled>↓ Создать тестовое видео</button>
+  <label>Длительность экспорта<select id="exportScope"><option value="30">Первые 30 секунд / короткий тест</option><option value="full">Весь ролик / все выбранные клипы</option></select></label>
+  <div class="switch"><span>Сохранить звук (оригинал или VHS-обработку)</span><input id="keepAudio" type="checkbox" checked></div>
+  <p class="hint">Экспорт работает в реальном времени. Все эффекты видны и записываются в одном конвейере. На iPhone не сворачивай приложение; длительные ролики, 720p и сложные эффекты могут перегружать память. Поддержка MP4/AAC зависит от Safari; WebM возможен как резервный формат.</p>
+  <button class="button primary full" id="export" disabled>↓ Сохранить обработанное видео</button>
   <button class="button danger full" id="cancel" hidden>Остановить экспорт</button>
   <progress id="progress" value="0" max="100" hidden></progress>
   <p class="hint" id="exportStatus" role="status" aria-live="polite"></p>
@@ -87,11 +110,13 @@
     <button id="share" class="button full">Поделиться / Сохранить в «Фото»</button>
   </div>
 </section>
-<footer><span>VHS Video Lab · 0.1.0</span><span>Оригинальная обработка: <a href="https://ntsc.rs" target="_blank" rel="noreferrer">ntsc-rs</a> — источник технического вдохновения, не встроенная библиотека на этом этапе.</span></footer>
+<footer><span>VHS Video Lab · 0.2.0</span><span>Оригинальная обработка: <a href="https://ntsc.rs" target="_blank" rel="noreferrer">ntsc-rs</a> — источник технического вдохновения, не встроенная библиотека на этом этапе.</span></footer>
 </main>
 <script src="../jszip.min.js" defer></script>
 <script src="../ntsc-photo.js?v=1.1.3" defer></script>
 <script src="./film-core.js?v=0.1.0" defer></script>
-<script src="./app.js?v=0.1.0" defer></script>
+<script src="./glitch-engine.js?v=0.2.0" defer></script>
+<script src="./audio-engine.js?v=0.2.0" defer></script>
+<script src="./app.js?v=0.2.0" defer></script>
 </body>
 </html>
