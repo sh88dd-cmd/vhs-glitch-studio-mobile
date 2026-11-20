@@ -560,6 +560,7 @@
    source.pause();
    if(clipIndex!==0)await selectClip(0,false);
    await seekToStart();
+   source.loop=false; // selectClip/onLoaded may have restored preview looping.
    let stream=recordCanvas.captureStream(Number(state.fps));
    recordStream=stream;
    if(state.keepAudio){
