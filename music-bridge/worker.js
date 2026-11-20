@@ -130,6 +130,8 @@ export default {
   if(u.pathname==='/health')return json({ok:true,configured:!!env.BRIDGE_KEY&&env.BRIDGE_KEY.length>=20,
    telegram:!!(env.TRACKS&&env.TELEGRAM_BOT_TOKEN&&env.TELEGRAM_WEBHOOK_SECRET&&env.TELEGRAM_USER_ID)},200,cors);
   if(!authorized(request,env))return json({error:'Неверный секретный ключ аудиомоста.'},401,cors);
+  if(u.pathname==='/status')return json({ok:true,configured:true,authorized:true,
+   telegram:!!(env.TRACKS&&env.TELEGRAM_BOT_TOKEN&&env.TELEGRAM_WEBHOOK_SECRET&&env.TELEGRAM_USER_ID)},200,cors);
   if(u.pathname==='/tracks'){
    if(!env.TRACKS||!env.TELEGRAM_BOT_TOKEN)return json({error:'Telegram библиотека не подключена.'},503,cors);
    const listing=await env.TRACKS.list({prefix:'song:',limit:80});
