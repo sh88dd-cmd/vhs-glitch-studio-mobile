@@ -304,8 +304,8 @@
   $('reloadMusic').disabled=musicLoading;
   $('clearMusicMemory').disabled=musicLoading||!audioEngine.musicBuffer;
   $('musicMemoryStatus').textContent=audioEngine.musicBuffer?
-   'Временная память музыки: около '+audioEngine.getMusicMemoryMB()+' МБ. После очистки трек можно восстановить по ссылке.':
-   'Аудиоданные не загружены в память. Сохранены только название и ссылка.';
+   'Временная память музыки: около '+audioEngine.getMusicMemoryMB()+' МБ. После очистки трек можно восстановить онлайн.':
+   'Аудиоданные не загружены в память. '+(track.kind==='telegram'?'Сохранён идентификатор в личной Telegram-библиотеке.':'Сохранены только название и ссылка.');
  }
  async function loadMusicTrack(track,inputFile=null){
   if(recording)return musicLoadStatus('Останови экспорт перед заменой музыки.');
@@ -364,7 +364,9 @@
   if(state.selectedTrack){
    musicLoadStatus(state.selectedTrack.kind==='file'?
     'Музыка удалена из оперативной памяти. Для продолжения выбери этот файл заново.':
-    'Музыка удалена из оперативной памяти. Ссылка на трек сохранена — нажми «↻ Восстановить» при необходимости.');
+    'Музыка удалена из оперативной памяти. '+(state.selectedTrack.kind==='telegram'?
+       'Трек остаётся в твоём Telegram — нажми «↻ Восстановить».':
+       'Ссылка на трек сохранена — нажми «↻ Восстановить».'));
   }else musicLoadStatus('Музыкальный буфер очищен.');
  }
  function releaseOnLeave(event){
@@ -589,7 +591,7 @@
   $('clearMusicMemory').onclick=clearMusicFromMemory;
   $('reloadMusic').onclick=()=>{
    const track=state.selectedTrack;
-   if(track?.url&&track.kind!=='file')loadMusicTrack(track);
+   if(track&&(track.kind==='telegram'||track.url)&&track.kind!=='file')loadMusicTrack(track);
    else musicLoadStatus('Этот аудиофайл нужно выбрать заново на телефоне.');
   };
   $('copyMusicCredit').onclick=async()=>{
