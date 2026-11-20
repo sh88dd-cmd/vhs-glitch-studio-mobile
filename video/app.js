@@ -36,7 +36,10 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
- let musicSearchResults=[],musicTrackInfo=null,musicRequest=0,musicLoading=false,musicSearchTimer=null,musicSearchToken=0,musicAbort=null;
+ let musicSearchResults=[],musicTrackInfo=null,musicRequest=0,musicLoading=false,musicSearchTimer=null,musicSearchToken=0,musicAbort=null,musicPreviewBlobURL='';
+ const bridge={url:'',key:''};
+ try{bridge.url=localStorage.getItem('vhs.video.music.bridge.url')||'';}catch{}
+ try{bridge.key=sessionStorage.getItem('vhs.video.music.bridge.key')||'';}catch{}
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
@@ -292,8 +295,9 @@
   $('musicArtist').textContent=track.creator||'Автор неизвестен';
   const catalog=window.VHSVideoMusicCatalog;
   const credit=track.kind==='openverse'?catalog.attribution(track):
-   (track.kind==='direct'?'Добавлено по прямой ссылке. Убедись, что у тебя есть право использовать трек.':
-    'Выбран локальный аудиофайл. После перезапуска его нужно добавить заново.');
+   track.kind==='telegram'?'Получено из твоей личной Telegram-библиотеки. Используй музыку, на которую у тебя есть права.':
+   track.kind==='direct'?'Добавлено по прямой ссылке. Убедись, что у тебя есть право использовать трек.':
+    'Выбран локальный аудиофайл. После перезапуска его нужно добавить заново.';
   $('musicCredit').textContent=credit;
   $('copyMusicCredit').disabled=track.kind!=='openverse';
   $('reloadMusic').hidden=!!audioEngine.musicBuffer||track.kind==='file';
@@ -314,6 +318,7 @@
   audioEngine.setMusicBuffer(null);
   const audition=$('musicSample');
   audition.pause();audition.removeAttribute('src');audition.load();audition.hidden=true;
+  revokePreviewAudio();
   showMusicSelection();
   try{
    // Called from an explicit button/file action: unlock iOS AudioContext first.
@@ -323,7 +328,9 @@
     if(inputFile.size>window.VHSVideoMusicCatalog.MAX_BYTES)throw Error('Аудиофайл больше 18 МБ. Выбери более короткий.');
     bytes=await inputFile.arrayBuffer();
    }else{
-    bytes=await window.VHSVideoMusicCatalog.readAudio(track.url,fetch,musicAbort?.signal);
+    bytes=track.kind==='telegram'?
+     await window.VHSVideoMusicCatalog.readBridgeAudio(track,bridge,fetch,musicAbort?.signal):
+     await window.VHSVideoMusicCatalog.readAudio(track.url,fetch,musicAbort?.signal,bridge);
    }
    if(request!==musicRequest)return;
    const buffer=await audioEngine.ctx.decodeAudioData(bytes.slice(0));
@@ -388,6 +395,68 @@
    });
    parent.append(button);
   }
+ }
+ function revokePreviewAudio(){
+  if(musicPreviewBlobURL){
+   try{URL.revokeObjectURL(musicPreviewBlobURL)}catch{}
+   musicPreviewBlobURL='';
+  }
+ }
+ function bridgeStatus(msg){$('musicBridgeStatus').textContent=msg;}
+ function currentBridge(){return{url:bridge.url,key:bridge.key};}
+ function storeBridge(){
+  const raw=$('musicBridgeUrl').value.trim().replace(/\/+$/,'');
+  const secret=$('musicBridgeKey').value.trim();
+  let u;try{u=new URL(raw)}catch{bridgeStatus('Неверный HTTPS-адрес Cloudflare Worker.');return false;}
+  if(u.protocol!=='https:'||!u.hostname||u.username||u.password||u.search||u.hash){
+   bridgeStatus('Укажи корневой HTTPS-адрес своего Worker без параметров.');return false;
+  }
+  if(secret.length<20){bridgeStatus('Введи секретный ключ Worker длиной от 20 символов.');return false;}
+  bridge.url=u.href.replace(/\/+$/,'');bridge.key=secret;
+  try{localStorage.setItem('vhs.video.music.bridge.url',bridge.url)}catch{}
+  try{sessionStorage.setItem('vhs.video.music.bridge.key',bridge.key)}catch{}
+  bridgeStatus('Адрес и ключ подключены. Проверь связь или открой «Мои треки из Telegram».');
+  return true;
+ }
+ async function testBridge(){
+  if(!bridge.url||!bridge.key){if(!storeBridge())return;}
+  bridgeStatus('Проверяю Cloudflare Worker…');
+  try{
+   const status=await window.VHSVideoMusicCatalog.bridgeHealth(currentBridge(),fetch);
+   bridgeStatus(status.configured?
+    'Личный аудиомост отвечает. '+(status.telegram?'Библиотека Telegram включена.':'Telegram пока не настроен; доступен импорт разрешённых публичных аудиофайлов.'):
+    'Worker отвечает, но секретный ключ BRIDGE_KEY ещё не настроен на сервере.');
+  }catch(e){bridgeStatus('Не удалось подключить Worker: '+e.message);}
+ }
+ async function listTelegramMusic(){
+  if(!bridge.url||!bridge.key){if(!storeBridge())return;}
+  if(musicLoading)return bridgeStatus('Сначала закончи текущую загрузку музыки.');
+  bridgeStatus('Загружаю названия треков из твоего Telegram…');
+  try{
+   const tracks=await window.VHSVideoMusicCatalog.bridgeTracks(currentBridge(),fetch);
+   musicSearchResults=tracks;
+   renderMusicResults();
+   bridgeStatus(tracks.length?
+    'В личной библиотеке '+tracks.length+' треков. Выбери «Прослушать» или «Добавить» ниже.':
+    'Личная библиотека пока пуста. Отправь аудиофайл своему боту в Telegram и обнови список.');
+   $('onlineMusicStatus').textContent='Показаны песни из твоей личной Telegram-библиотеки.';
+  }catch(e){bridgeStatus('Не удалось открыть библиотеку: '+e.message);}
+ }
+ function mountPrivateBridge(){
+  $('musicBridgeUrl').value=bridge.url;
+  $('musicBridgeKey').value=bridge.key;
+  $('saveMusicBridge').onclick=storeBridge;
+  $('testMusicBridge').onclick=testBridge;
+  $('refreshTelegramTracks').onclick=listTelegramMusic;
+  $('disableMusicBridge').onclick=()=>{
+   bridge.url='';bridge.key='';
+   try{localStorage.removeItem('vhs.video.music.bridge.url')}catch{}
+   try{sessionStorage.removeItem('vhs.video.music.bridge.key')}catch{}
+   $('musicBridgeUrl').value='';$('musicBridgeKey').value='';
+   bridgeStatus('Личный аудиомост отключён. Обычный поиск открытой музыки продолжает работать.');
+  };
+  bridgeStatus(bridge.url&&bridge.key?'Аудиомост указан. Нажми «Проверить».':
+   'Аудиомост ещё не подключён. Для Telegram нужны собственный Cloudflare Worker и бот (инструкция в GitHub/music-bridge).');
  }
  function removeMusicTrack(){
   if(recording)return;
@@ -478,7 +547,7 @@
    };
   }
   $('musicLoop').onchange=()=>{state.mix.musicLoop=$('musicLoop').checked;persist();syncAudio(!source.paused);};
-  mountRecommendedMusic();
+  mountRecommendedMusic();mountPrivateBridge();
   $('searchOnlineMusic').onclick=searchOnlineMusic;
   $('onlineMusicSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(musicSearchTimer)clearTimeout(musicSearchTimer);searchOnlineMusic();}});
   $('onlineMusicSearch').addEventListener('input',()=>{
