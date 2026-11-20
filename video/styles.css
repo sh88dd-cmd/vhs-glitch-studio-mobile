@@ -104,3 +104,68 @@ body.viewer-open .monitorDock{display:none!important}
 .viewerButtons .viewerPlay{flex:1.4;background:#eee;color:#111;font-size:21px}
 @media(orientation:landscape) and (max-height:600px){.viewerHead{padding-top:calc(env(safe-area-inset-top,0px) + 3px);padding-bottom:3px}.viewerHead button{height:29px;width:31px}.viewerControls{padding:3px 13px calc(env(safe-area-inset-bottom,0px) + 6px)}.viewerButtons{margin-top:4px}.viewerButtons button{height:30px}}
 @media(max-width:360px){#dockCanvas{width:38vw;flex-basis:38vw}.dockActions{gap:3px}.dockButton{font-size:17px}.cameraCardOptions{gap:5px}}
+
+
+/* VHS VIDEO LAB v0.3.1 — larger video first, tiny controls UNDER the frame. */
+.monitorDock{
+ padding:5px max(7px,env(safe-area-inset-left,0px)) 6px;
+ background:#090909f9;
+}
+.monitorDock .dockUpper{
+ display:flex;flex-direction:column;align-items:stretch;gap:5px;
+ width:100%;max-width:670px;margin:0 auto;
+}
+.monitorDock .dockScreen{
+ display:flex;align-items:center;justify-content:center;position:relative;
+ width:100%;background:#000;border-radius:5px;overflow:hidden;
+}
+.monitorDock #dockCanvas{
+ display:block;width:100%;height:auto;max-height:min(30svh,250px);
+ aspect-ratio:auto;object-fit:contain;background:#000;
+ border:0;border-radius:4px;flex:none;
+}
+.monitorDock .dockExpand{
+ position:absolute;right:7px;top:7px;width:28px;height:28px;
+ display:flex;align-items:center;justify-content:center;
+ border:1px solid #777;border-radius:5px;padding:0;
+ font-size:19px;line-height:1;background:#161616d9;color:#f2f2f2;
+}
+.monitorDock .dockBottom{
+ display:flex;align-items:center;gap:5px;width:100%;min-width:0;
+}
+.monitorDock .dockButton{
+ flex:0 0 30px;width:30px;height:29px;min-height:29px;
+ border:1px solid #707070;border-radius:5px;
+ background:#262626;color:#f4f4f4;font-size:18px;line-height:1;padding:0;
+}
+.monitorDock .dockPlay{background:#ddd;color:#111;font-size:17px}
+.monitorDock .dockTimeline{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.monitorDock .dockTimes{
+ display:flex;align-items:center;justify-content:space-between;gap:4px;
+ font-size:9px;line-height:1.1;color:#d2d2d2;
+}
+.monitorDock .dockName{
+ flex:1;min-width:0;text-align:center;
+ white-space:nowrap;text-overflow:ellipsis;overflow:hidden;
+ font-size:9px;color:#a8a8a8;
+}
+.monitorDock .dockSeek{
+ width:100%;height:13px;margin:0;padding:0;display:block;
+}
+body.dock-visible .tabs{
+ top:calc(env(safe-area-inset-top,0px) + var(--dock-height,285px));
+}
+body.dock-visible .panel{
+ scroll-margin-top:calc(var(--dock-height,285px) + 48px);
+}
+@media(max-width:360px){
+ .monitorDock #dockCanvas{width:100%;height:auto;max-height:min(30svh,230px);flex:none}
+ .monitorDock .dockBottom{gap:3px}
+ .monitorDock .dockButton{flex-basis:27px;width:27px;height:28px}
+ .monitorDock .dockName{font-size:8px}
+}
+@media(orientation:landscape) and (max-height:540px){
+ .monitorDock #dockCanvas{max-height:26svh}
+ .monitorDock .dockUpper{max-width:420px}
+ .monitorDock .dockButton{height:26px}
+}
