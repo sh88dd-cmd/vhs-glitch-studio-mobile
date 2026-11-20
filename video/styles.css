@@ -202,3 +202,29 @@ body.dock-visible .panel{
 .timelineEmpty{font-size:11px;color:#999;padding:12px;text-align:center;border:1px dashed #555;border-radius:7px}
 body.dock-visible .specialModeBar{scroll-margin-top:calc(var(--dock-height,280px) + 35px)}
 @media(max-width:360px){.tabs button{min-width:61px;font-size:9px}.specialModeButtons .modeChoice{font-size:9px}}
+
+
+/* VHS Video Lab 0.5: local video/music mixer and online audio discovery. */
+.musicSearchRow{display:flex;align-items:flex-start;gap:7px;margin-bottom:4px}
+.musicSearchRow input{flex:1;min-width:0;margin:0}
+.musicSearchRow .button{flex:none;min-width:70px}
+.onlineMusicResults{display:grid;gap:8px;margin:12px 0}
+.onlineMusicResult{background:#191919;border:1px solid #505050;border-radius:9px;padding:10px;display:grid;gap:8px}
+.onlineMusicResult .musicResultTitle{font-size:12px;color:#fff;font-weight:750;line-height:1.3;word-break:break-word}
+.onlineMusicResult .musicResultMeta{font-size:10px;color:#aaa;line-height:1.45}
+.onlineMusicResult .musicResultActions{display:flex;gap:7px;align-items:center}
+.onlineMusicResult .button{flex:1;min-width:0;min-height:35px;font-size:11px;padding:7px 6px}
+.onlineMusicResults .emptyMusicSearch{color:#aaa;font-size:11px;line-height:1.5;padding:10px 2px}
+#musicSample{display:block;width:100%;margin:9px 0;min-height:42px;background:#202020}
+.musicSelection{background:#1b1b1b;border:1px solid #616161;border-radius:10px;padding:13px;margin:16px 0}
+.musicSelectedTitle{font-size:10px;font-weight:750;letter-spacing:1px;color:#bbb;margin-bottom:7px}
+#musicTitle{display:block;color:#fff;font-size:14px;overflow-wrap:anywhere}
+#musicArtist{display:block;font-size:12px;margin:5px 0}
+.musicSelectedActions{display:flex;gap:7px;margin-top:10px}
+.musicSelectedActions .button{flex:1;min-width:0;font-size:10px;min-height:37px}
+#musicCredit{font-size:10px;white-space:pre-wrap;word-break:break-word}
+.musicTimes{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.musicTimes label{min-width:0;font-size:11px}
+.musicTimes input{display:block;width:100%;min-width:0;margin:6px 0 12px;padding:11px 9px;border:1px solid #666;border-radius:8px;background:#202020;color:#f1f1f1;font-size:13px}
+#panel-library h2{margin-top:15px}
+@media(max-width:360px){.onlineMusicResult .musicResultActions{gap:4px}.musicSelectedActions .button{font-size:9px}}
