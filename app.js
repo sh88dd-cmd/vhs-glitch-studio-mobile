@@ -13,13 +13,14 @@
     fx:{hiss:74,wobble:42,tear:28,chroma:40,rgb:35,grain:35,streaks:0},
     film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,caption:false,captionText:'',captionSize:100,customLut:false},
     camera:{date:{on:false,text:'PM 10:28 | JUN 16 1995',position:'right-bottom',size:125},rec:{on:false,position:'left-top',size:125},play:{on:false,position:'left-top',size:125},battery:{on:false,position:'right-top',size:125,level:'LOW'}},
-    singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg'
+    singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[]
   };
   let state=clone(defaults);
   try{
     const saved=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');
     if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera}};}
   }catch(e){console.warn('Settings unavailable',e);}
+  if(!Array.isArray(state.favoriteFilms))state.favoriteFilms=[];
   state.seed=crypto.getRandomValues(new Uint32Array(1))[0];
   const effectDefs=[
     ['hiss','Белые шипящие полосы',74],['wobble','Волны / дрожание строк',42],
@@ -28,7 +29,7 @@
     ['streaks','Тонкие цветные штрихи',0]
   ];
   const positions=[['left-top','Слева сверху'],['right-top','Справа сверху'],['left-bottom','Слева снизу'],['right-bottom','Справа снизу']];
-  const looks={}; let xmpProfiles=[];let activeLook=null;let cubeLut=null;let filmPage=0;let batchFiles=[];let batchPage=0;let dialogFileIndex=-1;let busy=false;
+  const looks={}; let xmpProfiles=[];let activeLook=null;let cubeLut=null;let filmPage=0;let favoritesPage=0;let batchFiles=[];let batchPage=0;let dialogFileIndex=-1;let busy=false;
   let original=null, photoName='photo',showingOriginal=false; let latestPreview=null, rendering=false, rerender=false, renderTimer=0, pageToken=0;
   const PREVIEW_MAX=1040, BATCH_PREVIEW=440, FILM_PAGE_SIZE=24;
   const power={"VHS 90s":1,"Camcorder 90s":.75,"VHS — мягкий":.4,"VHS — повреждённая кассета":1.25,"Dirty VHS Extreme":1.4,"Tracking Error":1.2,"Аналоговый шум":.8,"Цветные помехи":1.15,"RGB Split":1.0};
@@ -234,17 +235,48 @@
     else filmXMP(img.data,xmpProfiles.find(p=>p.id===item.id),.95);
     ctx.putImageData(img,0,0);
   }
-  function showFilmGrid(){refreshCategories();renderFilmPage();}
-  function renderFilmPage(){const items=shownFilms(),pages=Math.max(1,Math.ceil(items.length/FILM_PAGE_SIZE));filmPage=clamp(filmPage,0,pages-1);const data=items.slice(filmPage*FILM_PAGE_SIZE,(filmPage+1)*FILM_PAGE_SIZE);
-    $('filmCount').textContent=`${items.length} профилей · ${Object.keys(looks).length} встроено · ${xmpProfiles.length} XMP`;
-    $('filmPageLabel').textContent=`${filmPage+1} / ${pages}`;
-    $('prevFilmPage').disabled=filmPage===0;$('nextFilmPage').disabled=filmPage>=pages-1;
-    const grid=$('filmGrid');grid.replaceChildren();const sample=getSampleImage();
-    for(const item of data){const btn=document.createElement('button');btn.type='button';btn.className='filmcard';if(state.film.profileId===item.id || (!state.film.profileId&&item.type==='builtin'&&state.film.name===item.name))btn.classList.add('selected');
+  function showFilmGrid(){refreshCategories();renderFilmPage();renderFavoritesPage();}
+  function favoriteItems(){return catalog().filter(item=>state.favoriteFilms.includes(item.id));}
+  function renderFilmCards(grid,items){
+    grid.replaceChildren();const sample=getSampleImage();
+    for(const item of items){
+      const wrap=document.createElement('div');wrap.className='filmcardWrap';
+      const btn=document.createElement('button');btn.type='button';btn.className='filmcard';
+      if(state.film.profileId===item.id||(!state.film.profileId&&item.type==='builtin'&&state.film.name===item.name))btn.classList.add('selected');
       const cv=document.createElement('canvas');cv.className='thumb';paintFilmThumb(cv,item,sample);
       const txt=document.createElement('span');txt.textContent=item.name.replace(' — стиль','');btn.title=item.name;btn.append(cv,txt);
-      btn.addEventListener('click',()=>{if(item.type==='xmp'){state.film.profileId=item.id;activeLook=xmpProfiles.find(x=>x.id===item.id);}else{state.film.name=item.name;state.film.profileId='';activeLook=null;}state.filmEnabled=true;$('filmEnabled').checked=true;persist();grid.querySelectorAll('.filmcard').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');schedulePreview();});grid.append(btn);
+      btn.addEventListener('click',()=>{
+        if(item.type==='xmp'){state.film.profileId=item.id;activeLook=xmpProfiles.find(x=>x.id===item.id);}
+        else{state.film.name=item.name;state.film.profileId='';activeLook=null;}
+        state.filmEnabled=true;$('filmEnabled').checked=true;persist();
+        document.querySelectorAll('.filmcard.selected').forEach(b=>b.classList.remove('selected'));
+        btn.classList.add('selected');schedulePreview();
+      });
+      const star=document.createElement('button');star.type='button';star.className='favoriteToggle';
+      const marked=state.favoriteFilms.includes(item.id);star.textContent=marked?'★':'☆';
+      star.setAttribute('aria-pressed',String(marked));star.title=marked?'Убрать из избранного':'Добавить в избранное';star.setAttribute('aria-label',star.title+': '+item.name);
+      star.addEventListener('click',()=>{
+        if(state.favoriteFilms.includes(item.id))state.favoriteFilms=state.favoriteFilms.filter(id=>id!==item.id);
+        else state.favoriteFilms.push(item.id);
+        persist();renderFilmPage();renderFavoritesPage();
+      });
+      wrap.append(btn,star);grid.append(wrap);
     }
+  }
+  function renderFilmPage(){
+    const items=shownFilms(),pages=Math.max(1,Math.ceil(items.length/FILM_PAGE_SIZE));filmPage=clamp(filmPage,0,pages-1);
+    $('filmCount').textContent=`${items.length} профилей · ${Object.keys(looks).length} встроено · ${xmpProfiles.length} XMP · ★ ${state.favoriteFilms.length}`;
+    $('filmPageLabel').textContent=`${filmPage+1} / ${pages}`;
+    $('prevFilmPage').disabled=filmPage===0;$('nextFilmPage').disabled=filmPage>=pages-1;
+    renderFilmCards($('filmGrid'),items.slice(filmPage*FILM_PAGE_SIZE,(filmPage+1)*FILM_PAGE_SIZE));
+  }
+  function renderFavoritesPage(){
+    const items=favoriteItems(),pages=Math.max(1,Math.ceil(items.length/FILM_PAGE_SIZE));favoritesPage=clamp(favoritesPage,0,pages-1);
+    $('favoritesCount').textContent=items.length?`${items.length} плёнок в избранном`:
+      (state.favoriteFilms.length?'Избранные плёнки сейчас недоступны. Проверь импорт XMP.':'Пока пусто — нажми ☆ на понравившихся плёнках в FILM.');
+    $('favoritesPageLabel').textContent=items.length?`${favoritesPage+1} / ${pages}`:'';
+    $('prevFavoritesPage').disabled=favoritesPage===0;$('nextFavoritesPage').disabled=favoritesPage>=pages-1;
+    renderFilmCards($('favoritesGrid'),items.slice(favoritesPage*FILM_PAGE_SIZE,(favoritesPage+1)*FILM_PAGE_SIZE));
   }
   function parseXMP(str,filename){const xml=new DOMParser().parseFromString(str,'application/xml');if(xml.querySelector('parsererror'))return null;
     const nodes=Array.from(xml.getElementsByTagName('*'));
@@ -294,7 +326,7 @@
     $('renderStatus').textContent='Готово · всё обработано на iPhone';$('renderTime').textContent=Math.round(performance.now()-begin)+' мс';
   }catch(err){$('renderStatus').textContent='Ошибка: '+err.message;console.error(err);}finally{rendering=false;if(rerender){rerender=false;schedulePreview();}}}
   async function openSingle(file){if(!file)return;original=await decodeImage(file);photoName=file.name.replace(/\.[^.]+$/,'');$('photoLabel').textContent=file.name;
-    $('sizeLabel').textContent=`${original.naturalWidth} × ${original.naturalHeight}`;state.seed=randomSeed();renderFilmPage();schedulePreview();$('fileSingle').value='';}
+    $('sizeLabel').textContent=`${original.naturalWidth} × ${original.naturalHeight}`;state.seed=randomSeed();renderFilmPage();renderFavoritesPage();schedulePreview();$('fileSingle').value='';}
   function toggleCompare(){if(!original||!latestPreview)return;showingOriginal=!showingOriginal;if(showingOriginal){const [w,h]=renderSize(original.naturalWidth,original.naturalHeight,String(PREVIEW_MAX));const c=newCanvas(w,h);c.getContext('2d').drawImage(original,0,0,w,h);setCanvas($('previewCanvas'),c);}else setCanvas($('previewCanvas'),latestPreview);}
   function saveBlob(blob,filename){const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),90_000);}
   function canvasBlob(cv,type='image/jpeg',quality=.94){return new Promise((resolve,reject)=>cv.toBlob(b=>b?resolve(b):reject(Error('Не удалось создать изображение — возможно, не хватает памяти.')),type,quality));}
@@ -340,7 +372,7 @@
 
   function showTab(id){if(id==='settings'){$('panel-settings').classList.add('active');document.querySelectorAll('.panel').forEach(p=>{if(p.id!=='panel-settings')p.classList.remove('active');});document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));}
     else{document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+id));document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));}
-    if(id==='film')renderFilmPage();const destination=document.getElementById('panel-'+id);if(destination)destination.scrollIntoView({block:'start',behavior:'smooth'});
+    if(id==='film')renderFilmPage();if(id==='favorites')renderFavoritesPage();const destination=document.getElementById('panel-'+id);if(destination)destination.scrollIntoView({block:'start',behavior:'smooth'});
   }
   async function exportBackup(){const payload={kind:'VHS_STUDIO_MOBILE_BACKUP',version:1,created:new Date().toISOString(),settings:state,xmpProfiles:await dbAll('xmp'),lut:await dbAll('assets')};
     const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});saveBlob(blob,'VHS_Studio_BACKUP_'+new Date().toISOString().slice(0,10)+'.json');notify('Резервная копия создана. Сохрани файл в «Файлы» и по возможности на другое устройство.');}
@@ -354,7 +386,7 @@
     if(('serviceWorker' in navigator) && (location.protocol==='https:'||location.hostname==='localhost')){
       await navigator.serviceWorker.register('./sw.js',{scope:'./'});
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.1');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.0.2');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
@@ -375,6 +407,8 @@
     $('filmCategory').addEventListener('change',()=>{filmPage=0;renderFilmPage();});
     $('prevFilmPage').addEventListener('click',()=>{filmPage--;renderFilmPage();});
     $('nextFilmPage').addEventListener('click',()=>{filmPage++;renderFilmPage();});
+    $('prevFavoritesPage').addEventListener('click',()=>{favoritesPage--;renderFavoritesPage();});
+    $('nextFavoritesPage').addEventListener('click',()=>{favoritesPage++;renderFavoritesPage();});
     $('xmpFile').addEventListener('change',async e=>{try{for(const file of e.target.files)await importXMP(file);}catch(err){$('importStatus').textContent=err.message;notify(err.message,true);}e.target.value='';});
     $('lutFile').addEventListener('change',async e=>{try{await importLUT(e.target.files[0]);}catch(err){notify(err.message,true);}e.target.value='';});
     $('clearLut').addEventListener('click',()=>{state.film.customLut=false;persist();schedulePreview();notify('LUT отключён. Сохранённый файл остаётся в памяти для восстановления.');});
