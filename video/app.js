@@ -284,7 +284,7 @@
    const pos=c.positions[key]||'left-top';
    return [pos.includes('left')?marginX:w-marginX-tw,pos.includes('top')?marginY:h-marginY-th];
   };
-  const sizeOf=(key,factor)=>Math.max(9,base*factor*clamp(Number(c.sizes[key]||125)/100,.45,2.8));
+  const sizeOf=(key,factor)=>Math.max(6,base*factor*clamp(Number(c.sizes[key]||125)/100,.45,2.8));
   function drawText(key,message,color,factor){
    const lines=String(message||'').replace(/\r\n?/g,'\n').replace(/\|/g,'\n').split('\n').slice(0,4);
    let size=sizeOf(key,factor);
@@ -292,8 +292,8 @@
    for(let tries=0;tries<10;tries++){
     ctx.font='700 '+size+'px ui-monospace, Menlo, Courier New, monospace';
     const measured=Math.max(0,...lines.map(line=>ctx.measureText(line).width));
-    if((measured<w*.87&&size*1.23*lines.length<h*.75)||size<=9)break;
-    size=Math.max(9,size*.86);
+    if((measured<w*.87&&size*1.23*lines.length<h*.75)||size<=6)break;
+    size=Math.max(6,size*.86);
    }
    const width=Math.max(0,...lines.map(line=>ctx.measureText(line).width)),step=size*1.23;
    const [x,y]=positionOf(key,width,step*lines.length);
@@ -303,17 +303,17 @@
    }
   }
   ctx.save();ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=Math.max(1,base*.004);
-  if(c.date)drawText('date',c.text,'#f5f5f5',.05);
-  if(c.play)drawText('play','PLAY','#f7f7f7',.038);
+  if(c.date)drawText('date',c.text,'#f5f5f5',.078);
+  if(c.play)drawText('play','PLAY','#f7f7f7',.07);
   if(c.rec){
-   const sz=sizeOf('rec',.038);ctx.font='700 '+sz+'px ui-monospace, Menlo, monospace';
+   const sz=sizeOf('rec',.07);ctx.font='700 '+sz+'px ui-monospace, Menlo, monospace';
    const ww=ctx.measureText('REC').width+sz*.85,hh=sz*1.2,[x,y]=positionOf('rec',ww,hh);
    ctx.textBaseline='top';ctx.fillStyle='#ef5555';ctx.beginPath();
    ctx.arc(x+sz*.2,y+sz*.55,Math.max(2,sz*.15),0,Math.PI*2);ctx.fill();
    ctx.fillText('REC',x+sz*.48,y);
   }
   if(c.battery){
-   const sz=sizeOf('battery',.034),ww=sz*2.15,hh=sz*.75,[x,y]=positionOf('battery',ww+sz*.25,hh);
+   const sz=sizeOf('battery',.068),ww=sz*2.15,hh=sz*.75,[x,y]=positionOf('battery',ww+sz*.25,hh);
    ctx.strokeStyle='#f5f5f5';ctx.lineWidth=Math.max(1,sz*.07);ctx.strokeRect(x,y,ww,hh);
    ctx.fillStyle='#f5f5f5';ctx.fillRect(x+ww,y+hh*.3,sz*.15,hh*.4);
    const count={FULL:4,'75%':3,'50%':2,'25%':1,LOW:1,EMPTY:0}[c.batteryLevel]??1;
@@ -436,6 +436,7 @@
   if(!same){
    source.pause();audioEngine.suspendNoise();
    clipIndex=index;file=clip.file;sourceUrl=clip.url;
+   source.loop=!recording&&clips.length===1;
    resetFrameHistory();
    source.src=sourceUrl;source.load();
    $('videoName').textContent=file.name;
@@ -469,6 +470,7 @@
   source.pause();audioEngine.suspendNoise();resetFrameHistory();seedHistory=[];$('undoGlitch').disabled=true;
   for(const entry of clips)URL.revokeObjectURL(entry.url);
   clips=list.map(f=>({file:f,url:URL.createObjectURL(f),duration:0}));
+  source.loop=clips.length===1; // Native replay for one video without manual clicks.
   clipIndex=0;file=clips[0].file;sourceUrl=clips[0].url;
   source.src=sourceUrl;source.load();
   $('videoName').textContent=file.name;
@@ -485,6 +487,7 @@
  function onLoaded(){
   if(!source.videoWidth||!source.videoHeight)return;
   const [w,h]=videoDimensions(520);
+  source.loop=!recording&&clips.length===1;
   preview.width=w;preview.height=h;
   if(clips[clipIndex])clips[clipIndex].duration=Number.isFinite(source.duration)?source.duration:0;
   $('videoMeta').textContent=source.videoWidth+' × '+source.videoHeight+' · '+timeString(source.duration);
@@ -551,6 +554,7 @@
    exportStatus('Не удалось определить длительность всех клипов. Проверь форматы каждого видео или попробуй по одному.');return;
   }
   const [w,h]=videoDimensions(Number(state.size));
+  source.loop=false; // A finite recording must never restart itself.
   recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();adaptiveExportWidth=240;slowFrames=0;fastFrames=0;
   try{
    source.pause();
@@ -578,6 +582,7 @@
    rec.onstop=()=>{
     const contentType=rec.mimeType||mime;
     recording=null;
+    source.loop=clips.length===1;
     for(const tr of recordStream?.getVideoTracks()||[])tr.stop();
     recordStream=null;
     $('cancel').hidden=true;$('progress').hidden=true;$('export').disabled=false;
@@ -591,7 +596,7 @@
   }catch(e){
    exportStatus('Экспорт не запустился: '+e.message);
    if(recording&&recording.state!=='inactive')try{recording.stop();}catch{}
-   if(!recording){$('export').disabled=false;$('cancel').hidden=true;$('progress').hidden=true;$('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();}
+   if(!recording){source.loop=clips.length===1;$('export').disabled=false;$('cancel').hidden=true;$('progress').hidden=true;$('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();}
   }
  }
  async function shareExport(){
@@ -615,8 +620,25 @@
   source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);
   source.addEventListener('seeked',redrawAfterSeek);source.addEventListener('timeupdate',updateTime);
   source.addEventListener('ended',()=>{
-   if(clipHasNext())selectClip(clipIndex+1,true).catch(e=>{textStatus(e.message);if(recording)stopExport();});
-   else{if(recording)stopExport();$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();renderCurrentFrame();}
+   if(clipHasNext()){
+    selectClip(clipIndex+1,true).catch(e=>{
+     textStatus('Не удалось перейти к следующему клипу: '+e.message);
+     if(recording)stopExport();
+    });
+    return;
+   }
+   if(recording){
+    stopExport(); // Never loop while saving; the export must terminate.
+    return;
+   }
+   if(clips.length>1){
+    selectClip(0,true).catch(e=>textStatus('Не удалось повторить серию: '+e.message));
+   }else if(file){
+    // Fallback if a browser emits ended despite source.loop=true.
+    source.currentTime=0;
+    resetFrameHistory();
+    source.play().catch(e=>textStatus('Не удалось повторить видео: '+e.message));
+   }
   });
   source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();});
   source.addEventListener('error',()=>{textStatus('Safari не открыл этот видеоформат. Попробуй MP4 H.264 или экспортируй из «Фото» в совместимом формате.');$('export').disabled=true;});
