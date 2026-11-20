@@ -51,6 +51,8 @@
   <div id="modeStrengthControl"></div>
   <label>Характер кассеты<select id="vhsPreset"><option value="classic">VHS 90s</option><option value="camcorder">Camcorder 90s</option><option value="damaged">Повреждённая кассета</option></select></label>
   <label>Тип видеокассеты<select id="tapeKind"></select></label>
+  <label>Разрешение обработки VHS-сигнала<select id="signalWidth"><option value="auto">Автоматически · для iPhone</option><option value="192">192 px · максимальная скорость</option><option value="240">240 px · мягкая VHS-картинка</option><option value="320">320 px · больше деталей</option><option value="480">480 px · очень высокая нагрузка</option></select></label>
+  <p class="hint">Разрешение сигнала влияет на детализацию самого VHS, а размер выходного файла задаётся отдельно во вкладке ЭКСПОРТ. В автоматическом режиме качество снижается только при высокой нагрузке.</p>
   <div id="vhsControls"></div>
   <p class="hint">Браузерный движок обрабатывает сигнал и каждый кадр. Дополнительные аналоговые, временные и цифровые сбои находятся в разделе ГЛИТЧ. Оригинальный Rust/WASM ntsc-rs пока не встроен.</p>
 </section>
