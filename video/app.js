@@ -36,7 +36,7 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
- let musicSearchResults=[],musicTrackInfo=null,musicRequest=0,musicLoading=false;
+ let musicSearchResults=[],musicTrackInfo=null,musicRequest=0,musicLoading=false,musicSearchTimer=null,musicSearchToken=0;
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
@@ -311,6 +311,8 @@
    const buffer=await audioEngine.ctx.decodeAudioData(bytes.slice(0));
    if(request!==musicRequest)return;
    if(!buffer||!Number.isFinite(buffer.duration)||buffer.duration<=0)throw Error('Браузер не смог декодировать эту музыку.');
+   const pcmSize=(Number(buffer.length)||0)*(Number(buffer.numberOfChannels)||2)*4;
+   if(pcmSize>120*1024*1024)throw Error('Трек слишком длинный для экономной обработки на iPhone (больше 120 МБ декодированного звука).');
    audioEngine.setMusicBuffer(buffer);
    const info={...track,duration:buffer.duration};
    state.selectedTrack=info;
@@ -370,15 +372,17 @@
  async function searchOnlineMusic(){
   const query=$('onlineMusicSearch').value.trim();
   if(query.length<2){$('onlineMusicStatus').textContent='Введи название, исполнителя или жанр (минимум 2 символа).';return;}
+  const token=++musicSearchToken;
   $('searchOnlineMusic').disabled=true;
   $('onlineMusicStatus').textContent='Ищу открыто лицензированные композиции…';
   try{
    const found=await window.VHSVideoMusicCatalog.search(query);
+   if(token!==musicSearchToken)return;
    musicSearchResults=found;
    renderMusicResults();
    $('onlineMusicStatus').textContent='Найдено '+found.length+' треков (CC0 / PDM / CC BY). Перед публикацией видео проверь лицензию и авторство.';
-  }catch(e){$('onlineMusicStatus').textContent='Поиск недоступен: '+e.message+' Можно использовать прямую HTTPS-ссылку или файл.';}
-  finally{$('searchOnlineMusic').disabled=false;}
+  }catch(e){if(token===musicSearchToken)$('onlineMusicStatus').textContent='Поиск недоступен: '+e.message+' Можно использовать прямую HTTPS-ссылку или файл.';}
+  finally{if(token===musicSearchToken)$('searchOnlineMusic').disabled=false;}
  }
  function mountMusicLibrary(){
   const mix=$('musicMixerControls');
@@ -397,7 +401,11 @@
   }
   $('musicLoop').onchange=()=>{state.mix.musicLoop=$('musicLoop').checked;persist();syncAudio(!source.paused);};
   $('searchOnlineMusic').onclick=searchOnlineMusic;
-  $('onlineMusicSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchOnlineMusic();}});
+  $('onlineMusicSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(musicSearchTimer)clearTimeout(musicSearchTimer);searchOnlineMusic();}});
+  $('onlineMusicSearch').addEventListener('input',()=>{
+   if(musicSearchTimer)clearTimeout(musicSearchTimer);
+   if($('onlineMusicSearch').value.trim().length>=3)musicSearchTimer=setTimeout(searchOnlineMusic,700);
+  });
   $('addMusicUrl').onclick=()=>{
    const raw=$('musicDirectUrl').value.trim();
    try{
