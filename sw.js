@@ -1,4 +1,4 @@
-const VERSION='vhs-mobile-v1.0.4';
+const VERSION='vhs-mobile-v1.0.5';
 const APP_FILES=['./','./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(APP_FILES)).then(() => self.skipWaiting()));
