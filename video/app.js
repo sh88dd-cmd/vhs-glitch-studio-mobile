@@ -274,10 +274,11 @@
   if(now-lastDraw<1000/fps)return;
   lastDraw=now;
   try{
+   syncAudio(true);
    if(recording){
     drawFrame(recordCanvas);
     stage.drawImage(recordCanvas,0,0,preview.width,preview.height);
-    const max=Math.min(30,source.duration||30);
+    const max=state.exportScope==='full'?(source.duration||30):Math.min(30,source.duration||30);
     $('progress').value=clamp(source.currentTime/max*100,0,100);
     exportStatus('Запись: '+timeString(source.currentTime)+' / '+timeString(max)+' · приложение должно оставаться открытым');
     if(source.currentTime>=max-.04||source.ended)stopExport();
@@ -296,7 +297,7 @@
  async function loadVideo(input){
   if(!input)return;
   if(recording)throw Error('Нельзя сменить ролик во время экспорта.');
-  source.pause();
+  source.pause();audioEngine.suspendNoise();resetFrameHistory();seedHistory=[];$('undoGlitch').disabled=true;
   if(sourceUrl)URL.revokeObjectURL(sourceUrl);
   file=input;sourceUrl=URL.createObjectURL(input);
   source.src=sourceUrl;source.load();
@@ -319,26 +320,19 @@
  async function togglePlay(){
   if(!file||recording)return;
   try{
-   if(source.paused){await source.play();$('play').textContent='Ⅱ Пауза';}
+   if(source.paused){try{await audioEngine.start();syncAudio(true);}catch(err){if(!audioErrorShown){textStatus('Звук недоступен: '+err.message);audioErrorShown=true;}}await source.play();$('play').textContent='Ⅱ Пауза';}
    else{source.pause();$('play').textContent='▶ Просмотр';}
   }catch(e){textStatus('Не удалось воспроизвести: '+e.message);}
  }
- function redrawAfterSeek(){updateTime();renderCurrentFrame();}
+ function redrawAfterSeek(){updateTime();resetFrameHistory();renderCurrentFrame();}
  function chooseMime(){
   if(typeof MediaRecorder==='undefined')return null;
   const supported=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp8,opus','video/webm'];
   return supported.find(t=>MediaRecorder.isTypeSupported(t))||null;
  }
  async function ensureAudioGraph(){
-  if(audioContext)return audioMonitor;
-  const Ctx=window.AudioContext||window.webkitAudioContext;
-  if(!Ctx)throw Error('Этот браузер не поддерживает захват звука.');
-  audioContext=new Ctx();
-  audioSource=audioContext.createMediaElementSource(source);
-  audioMonitor=audioContext.createMediaStreamDestination();
-  audioSource.connect(audioMonitor);
-  audioSource.connect(audioContext.destination);
-  return audioMonitor;
+  await audioEngine.start();syncAudio(true);
+  return {stream:{getAudioTracks:()=>audioEngine.getTracks()}};
  }
  function finishExport(chunks,mime){
   const blob=new Blob(chunks,{type:mime});
@@ -376,7 +370,7 @@
   if(!mime){exportStatus('Этот браузер не поддерживает доступный видеокодек. Требуется альтернативный WebCodecs-экспорт.');return;}
   if(!Number.isFinite(source.duration)||source.duration<=0){exportStatus('Неизвестная длительность видео.');return;}
   const [w,h]=videoDimensions(Number(state.size));
-  recordCanvas.width=w;recordCanvas.height=h;
+  recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();
   try{
    source.pause();await seekToStart();
    let stream=recordCanvas.captureStream(Number(state.fps));
@@ -384,7 +378,7 @@
    if(state.keepAudio){
     try{
      const monitor=await ensureAudioGraph();
-     await audioContext.resume();
+     await audioEngine.ctx.resume();
      const tracks=monitor.stream.getAudioTracks();
      for(const track of tracks)stream.addTrack(track);
     }catch(e){exportStatus('Звук недоступен: '+e.message+'. Продолжаю без звука.');}
@@ -436,11 +430,12 @@
   source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);
   source.addEventListener('seeked',redrawAfterSeek);source.addEventListener('timeupdate',updateTime);
   source.addEventListener('ended',()=>{if(recording)stopExport();$('play').textContent='▶ Просмотр';renderCurrentFrame();});
-  source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';});
+  source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();});
   source.addEventListener('error',()=>{textStatus('Safari не открыл этот видеоформат. Попробуй MP4 H.264 или экспортируй из «Фото» в совместимом формате.');$('export').disabled=true;});
   $('seek').oninput=()=>{if(recording||!source.duration)return;source.currentTime=Number($('seek').value)/1000*source.duration;};
   $('play').onclick=togglePlay;
-  $('regenerate').onclick=()=>{state.seed=randomSeed();persist();renderCurrentFrame();};
+  $('regenerate').onclick=regenerateSeed;
+  $('undoGlitch').onclick=undoSeed;
   $('filmSearch').oninput=renderFilmSelect;
   $('filmSelect').onchange=()=>{if(!$('filmSelect').value)return;state.filmId=$('filmSelect').value;state.filmEnabled=true;$('filmEnabled').checked=true;persist();renderCurrentFrame();};
   $('filmImport').onchange=async e=>{
@@ -453,7 +448,7 @@
  }
  async function init(){
   mountControls();initEvents();
-  if(typeof window.VideoFilmCore==='undefined'||typeof window.VHSPhotoEngine==='undefined')throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
