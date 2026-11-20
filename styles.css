@@ -79,3 +79,11 @@ input[type="file"][hidden], [hidden]{display:none !important}
 .legacyFx{border-top:1px solid #34404a;padding-top:13px;margin-top:20px}
 .legacyFx>summary{color:#98adb6;font-size:12px;cursor:pointer}
 #signalControls .control{padding:9px 0 12px}
+
+/* Per-photo small circular reroll control under BATCH thumbnails. */
+.batchItem .batchItemActions{display:flex;align-items:center;gap:6px;margin-top:6px;overflow:visible;white-space:normal}
+.batchItem .batchItemActions .batchZoom{flex:1 1 auto;min-width:0;width:auto;min-height:38px;margin:0}
+.batchItem .batchItemActions .batchReroll{flex:0 0 38px;width:38px;height:38px;min-height:38px;padding:0;margin:0;border-radius:999px;color:#111f25;background:#78dfd1;border:1px solid #9af3e4;font-size:23px;font-weight:600;line-height:1}
+.batchItem .batchItemActions .batchReroll[aria-busy="true"]{opacity:.48;cursor:progress}
+.batchItem .batchItemActions .batchReroll:focus-visible{outline:2px solid #f4ffff;outline-offset:2px}
+.batchItem .batchItemName{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
