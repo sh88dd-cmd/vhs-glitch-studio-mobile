@@ -312,11 +312,13 @@ class Processor{
   // Keep the uncorrupted incoming frame for frame-to-frame effects.
   const incoming=new Uint8ClampedArray(p);
   const prev=this.previous;
+  const manual=options.manualEffects&&typeof options.manualEffects==='object'?options.manualEffects:null;
   const amt={};for(const def of defs){
-   amt[def.id]=envelope(t,def,seed,density,Number(settings[def.id]??0))*overall;
+   amt[def.id]=(manual?C(Number(manual[def.id])||0,0,1.5):
+    envelope(t,def,seed,density,Number(settings[def.id]??0)))*overall;
   }
   const mode=options.mode||'vhs',tape=tapes.find(x=>x.id===options.tape)||tapes[1],level=tape.level;
-  if(options.splicePulse>0)amt.tapeSplice=Math.max(amt.tapeSplice,C(options.splicePulse*Number(settings.tapeSplice||0)/100,0,1.3)*overall);
+  if(!manual&&options.splicePulse>0)amt.tapeSplice=Math.max(amt.tapeSplice,C(options.splicePulse*Number(settings.tapeSplice||0)/100,0,1.3)*overall);
   // Analog faults. Tape profiles influence their amplitude, not unrelated FILM filters.
   if(amt.tapeChew)tapeChew(p,w,h,C(amt.tapeChew*level,0,1.4),t,seed);
   if(amt.pause){
