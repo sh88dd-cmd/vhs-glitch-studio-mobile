@@ -275,6 +275,162 @@
   }
   return null;
  }
+ function musicLoadStatus(message){$('musicLoadStatus').textContent=message;}
+ function showMusicSelection(){
+  const track=state.selectedTrack;
+  $('musicSelection').hidden=!track;
+  if(!track)return;
+  $('musicTitle').textContent=track.title||'Без названия';
+  $('musicArtist').textContent=track.creator||'Автор неизвестен';
+  const catalog=window.VHSVideoMusicCatalog;
+  const credit=track.kind==='openverse'?catalog.attribution(track):
+   (track.kind==='direct'?'Добавлено по прямой ссылке. Убедись, что у тебя есть право использовать трек.':
+    'Выбран локальный аудиофайл. После перезапуска его нужно добавить заново.');
+  $('musicCredit').textContent=credit;
+  $('copyMusicCredit').disabled=track.kind!=='openverse';
+  $('reloadMusic').hidden=!!audioEngine.musicBuffer||track.kind==='file';
+  $('reloadMusic').disabled=musicLoading;
+ }
+ async function loadMusicTrack(track,inputFile=null){
+  if(recording)return musicLoadStatus('Останови экспорт перед заменой музыки.');
+  const request=++musicRequest;
+  musicLoading=true;
+  musicLoadStatus('Подключаю дорожку к общему VHS-аудиомикшеру…');
+  showMusicSelection();
+  try{
+   // Called from an explicit button/file action: unlock iOS AudioContext first.
+   await audioEngine.start();
+   let bytes;
+   if(inputFile){
+    if(inputFile.size>window.VHSVideoMusicCatalog.MAX_BYTES)throw Error('Аудиофайл больше 18 МБ. Выбери более короткий.');
+    bytes=await inputFile.arrayBuffer();
+   }else{
+    bytes=await window.VHSVideoMusicCatalog.readAudio(track.url);
+   }
+   if(request!==musicRequest)return;
+   const buffer=await audioEngine.ctx.decodeAudioData(bytes.slice(0));
+   if(request!==musicRequest)return;
+   if(!buffer||!Number.isFinite(buffer.duration)||buffer.duration<=0)throw Error('Браузер не смог декодировать эту музыку.');
+   audioEngine.setMusicBuffer(buffer);
+   const info={...track,duration:buffer.duration};
+   state.selectedTrack=info;
+   musicTrackInfo=info;
+   audioEngine.setMix(state.mix);
+   syncAudio(!source.paused);
+   persist();
+   musicLoadStatus('Музыка готова: '+timeString(buffer.duration)+'. Громкости ниже. Нажми ▶ на видео; при экспорте дорожки будут сведены вместе.');
+  }catch(e){
+   if(request===musicRequest)musicLoadStatus('Не удалось добавить музыку: '+e.message+' Другой трек или файл может сработать.');
+  }finally{
+   if(request===musicRequest){musicLoading=false;showMusicSelection();}
+  }
+ }
+ function removeMusicTrack(){
+  if(recording)return;
+  musicRequest++;musicLoading=false;
+  audioEngine.setMusicBuffer(null);
+  musicTrackInfo=null;state.selectedTrack=null;
+  const player=$('musicSample');player.pause();player.removeAttribute('src');player.load();
+  musicLoadStatus('Музыка убрана. Оригинальный звук видео остался без изменений.');
+  showMusicSelection();persist();syncAudio(!source.paused);
+ }
+ function renderMusicResults(){
+  const parent=$('onlineMusicResults');
+  parent.replaceChildren();
+  if(!musicSearchResults.length){
+   const hint=document.createElement('p');hint.className='emptyMusicSearch';
+   hint.textContent='Нет подходящих треков. Попробуй другое название или жанр.';
+   parent.append(hint);return;
+  }
+  for(const item of musicSearchResults){
+   const row=document.createElement('div');row.className='onlineMusicResult';
+   const title=document.createElement('strong');title.className='musicResultTitle';title.textContent=item.title;
+   const meta=document.createElement('div');meta.className='musicResultMeta';
+   meta.textContent=item.creator+' · '+item.license.toUpperCase()+(item.duration?' · '+timeString(item.duration/1000):'');
+   const actions=document.createElement('div');actions.className='musicResultActions';
+   const listen=document.createElement('button');listen.type='button';listen.className='button';
+   listen.textContent='▶ Прослушать';
+   listen.addEventListener('click',async()=>{
+    const audio=$('musicSample');
+    source.pause();
+    if(audio.src!==item.url){audio.pause();audio.src=item.url;}
+    audio.hidden=false;
+    try{if(audio.paused)await audio.play();else audio.pause();}
+    catch(e){$('onlineMusicStatus').textContent='Предпросмотр недоступен у этого источника: '+e.message;}
+   });
+   const add=document.createElement('button');add.type='button';add.className='button primary';
+   add.textContent='＋ Добавить';
+   add.addEventListener('click',()=>{
+    $('musicSample').pause();
+    loadMusicTrack({...item,kind:'openverse'});
+   });
+   actions.append(listen,add);row.append(title,meta,actions);parent.append(row);
+  }
+ }
+ async function searchOnlineMusic(){
+  const query=$('onlineMusicSearch').value.trim();
+  if(query.length<2){$('onlineMusicStatus').textContent='Введи название, исполнителя или жанр (минимум 2 символа).';return;}
+  $('searchOnlineMusic').disabled=true;
+  $('onlineMusicStatus').textContent='Ищу открыто лицензированные композиции…';
+  try{
+   const found=await window.VHSVideoMusicCatalog.search(query);
+   musicSearchResults=found;
+   renderMusicResults();
+   $('onlineMusicStatus').textContent='Найдено '+found.length+' треков (CC0 / PDM / CC BY). Перед публикацией видео проверь лицензию и авторство.';
+  }catch(e){$('onlineMusicStatus').textContent='Поиск недоступен: '+e.message+' Можно использовать прямую HTTPS-ссылку или файл.';}
+  finally{$('searchOnlineMusic').disabled=false;}
+ }
+ function mountMusicLibrary(){
+  const mix=$('musicMixerControls');
+  control(mix,'Громкость оригинального звука видео',state.mix.videoVolume,v=>{state.mix.videoVolume=v;syncAudio(!source.paused);});
+  control(mix,'Громкость добавленной музыки',state.mix.musicVolume,v=>{state.mix.musicVolume=v;syncAudio(!source.paused);});
+  $('musicVideoStart').value=String(state.mix.musicStart);
+  $('musicAudioOffset').value=String(state.mix.musicOffset);
+  $('musicLoop').checked=!!state.mix.musicLoop;
+  for(const [id,key] of [['musicVideoStart','musicStart'],['musicAudioOffset','musicOffset']]){
+   $(id).onchange=()=>{
+    const v=Number($(id).value);
+    state.mix[key]=Number.isFinite(v)?clamp(v,0,7200):0;
+    $(id).value=String(state.mix[key]);
+    persist();syncAudio(!source.paused);
+   };
+  }
+  $('musicLoop').onchange=()=>{state.mix.musicLoop=$('musicLoop').checked;persist();syncAudio(!source.paused);};
+  $('searchOnlineMusic').onclick=searchOnlineMusic;
+  $('onlineMusicSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchOnlineMusic();}});
+  $('addMusicUrl').onclick=()=>{
+   const raw=$('musicDirectUrl').value.trim();
+   try{
+    const u=new URL(raw);
+    if(u.protocol!=='https:')throw Error('Нужна прямая HTTPS-ссылка.');
+    const title=decodeURIComponent(u.pathname.split('/').pop()||'Аудио по ссылке').slice(0,120);
+    loadMusicTrack({kind:'direct',title,creator:'По ссылке пользователя',url:u.href,license:'user'});
+   }catch(e){musicLoadStatus('Проверь ссылку: '+e.message);}
+  };
+  $('musicFileInput').onchange=e=>{
+   const selected=e.target.files?.[0];
+   if(selected)loadMusicTrack({kind:'file',title:selected.name,creator:'Аудио с iPhone',license:'user'},selected);
+   e.target.value='';
+  };
+  $('removeMusic').onclick=removeMusicTrack;
+  $('reloadMusic').onclick=()=>{
+   const track=state.selectedTrack;
+   if(track?.url&&track.kind!=='file')loadMusicTrack(track);
+   else musicLoadStatus('Этот аудиофайл нужно выбрать заново на телефоне.');
+  };
+  $('copyMusicCredit').onclick=async()=>{
+   const credit=window.VHSVideoMusicCatalog.attribution(state.selectedTrack);
+   if(!credit)return;
+   try{await navigator.clipboard.writeText(credit);musicLoadStatus('Авторство и ссылка на лицензию скопированы.');}
+   catch{musicLoadStatus('Скопируй данные из блока «Выбранная музыка» вручную.');}
+  };
+  showMusicSelection();
+  if(state.selectedTrack){
+   musicLoadStatus(state.selectedTrack.kind==='file'?
+    'Для восстановления музыки выбери локальный аудиофайл заново.':
+    'Ранее выбран '+state.selectedTrack.title+'. Нажми «↻ Восстановить», чтобы загрузить музыку из интернета в память.');
+  }
+ }
  function mountControls(){
   control($('vhsControls'),'Общая сила VHS',state.master,v=>{state.master=v;resetFrameHistory();});
   const tape=document.createElement('label');tape.textContent='Режим видеокассеты';
@@ -329,7 +485,7 @@
   $('outputSize').value=state.size;$('fps').value=String(state.fps);
   $('exportScope').value=state.exportScope;
   $('keepAudio').checked=state.keepAudio;
-  mountCameraControls();buildModeControls();
+  mountCameraControls();buildModeControls();mountMusicLibrary();
   $('vhsEnabled').onchange=()=>{state.vhsEnabled=$('vhsEnabled').checked;persist();renderCurrentFrame();};
   $('filmEnabled').onchange=()=>{state.filmEnabled=$('filmEnabled').checked;persist();renderCurrentFrame();};
   $('vhsPreset').onchange=()=>{state.preset=$('vhsPreset').value;persist();renderCurrentFrame();};
