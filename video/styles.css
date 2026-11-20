@@ -228,3 +228,16 @@ body.dock-visible .specialModeBar{scroll-margin-top:calc(var(--dock-height,280px
 .musicTimes input{display:block;width:100%;min-width:0;margin:6px 0 12px;padding:11px 9px;border:1px solid #666;border-radius:8px;background:#202020;color:#f1f1f1;font-size:13px}
 #panel-library h2{margin-top:15px}
 @media(max-width:360px){.onlineMusicResult .musicResultActions{gap:4px}.musicSelectedActions .button{font-size:9px}}
+
+
+/* v0.5.1 — music discovery recommendations, memory controls. */
+.musicRecommendations{background:#151515;border:1px solid #515151;border-radius:9px;padding:11px;margin:10px 0 15px}
+.musicRecommendationHeading{font-size:11px;letter-spacing:.75px;font-weight:800;margin-bottom:9px;color:#eee}
+.musicRecommendationChips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.musicRecommendationChips button{border:1px solid #797979;border-radius:7px;background:#292929;color:#eee;padding:10px 5px;min-height:37px;white-space:normal;font-size:11px;font-weight:700}
+.musicRecommendationChips button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.musicRecommendations .hint{margin:9px 0 0;font-size:10px}
+.musicSelectedActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.musicSelectedActions .button{width:100%;font-size:10px;min-height:36px;padding:7px 3px}
+#musicMemoryStatus{font-size:11px;color:#ddd;margin:10px 0 4px}
+@media(max-width:360px){.musicRecommendationChips button{font-size:10px;min-height:35px}}
