@@ -275,7 +275,15 @@
   }
   return null;
  }
- function musicLoadStatus(message){$('musicLoadStatus').textContent=message;}
+ function musicLoadStatus(message){
+  // Network and decoder errors must be visible beside the input, not only
+  // after the mixer at the bottom of the screen.
+  $('musicLoadStatus').textContent=message;
+  $('musicDirectStatus').textContent=message;
+ }
+ function isSongPageAddress(u){
+  return /(?:^|\/)(?:song|songs|track|tracks|album|albums|artist|artists|playlist|wiki)\//i.test(u.pathname);
+ }
  function showMusicSelection(){
   const track=state.selectedTrack;
   $('musicSelection').hidden=!track;
@@ -429,7 +437,7 @@
   if(/^https?:\/\//i.test(query)){
    try{
     const u=new URL(query),isAudio=/\.(?:mp3|m4a|wav|ogg|oga|flac|opus|webm)$/i.test(u.pathname);
-    const isPage=/(?:^|\/)(?:song|songs|track|tracks|album|albums|artist|artists|playlist|wiki)\//i.test(u.pathname)||/(?:^|\.)hitmos\.site$/i.test(u.hostname);
+    const isPage=isSongPageAddress(u);
     if(!isAudio||isPage){
      $('onlineMusicStatus').textContent='Это ссылка на страницу песни, а не на аудиофайл. Поиск: введи название песни или жанр. Для прямого добавления нужна HTTPS-ссылка на сам MP3/M4A/WAV/OGG; ссылки на страницы музыкальных сайтов Safari не может извлечь автоматически.';
      return;
@@ -479,10 +487,11 @@
   });
   $('addMusicUrl').onclick=()=>{
    const raw=$('musicDirectUrl').value.trim();
+   musicLoadStatus('Проверяю ссылку на аудиофайл…');
    try{
     const u=new URL(raw);
     if(u.protocol!=='https:')throw Error('Нужна прямая HTTPS-ссылка.');
-    const isPage=/(?:^|\/)(?:song|songs|track|tracks|album|albums|artist|artists|playlist|wiki)\//i.test(u.pathname)||/(?:^|\.)hitmos\.site$/i.test(u.hostname);
+    const isPage=isSongPageAddress(u);
     if(isPage)throw Error('Ссылка ведёт на страницу песни. Для импорта нужен прямой адрес аудиофайла, а не адрес страницы. Можно найти трек по названию в каталоге выше.');
     const title=decodeURIComponent(u.pathname.split('/').pop()||'Аудио по ссылке').slice(0,120);
     loadMusicTrack({kind:'direct',title,creator:'По ссылке пользователя',url:u.href,license:'user'});
