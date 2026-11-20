@@ -368,16 +368,17 @@
     if(w*h>54e6)throw Error('Изображение слишком большое для мобильной памяти. Выбери экспорт до 3200 px.');
     const frame=newCanvas(w,h),ctx=frame.getContext('2d',{willReadFrequently:true});ctx.drawImage(im,0,0,w,h);
     let img=ctx.getImageData(0,0,w,h),p=img.data;const fac=power[state.preset]||1;
+    const filmSeed=opts.filmSeed??seed; // Keep FILM grain separate from per-photo VHS rerolls.
     if(state.filmEnabled){const s=clamp(state.film.strength/100,0,1);
       if(activeLook&&activeLook.fields)filmXMP(p,activeLook,s);
       else filmBuiltin(p,looks[state.film.name],s);
       if(state.film.customLut&&cubeLut)applyCube(p,cubeLut,s);
-      filmGrain(p,w,h,state.film.grain/100,seed);
+      filmGrain(p,w,h,state.film.grain/100,filmSeed);
       filmVignette(p,w,h,state.film.vignette/100);
     }
     // FILM and XMP affect the photo only; these operations are not re-applied to camera OSD.
     ctx.putImageData(img,0,0);
-    if(state.filmEnabled)paintFilmExtras(frame,w,h,state.film,seed);
+    if(state.filmEnabled)paintFilmExtras(frame,w,h,state.film,filmSeed);
     // Burn defects are still separate from analog video processing and have their own seed.
     // Camera OSD is part of the video signal: draw BEFORE VHS so distortion hits
     // REC/PLAY/date/time/battery exactly as it hits the underlying pixels.
@@ -675,28 +676,77 @@
   function toggleCompare(){if(!original||!latestPreview)return;showingOriginal=!showingOriginal;if(showingOriginal){const [w,h]=renderSize(original.naturalWidth,original.naturalHeight,String(PREVIEW_MAX));const c=newCanvas(w,h);c.getContext('2d').drawImage(original,0,0,w,h);setCanvas($('previewCanvas'),c);}else setCanvas($('previewCanvas'),latestPreview);syncDockCanvas();}
   function saveBlob(blob,filename){const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),90_000);}
   function canvasBlob(cv,type='image/jpeg',quality=.94){return new Promise((resolve,reject)=>cv.toBlob(b=>b?resolve(b):reject(Error('Не удалось создать изображение — возможно, не хватает памяти.')),type,quality));}
-  async function saveSingle(fileIm=original,filename=photoName,seed=state.seed,size=state.singleSize){if(!fileIm)throw Error('Сначала открой фотографию');
-    const cv=await processImage(fileIm,seed,{},size);const type=state.exportFormat||'image/jpeg';const blob=await canvasBlob(cv,type);const ext=type==='image/png'?'png':'jpg';
+  async function saveSingle(fileIm=original,filename=photoName,seed=state.seed,size=state.singleSize,opts={}){if(!fileIm)throw Error('Сначала открой фотографию');
+    const cv=await processImage(fileIm,seed,opts,size);const type=state.exportFormat||'image/jpeg';const blob=await canvasBlob(cv,type);const ext=type==='image/png'?'png':'jpg';
     const outName=`${filename}_VHS_FILM.${ext}`;let shared=false;
     try{const file=new File([blob],outName,{type});if(navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:'VHS Glitch Studio'});shared=true;}}catch(e){if(e.name==='AbortError'){return;}console.warn('Share unavailable',e);}
     if(!shared)saveBlob(blob,outName);notify(shared?'Открылось меню отправки. Выбери «Сохранить изображение» или «Сохранить в Файлы».':`Файл ${outName} (${formatBytes(blob.size)}) сохранён в «Загрузки» Safari или «Файлы».`);
   }
   async function openBatch(files){if(!files||!files.length)return;if(files.length>50){notify('Можно выбрать не больше 50 фотографий.',true);return;}
-    batchFiles=Array.from(files).map((file,index)=>({file,index,seed:randomSeed()}));batchPage=0;showTab('batch');$('batchStatus').textContent=`Выбрано ${batchFiles.length} фото`;
+    batchFiles=Array.from(files).map((file,index)=>({file,index,seed:randomSeed(),filmSeed:randomSeed(),previewRequest:0}));batchPage=0;showTab('batch');$('batchStatus').textContent=`Выбрано ${batchFiles.length} фото`;
     $('batchFiles').value='';await renderBatchPage();}
-  async function renderBatchPage(){const token=++pageToken,grid=$('batchGrid');grid.replaceChildren();if(!batchFiles.length){$('pageCount').textContent='—';return;}
-    const pages=Math.ceil(batchFiles.length/6);batchPage=clamp(batchPage,0,pages-1);$('pageCount').textContent=`${batchPage+1} / ${pages} · ${batchFiles.length} фото`;
-    $('prevPage').disabled=batchPage===0;$('nextPage').disabled=batchPage>=pages-1;
-    const files=batchFiles.slice(batchPage*6,batchPage*6+6);for(const item of files){if(token!==pageToken)break;
-      const box=document.createElement('div');box.className='batchItem';const cv=document.createElement('canvas');cv.width=440;cv.height=340;
-      const name=document.createElement('div');name.textContent=item.file.name;const zoom=document.createElement('button');zoom.className='btn mini';zoom.textContent='Увеличить кадр';zoom.addEventListener('click',()=>openBatchZoom(item.index));box.append(cv,name,zoom);grid.append(box);
-      try{const im=await decodeImage(item.file);const result=await processImage(im,item.seed,{},BATCH_PREVIEW);if(token!==pageToken)break;setCanvas(cv,result);}catch(e){name.textContent=item.file.name+' · ошибка: '+e.message;}
-      await new Promise(r=>setTimeout(r,0));
+  // Recalculate just one thumbnail without changing other cards' buffers or seeds.
+  async function renderBatchThumbnail(item,canvas,label,reroll,token){
+    const request=++item.previewRequest,seed=item.seed;
+    reroll.disabled=true;
+    reroll.setAttribute('aria-busy','true');
+    try{
+      const image=await decodeImage(item.file);
+      if(token!==pageToken||request!==item.previewRequest||seed!==item.seed)return;
+      const output=await processImage(image,seed,{filmSeed:item.filmSeed},BATCH_PREVIEW);
+      if(token!==pageToken||request!==item.previewRequest||seed!==item.seed)return;
+      setCanvas(canvas,output);
+      label.textContent=item.file.name;
+    }catch(e){
+      if(token===pageToken&&request===item.previewRequest){
+        label.textContent=item.file.name+' · ошибка: '+e.message;
+      }
+    }finally{
+      if(token===pageToken&&request===item.previewRequest){
+        reroll.disabled=busy;
+        reroll.removeAttribute('aria-busy');
+      }
+    }
+  }
+  function rerollOneBatchPhoto(item,canvas,label,reroll,token){
+    if(busy||token!==pageToken||!batchFiles.includes(item)||reroll.disabled)return;
+    const old=item.seed;
+    let next=randomSeed();
+    if(next===old)next=(next+1)>>>0;
+    item.seed=next;
+    renderBatchThumbnail(item,canvas,label,reroll,token).catch(e=>notify(e.message,true));
+  }
+  async function renderBatchPage(){
+    const token=++pageToken,grid=$('batchGrid');
+    grid.replaceChildren();
+    if(!batchFiles.length){$('pageCount').textContent='—';return;}
+    const pages=Math.ceil(batchFiles.length/6);
+    batchPage=clamp(batchPage,0,pages-1);
+    $('pageCount').textContent=(batchPage+1)+' / '+pages+' · '+batchFiles.length+' фото';
+    $('prevPage').disabled=batchPage===0;
+    $('nextPage').disabled=batchPage>=pages-1;
+    const visible=batchFiles.slice(batchPage*6,batchPage*6+6);
+    for(const item of visible){
+      if(token!==pageToken)return;
+      const box=document.createElement('div');box.className='batchItem';
+      const canvas=document.createElement('canvas');canvas.width=440;canvas.height=340;
+      const filename=document.createElement('div');filename.className='batchItemName';filename.textContent=item.file.name;
+      const actions=document.createElement('div');actions.className='batchItemActions';
+      const zoom=document.createElement('button');zoom.type='button';zoom.className='btn mini batchZoom';zoom.textContent='Увеличить кадр';
+      zoom.addEventListener('click',()=>openBatchZoom(item.index));
+      const reroll=document.createElement('button');reroll.type='button';
+      reroll.className='btn mini batchReroll';reroll.textContent='↻';
+      reroll.title='Новые помехи только для этого фото';
+      reroll.setAttribute('aria-label','Новые помехи только для фото '+item.file.name);
+      reroll.addEventListener('click',()=>rerollOneBatchPhoto(item,canvas,filename,reroll,token));
+      actions.append(zoom,reroll);box.append(canvas,filename,actions);grid.append(box);
+      await renderBatchThumbnail(item,canvas,filename,reroll,token);
+      await new Promise(resolve=>setTimeout(resolve,0));
     }
   }
   async function openBatchZoom(index){const item=batchFiles[index];if(!item)return;dialogFileIndex=index;$('dialogTitle').textContent=item.file.name;
-    const im=await decodeImage(item.file),cv=await processImage(im,item.seed,{},1200);setCanvas($('largeCanvas'),cv);$('photoDialog').showModal();}
-  async function saveZoom(){if(dialogFileIndex<0)return;const item=batchFiles[dialogFileIndex];const im=await decodeImage(item.file);await saveSingle(im,item.file.name.replace(/\.[^.]+$/,''),item.seed,state.singleSize);}
+    const im=await decodeImage(item.file),cv=await processImage(im,item.seed,{filmSeed:item.filmSeed},1200);setCanvas($('largeCanvas'),cv);$('photoDialog').showModal();}
+  async function saveZoom(){if(dialogFileIndex<0)return;const item=batchFiles[dialogFileIndex];const im=await decodeImage(item.file);await saveSingle(im,item.file.name.replace(/\.[^.]+$/,''),item.seed,state.singleSize,{filmSeed:item.filmSeed});}
   async function exportBatch(){if(!batchFiles.length){notify('Сначала выбери фотографии',true);return;}if(busy)return;busy=true;$('exportBatch').disabled=true;
     const zip=new JSZip(),n=batchFiles.length,start=Date.now();try{
       // Same settings across all: UI is locked for the duration of the export.
@@ -704,7 +754,7 @@
       for(let i=0;i<n;i++){
         const item=batchFiles[i];$('progressText').textContent=`Обработка ${i+1} / ${n}: ${item.file.name}`;
         await new Promise(r=>setTimeout(r,0));const im=await decodeImage(item.file);
-        const cv=await processImage(im,item.seed,{},state.batchSize),blob=await canvasBlob(cv,'image/jpeg',.91);
+        const cv=await processImage(im,item.seed,{filmSeed:item.filmSeed},state.batchSize),blob=await canvasBlob(cv,'image/jpeg',.91);
         let name=item.file.name.replace(/\.[^.]+$/,'').slice(0,90).replace(/[\\/:*?"<>|]/g,'_');zip.file(`${String(i+1).padStart(2,'0')}_${name}_VHS.jpg`,blob,{binary:true,compression:'STORE'});
       }
       $('progressText').textContent=`Упаковываю ${n} фото в ZIP…`;
@@ -733,7 +783,7 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.1.0');const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.1.1');const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
