@@ -9,7 +9,7 @@
  const glitchMeta=window.VHSVideoGlitchFX.EFFECTS;
  const glitchDefaults=Object.fromEntries(glitchMeta.map(d=>[d.id,d.default]));
  const defaults={vhsEnabled:true,filmEnabled:false,glitchEnabled:true,preset:'classic',master:65,
-  mode:'vhs',modeStrength:75,tape:'used',eventDensity:48,glitchStrength:85,
+  mode:'vhs',modeStrength:75,tape:'used',signalWidth:'auto',eventDensity:48,glitchStrength:85,
   speed:'SP',filmId:'builtin:Нейтральный / без плёнки',filmStrength:85,
   signal:{chromaBleed:52,composite:35,edgeWave:38,tracking:54,noise:38,chromaLoss:15,ringing:19},
   glitches:glitchDefaults,
@@ -27,6 +27,9 @@
  const previewProcessor=window.VHSVideoGlitchFX.createProcessor();
  const exportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const audioEngine=window.VHSVideoTapeAudio.create(source);
+ const signalCanvas=document.createElement('canvas');
+ const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
+ let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
@@ -42,7 +45,22 @@
   const input=document.createElement('input');input.type='range';input.min='0';input.max='100';input.step='1';input.value=value;
   input.addEventListener('input',()=>{count.textContent=input.value+'%';onInput(Number(input.value));persist();renderCurrentFrame();});
   wrap.append(head,input);parent.append(wrap);return input;}
+ function CFinite(x,a,b){return Number.isFinite(x)?clamp(x,a,b):b;}
  function resetFrameHistory(){previewProcessor.reset();exportProcessor.reset();}
+ function tuneAdaptiveResolution(cost,exporting){
+  if(state.signalWidth!=='auto')return;
+  if(cost>110){slowFrames++;fastFrames=0;}
+  else if(cost<40){fastFrames++;slowFrames=0;}
+  else{slowFrames=0;fastFrames=0;}
+  const current=exporting?adaptiveExportWidth:adaptivePreviewWidth;
+  if(slowFrames>=2&&current>192){
+   if(exporting)adaptiveExportWidth=192;else adaptivePreviewWidth=192;
+   slowFrames=0;resetFrameHistory();
+  }else if(fastFrames>=25&&current<240){
+   if(exporting)adaptiveExportWidth=240;else adaptivePreviewWidth=240;
+   fastFrames=0;resetFrameHistory();
+  }
+ }
  function clipSeed(){return (state.seed^Math.imul(clipIndex+1,0x6c8e9cf5))>>>0;}
  function syncAudio(playing=!source.paused){audioEngine.update({...state.audio,seed:clipSeed()},source.currentTime||0,playing&&!!file);}
  function setSeed(value){state.seed=value>>>0;resetFrameHistory();$('undoGlitch').disabled=!seedHistory.length;persist();renderCurrentFrame();}
@@ -77,6 +95,10 @@
   for(const def of window.VHSVideoGlitchFX.TAPES)tapes.add(new Option(def.name,def.id));
   tapes.value=state.tape;
   tapes.onchange=()=>{state.tape=tapes.value;persist();resetFrameHistory();renderCurrentFrame();};
+  $('signalWidth').value=state.signalWidth;
+  $('signalWidth').onchange=()=>{
+   state.signalWidth=$('signalWidth').value;resetFrameHistory();persist();renderCurrentFrame();
+  };
   $('modeSelect').value=state.mode;
   $('modeSelect').onchange=()=>{state.mode=$('modeSelect').value;persist();resetFrameHistory();renderCurrentFrame();};
   $('glitchEnabled').checked=state.glitchEnabled;
@@ -225,20 +247,25 @@
  }
  function drawFrame(canvas,forExport=false){
   if(!file||source.readyState<2||!source.videoWidth)return;
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  const limit=state.signalWidth==='auto'?(forExport||recording?adaptiveExportWidth:adaptivePreviewWidth):Number(state.signalWidth);
+  const ratio=CFinite(Math.min(1,limit/Math.max(canvas.width,canvas.height)),.1,1);
+  const iw=Math.max(2,Math.round(canvas.width*ratio/2)*2),ih=Math.max(2,Math.round(canvas.height*ratio/2)*2);
+  if(signalCanvas.width!==iw)signalCanvas.width=iw;
+  if(signalCanvas.height!==ih)signalCanvas.height=ih;
+  const ctx=signalContext;
   // Letterbox video; source aspect ratio is never stretched.
-  const scale=Math.min(canvas.width/source.videoWidth,canvas.height/source.videoHeight);
+  const scale=Math.min(iw/source.videoWidth,ih/source.videoHeight);
   const tw=Math.max(1,source.videoWidth*scale),th=Math.max(1,source.videoHeight*scale);
-  ctx.fillStyle='#050707';ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(source,(canvas.width-tw)/2,(canvas.height-th)/2,tw,th);
-  const image=ctx.getImageData(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#050707';ctx.fillRect(0,0,iw,ih);
+  ctx.drawImage(source,(iw-tw)/2,(ih-th)/2,tw,th);
+  const image=ctx.getImageData(0,0,iw,ih);
   if(state.filmEnabled){
    const f=selectedFilm(),strength=state.filmStrength/100;
    if(f?.type==='builtin')window.VideoFilmCore.filmBuiltin(image.data,builtin[f.name],strength);
    else if(f?.fields)window.VideoFilmCore.filmXMP(image.data,f,strength);
   }
   ctx.putImageData(image,0,0);
-  drawOsd(ctx,canvas.width,canvas.height);
+  drawOsd(ctx,iw,ih);
   const time=source.currentTime||0,frameIndex=Math.floor(time*(Number(state.fps)||15));
   // A mechanical tape splice is strongest at real clip joins.
   const splicePulse=Math.max(
@@ -247,25 +274,29 @@
   );
   const seed=(clipSeed()^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
   if(state.vhsEnabled&&state.master>0){
-   const signal=ctx.getImageData(0,0,canvas.width,canvas.height);
+   const signal=ctx.getImageData(0,0,iw,ih);
    const tape=window.VHSVideoGlitchFX.TAPES.find(t=>t.id===state.tape)||window.VHSVideoGlitchFX.TAPES[1];
    const preset=state.preset==='damaged'?1.25:state.preset==='camcorder'?.75:1;
-   window.VHSPhotoEngine.apply(signal.data,canvas.width,canvas.height,{
+   window.VHSPhotoEngine.apply(signal.data,iw,ih,{
     master:clamp(state.master/100*preset*tape.level,0,1.4),seed,
     signal:{...state.signal,noise:Math.min(100,state.signal.noise*tape.noise),tracking:Math.min(100,state.signal.tracking*tape.head),tapeSpeed:state.speed}
    });
    ctx.putImageData(signal,0,0);
   }
   if(state.glitchEnabled||state.mode!=='vhs'){
-   const signal=ctx.getImageData(0,0,canvas.width,canvas.height);
+   const signal=ctx.getImageData(0,0,iw,ih);
    const engine=forExport||recording?exportProcessor:previewProcessor;
-   engine.apply(signal.data,canvas.width,canvas.height,{
+   engine.apply(signal.data,iw,ih,{
     time,seed:clipSeed(),mode:state.mode,modeStrength:state.modeStrength,splicePulse,
     tape:state.tape,density:state.eventDensity,
     strength:state.glitchEnabled?state.glitchStrength/100:0,effects:state.glitchEnabled?state.glitches:{}
    });
    ctx.putImageData(signal,0,0);
   }
+  const output=canvas.getContext('2d');
+  output.imageSmoothingEnabled=true;
+  output.clearRect(0,0,canvas.width,canvas.height);
+  output.drawImage(signalCanvas,0,0,canvas.width,canvas.height);
  }
  function renderCurrentFrame(){
   if(!file||source.readyState<2||recording||renderBusy)return;
@@ -280,6 +311,7 @@
   if(now-lastDraw<1000/fps)return;
   lastDraw=now;
   try{
+   const begin=performance.now();
    syncAudio(true);
    if(recording){
     drawFrame(recordCanvas,true);
@@ -290,6 +322,7 @@
     exportStatus('Запись: '+timeString(elapsed)+' / '+timeString(max)+' · клип '+(clipIndex+1)+'/'+clips.length);
     if(elapsed>=max-.04||(!clipHasNext()&&source.ended))stopExport();
    }else{drawFrame(preview);}
+   tuneAdaptiveResolution(performance.now()-begin,!!recording);
   }catch(e){
    console.error(e);if(recording){exportStatus('Ошибка обработки видео: '+e.message);stopExport();}
    else textStatus('Не удалось обработать кадр: '+e.message);
@@ -440,7 +473,7 @@
    exportStatus('Не удалось определить длительность всех клипов. Проверь форматы каждого видео или попробуй по одному.');return;
   }
   const [w,h]=videoDimensions(Number(state.size));
-  recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();
+  recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();adaptiveExportWidth=240;slowFrames=0;fastFrames=0;
   try{
    source.pause();
    if(clipIndex!==0)await selectClip(0,false);
