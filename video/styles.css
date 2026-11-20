@@ -23,3 +23,24 @@ footer{border-top:1px solid #2b3944;padding:14px;color:#92a6b1;display:flex;flex
 
 /* Hidden must beat author-level flex rules (notably .empty). */
 [hidden]{display:none!important}
+
+/* 0.2: six tabs, richer per-effect panels and compact clip transport. */
+.tabs{gap:2px;padding-inline:7px}
+.tabs button{font-size:10px;padding:11px 0;letter-spacing:-.2px}
+.stageButtons{grid-template-columns:1.2fr 1fr 1fr}
+.seedActions{display:flex;gap:5px;min-width:0}
+.seedActions #regenerate{flex:1;min-width:0;padding-inline:4px}
+.seedActions .seedUndo{flex:0 0 34px;width:34px;padding:0;font-size:22px;color:#a5f8eb}
+.seedActions .seedUndo:disabled{opacity:.25}
+.button.mini{min-height:31px;padding:7px 8px;font-size:10px}
+.playlistRow{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin:5px 0 10px}
+.playlistRow .hint{flex:1;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#glitchControls details{padding:0;background:#17232c;overflow:hidden;margin:12px 0}
+#glitchControls details>summary{padding:12px;color:#a5e9dc;background:#223340}
+#glitchControls details>.control{padding:9px 12px}
+#glitchControls details:not([open]){opacity:.9}
+.presetButtons{display:flex;gap:6px;justify-content:space-between;margin-top:10px}
+.presetButtons .button{flex:1;min-width:0;padding-inline:4px}
+#eventControls{border:1px solid #2d4b51;background:#1b2c32;padding:8px 12px;border-radius:10px}
+#eventControls .control:last-child{border:none}
+@media(max-width:360px){.tabs button{font-size:9px}.stageButtons{grid-template-columns:1fr 1fr 1fr}.stageButtons .button{font-size:10px;padding-inline:3px}.seedActions .seedUndo{flex-basis:28px;width:28px}}
