@@ -186,7 +186,7 @@ class TapeAudio{
   this.suspendNoise();
   if(this.noise){try{this.noise.stop()}catch{}try{this.noise.disconnect()}catch{}this.noise=null;}
   const ctx=this.ctx;
-  if(ctx){try{ctx.close()}catch{}}
+  if(ctx){try{const closing=ctx.close();if(closing?.catch)closing.catch(()=>{});}catch{}}
   this.connected=false;this.stream=null;this.spectrum=null;
  }
  getTracks(){return this.stream?.getAudioTracks()||[];}
