@@ -20,7 +20,15 @@
 <select id="filmCategory" aria-label="Категория плёнки"><option value="Все">Все категории</option></select>
 <div class="row slim"><span id="filmCount" class="muted">Загрузка каталога…</span><span id="filmPageLabel" class="muted"></span></div>
 <div id="filmGrid" class="filmGrid"></div><div class="row"><button class="btn mini" id="prevFilmPage">← Назад</button><button class="btn mini" id="nextFilmPage">Вперёд →</button></div>
-<div id="filmControls"></div><details><summary>Дополнительные профили и LUT</summary><p class="hint">Встроено 23 авторских стиля. Большую библиотеку Lightroom XMP можно один раз импортировать и затем применять полностью офлайн. Конвертация XMP приблизительная — это не движок Adobe.</p>
+<div id="filmControls"></div><section class="edgeBurnPanel" aria-label="Засветы и разрывы краёв плёнки">
+<h3>FILM BURNS / ЗАСВЕТЫ КРАЯ</h3>
+<div class="row switch"><span>Включить засветы</span><input type="checkbox" id="edgeBurnEnabled"></div>
+<label>Цвет засвета<select id="edgeBurnMode"><option value="auto">Авто — по типу плёнки</option><option value="mono">Чёрно-белые</option><option value="color">Цветные</option></select></label>
+<label>Расположение<select id="edgeBurnSide"><option value="random">Слева или справа случайно</option><option value="left">Только слева</option><option value="right">Только справа</option><option value="both">С обеих сторон</option></select></label>
+<div id="edgeBurnControls"></div>
+<button id="edgeBurnReroll" type="button" class="btn full">↻ Новые засветы</button>
+<p class="hint">Засветы работают независимо от VHS и FILM. Кнопка «Новые помехи» не меняет рисунок края, а «Новые засветы» меняет только его.</p>
+</section><details><summary>Дополнительные профили и LUT</summary><p class="hint">Встроено 23 авторских стиля. Большую библиотеку Lightroom XMP можно один раз импортировать и затем применять полностью офлайн. Конвертация XMP приблизительная — это не движок Adobe.</p>
 <label class="btn mini full">＋ Импортировать архив XMP ZIP<input type="file" id="xmpFile" accept=".zip,application/zip,.xmp" multiple hidden></label>
 <label class="btn mini full">＋ Импортировать 3D .cube LUT<input type="file" id="lutFile" accept=".cube,text/plain" hidden></label>
 <button class="btn mini full" id="clearLut">Убрать выбранный LUT</button>
