@@ -34,12 +34,12 @@ async function search(query,fetchFn=fetch){
  const json=await response.json();
  return (Array.isArray(json.results)?json.results:[]).map(normalize).filter(Boolean);
 }
-async function readAudio(url,fetchFn=fetch){
+async function readAudio(url,fetchFn=fetch,signal){
  const remote=safeURL(url);
  if(!remote)throw Error('Нужна прямая HTTPS-ссылка на аудиофайл (MP3, M4A, OGG или WAV).');
  let res;
- try{res=await fetchFn(remote,{mode:'cors',credentials:'omit',redirect:'follow'});}
- catch{throw Error('Сайт не разрешил получить звук для монтажа (CORS) или нет интернета. Попробуй другой трек.');}
+ try{res=await fetchFn(remote,{mode:'cors',credentials:'omit',redirect:'follow',signal});}
+ catch(e){if(signal?.aborted)throw Error('Загрузка музыки отменена.');throw Error('Сайт не разрешил получить звук для монтажа (CORS) или нет интернета. Попробуй другой трек.');}
  if(!res.ok)throw Error('Аудиофайл недоступен (HTTP '+res.status+').');
  const len=Number(res.headers?.get('content-length'))||0;
  if(len>MAX_BYTES)throw Error('Этот файл слишком большой для обработки на iPhone (максимум 18 МБ).');
@@ -51,6 +51,7 @@ async function readAudio(url,fetchFn=fetch){
  const reader=res.body.getReader(),chunks=[];let total=0;
  while(true){
   const {done,value}=await reader.read();
+  if(signal?.aborted){try{await reader.cancel()}catch{}throw Error('Загрузка музыки отменена.');}
   if(done)break;
   total+=value.byteLength;
   if(total>MAX_BYTES){await reader.cancel();throw Error('Файл больше 18 МБ. Выбери более короткий трек.');}
