@@ -965,7 +965,7 @@
    }
   });
   source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();audioEngine.stopMusic();});
-  source.addEventListener('play',()=>{try{syncAudio(true)}catch(e){textStatus('Музыка: '+e.message);}});
+  source.addEventListener('play',()=>{try{$('musicSample').pause();syncAudio(true)}catch(e){textStatus('Музыка: '+e.message);}});
   source.addEventListener('error',()=>{textStatus('Safari не открыл этот видеоформат. Попробуй MP4 H.264 или экспортируй из «Фото» в совместимом формате.');$('export').disabled=true;});
   $('seek').oninput=()=>{if(recording||!source.duration)return;source.currentTime=Number($('seek').value)/1000*source.duration;};
   $('play').onclick=togglePlay;
