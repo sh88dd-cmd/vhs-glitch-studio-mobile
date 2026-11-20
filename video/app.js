@@ -6,19 +6,27 @@
 (() => {
  const $=id=>document.getElementById(id);
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
- const defaults={vhsEnabled:true,filmEnabled:false,preset:'classic',master:65,
+ const glitchMeta=window.VHSVideoGlitchFX.EFFECTS;
+ const glitchDefaults=Object.fromEntries(glitchMeta.map(d=>[d.id,d.default]));
+ const defaults={vhsEnabled:true,filmEnabled:false,glitchEnabled:true,preset:'classic',master:65,
+  mode:'vhs',modeStrength:75,tape:'used',eventDensity:48,glitchStrength:85,
   speed:'SP',filmId:'builtin:Нейтральный / без плёнки',filmStrength:85,
   signal:{chromaBleed:52,composite:35,edgeWave:38,tracking:54,noise:38,chromaLoss:15,ringing:19},
+  glitches:glitchDefaults,
+  audio:{enabled:false,mode:'linear',strength:65,hiss:48,wow:42,flutter:32,drop:32,saturation:28},
   camera:{rec:false,play:false,battery:false,date:false,text:'PM 10:28 | JUN 16 1995'},
-  size:'480',fps:15,keepAudio:true,seed:91823710};
+  size:'480',fps:15,exportScope:'30',keepAudio:true,seed:91823710};
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem('vhs.video.settings')||'null')}catch{}
- const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},camera:{...defaults.camera,...(saved?.camera||{})}};
+ const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{})}};
  let sourceUrl='',file=null,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
  let importedDB=null,recording=null,recordStream=null,exportBlob=null,exportMime='';
  let downloadUrl='',exportStopRequested=false,audioContext=null,audioSource=null,audioMonitor=null;
- let lastDraw=0,framePending=false,loopId=0,renderBusy=false;
+ let lastDraw=0,framePending=false,loopId=0,renderBusy=false,seedHistory=[],audioErrorShown=false;
  const source=$('source'),preview=$('preview'),recordCanvas=$('recordCanvas'),stage=preview.getContext('2d',{willReadFrequently:true});
+ const previewProcessor=window.VHSVideoGlitchFX.createProcessor();
+ const exportProcessor=window.VHSVideoGlitchFX.createProcessor();
+ const audioEngine=window.VHSVideoTapeAudio.create(source);
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
@@ -33,19 +41,71 @@
   const count=document.createElement('em');count.textContent=value+'%';head.append(name,count);
   const input=document.createElement('input');input.type='range';input.min='0';input.max='100';input.step='1';input.value=value;
   input.addEventListener('input',()=>{count.textContent=input.value+'%';onInput(Number(input.value));persist();renderCurrentFrame();});
-  wrap.append(head,input);parent.append(wrap);}
+  wrap.append(head,input);parent.append(wrap);return input;}
+ function resetFrameHistory(){previewProcessor.reset();exportProcessor.reset();}
+ function syncAudio(playing=!source.paused){audioEngine.update({...state.audio,seed:state.seed},source.currentTime||0,playing&&!!file);}
+ function setSeed(value){state.seed=value>>>0;resetFrameHistory();$('undoGlitch').disabled=!seedHistory.length;persist();renderCurrentFrame();}
+ function regenerateSeed(){if(!file||recording)return;seedHistory.push(state.seed>>>0);if(seedHistory.length>50)seedHistory.shift();let next=randomSeed();if(next===state.seed)next=(next+1)>>>0;setSeed(next);}
+ function undoSeed(){if(!file||recording||!seedHistory.length)return;setSeed(seedHistory.pop());}
+ function mountGlitchControls(){
+  const groups={analogue:{label:'АНАЛОГОВЫЕ СБОИ',open:true},temporal:{label:'ВРЕМЕННЫЕ / МЕЖКАДРОВЫЕ',open:true},digital:{label:'ЦИФРОВЫЕ ПОВРЕЖДЕНИЯ',open:false}};
+  const parent=$('glitchControls');parent.replaceChildren();
+  for(const key of Object.keys(groups)){
+   const d=document.createElement('details');d.open=groups[key].open;
+   const sum=document.createElement('summary');sum.textContent=groups[key].label+' · '+glitchMeta.filter(x=>x.group===key).length;
+   d.append(sum);parent.append(d);
+   for(const def of glitchMeta.filter(x=>x.group===key))control(d,def.name,state.glitches[def.id],v=>{state.glitches[def.id]=v;resetFrameHistory();});
+  }
+ }
  function mountControls(){
-  control($('vhsControls'),'Общая сила VHS',state.master,v=>state.master=v);
+  control($('vhsControls'),'Общая сила VHS',state.master,v=>{state.master=v;resetFrameHistory();});
   const tape=document.createElement('label');tape.textContent='Режим видеокассеты';
   const sp=document.createElement('select');for(const p of ['SP','LP','EP'])sp.add(new Option(p,p));sp.value=state.speed;
   sp.addEventListener('change',()=>{state.speed=sp.value;persist();renderCurrentFrame();});tape.append(sp);$('vhsControls').append(tape);
   for(const [id,label] of [['chromaBleed','Растекание цвета'],['composite','Артефакты композитного сигнала'],['edgeWave','Нестабильность видеострок'],['tracking','Помехи видеоголовки (1–4 полосы)'],['noise','Шум и снег'],['chromaLoss','Выпадения цвета'],['ringing','Контурное эхо']]){
    control($('vhsControls'),label,state.signal[id],v=>state.signal[id]=v);
   }
+  control($('modeStrengthControl'),'Сила режима (MiniDV / CRT / Night Vision)',state.modeStrength,v=>{state.modeStrength=v;resetFrameHistory();});
+  function mountEventControls(){
+   const parent=$('eventControls');parent.replaceChildren();
+   control(parent,'Частота случайных сбоев',state.eventDensity,v=>{state.eventDensity=v;resetFrameHistory();});
+   control(parent,'Общая сила дополнительных помех',state.glitchStrength,v=>{state.glitchStrength=v;resetFrameHistory();});
+  }
+  mountEventControls();mountGlitchControls();
+  const tapes=$('tapeKind');
+  for(const def of window.VHSVideoGlitchFX.TAPES)tapes.add(new Option(def.name,def.id));
+  tapes.value=state.tape;
+  tapes.onchange=()=>{state.tape=tapes.value;persist();resetFrameHistory();renderCurrentFrame();};
+  $('modeSelect').value=state.mode;
+  $('modeSelect').onchange=()=>{state.mode=$('modeSelect').value;persist();resetFrameHistory();renderCurrentFrame();};
+  $('glitchEnabled').checked=state.glitchEnabled;
+  $('glitchEnabled').onchange=()=>{state.glitchEnabled=$('glitchEnabled').checked;persist();resetFrameHistory();renderCurrentFrame();};
+  for(const [name,fn] of [
+    ['gentleGlitch',d=>d.group==='digital'?0:Math.min(d.default,22)],
+    ['chaosGlitch',d=>Math.min(100,Math.round(d.default*1.75))],
+    ['offGlitch',()=>0]
+  ])$(name).onclick=()=>{
+    for(const def of glitchMeta)state.glitches[def.id]=fn(def);
+    if(name==='chaosGlitch')state.eventDensity=80;
+    if(name==='gentleGlitch')state.eventDensity=35;
+    if(name==='offGlitch')state.eventDensity=0;
+    mountEventControls();mountGlitchControls();persist();resetFrameHistory();renderCurrentFrame();
+  };
+  const audio=$('audioControls');
+  for(const [id,label] of [
+    ['strength','Сила деградации аудио'],['hiss','Шипение ленты'],
+    ['wow','Плавание звука / Wow'],['flutter','Дрожание звука / Flutter'],
+    ['drop','Выпадения звука'],['saturation','Перегрузка и насыщение']
+  ])control(audio,label,state.audio[id],v=>{state.audio[id]=v;syncAudio();});
+  $('audioEnabled').checked=state.audio.enabled;
+  $('audioEnabled').onchange=()=>{state.audio.enabled=$('audioEnabled').checked;syncAudio();persist();};
+  $('audioMode').value=state.audio.mode;
+  $('audioMode').onchange=()=>{state.audio.mode=$('audioMode').value;syncAudio();persist();};
   control($('filmControls'),'Сила плёнки',state.filmStrength,v=>state.filmStrength=v);
   $('vhsEnabled').checked=state.vhsEnabled;$('filmEnabled').checked=state.filmEnabled;
   $('vhsPreset').value=state.preset;
   $('outputSize').value=state.size;$('fps').value=String(state.fps);
+  $('exportScope').value=state.exportScope;
   $('keepAudio').checked=state.keepAudio;
   for(const k of ['rec','play','battery','date'])$(k+'On').checked=!!state.camera[k];
   $('dateText').value=state.camera.text;
@@ -55,6 +115,7 @@
   $('outputSize').onchange=()=>{state.size=$('outputSize').value;persist();};
   $('fps').onchange=()=>{state.fps=Number($('fps').value);persist();};
   $('keepAudio').onchange=()=>{state.keepAudio=$('keepAudio').checked;persist();};
+  $('exportScope').onchange=()=>{state.exportScope=$('exportScope').value;persist();};
   for(const k of ['rec','play','battery','date'])$(k+'On').onchange=()=>{state.camera[k]=$(k+'On').checked;persist();renderCurrentFrame();};
   $('dateText').oninput=()=>{state.camera.text=$('dateText').value;persist();renderCurrentFrame();};
  }
