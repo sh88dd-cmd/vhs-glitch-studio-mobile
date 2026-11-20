@@ -26,7 +26,7 @@ async function search(query,fetchFn=fetch){
  if(q.length<2)throw Error('Введи хотя бы два символа для поиска.');
  const endpoint=new URL('https://api.openverse.org/v1/audio/');
  endpoint.searchParams.set('q',q);
- endpoint.searchParams.set('page_size','30');
+ endpoint.searchParams.set('page_size','20'); // Openverse rejects anonymous searches above 20 with HTTP 401.
  endpoint.searchParams.set('category','music');
  endpoint.searchParams.set('license','cc0,pdm,by');
  const response=await fetchFn(endpoint.toString(),{mode:'cors',credentials:'omit',headers:{Accept:'application/json'}});
