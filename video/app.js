@@ -403,7 +403,7 @@
    const row=document.createElement('div');row.className='onlineMusicResult';
    const title=document.createElement('strong');title.className='musicResultTitle';title.textContent=item.title;
    const meta=document.createElement('div');meta.className='musicResultMeta';
-   meta.textContent=item.creator+' · '+item.license.toUpperCase()+(item.duration?' · '+timeString(item.duration/1000):'');
+   meta.textContent=item.creator+' · '+item.license.toUpperCase()+' · '+(item.source||'Openverse')+(item.duration?' · '+timeString(item.duration/1000):'');
    const actions=document.createElement('div');actions.className='musicResultActions';
    const listen=document.createElement('button');listen.type='button';listen.className='button';
    listen.textContent='▶ Прослушать';
@@ -426,6 +426,20 @@
  }
  async function searchOnlineMusic(){
   const query=$('onlineMusicSearch').value.trim();
+  if(/^https?:\/\//i.test(query)){
+   try{
+    const u=new URL(query),isAudio=/\.(?:mp3|m4a|wav|ogg|oga|flac|opus|webm)$/i.test(u.pathname);
+    const isPage=/(?:^|\/)(?:song|songs|track|tracks|album|albums|artist|artists|playlist|wiki)\//i.test(u.pathname)||/(?:^|\.)hitmos\.site$/i.test(u.hostname);
+    if(!isAudio||isPage){
+     $('onlineMusicStatus').textContent='Это ссылка на страницу песни, а не на аудиофайл. Поиск: введи название песни или жанр. Для прямого добавления нужна HTTPS-ссылка на сам MP3/M4A/WAV/OGG; ссылки на страницы музыкальных сайтов Safari не может извлечь автоматически.';
+     return;
+    }
+    $('onlineMusicStatus').textContent='Обнаружен прямой аудиофайл. Подключаю его в микшер…';
+    const name=decodeURIComponent(u.pathname.split('/').pop()||'Музыка').slice(0,120);
+    loadMusicTrack({kind:'direct',title:name,creator:'По прямой ссылке',url:u.href,license:'user'});
+   }catch(e){$('onlineMusicStatus').textContent='Неверная ссылка: '+e.message;}
+   return;
+  }
   if(query.length<2){$('onlineMusicStatus').textContent='Введи название, исполнителя или жанр (минимум 2 символа).';return;}
   const token=++musicSearchToken;
   $('searchOnlineMusic').disabled=true;
@@ -435,7 +449,8 @@
    if(token!==musicSearchToken)return;
    musicSearchResults=found;
    renderMusicResults();
-   $('onlineMusicStatus').textContent='Найдено '+found.length+' треков (CC0 / PDM / CC BY). Перед публикацией видео проверь лицензию и авторство.';
+   const fromCommons=found.some(x=>x.source==='Wikimedia Commons');
+   $('onlineMusicStatus').textContent='Найдено '+found.length+' треков. Источник: '+(fromCommons?'Wikimedia Commons (резервный каталог)':'Openverse')+'. Лицензии CC0 / Public Domain / CC BY / CC BY-SA — проверь условия перед публикацией.';
   }catch(e){if(token===musicSearchToken)$('onlineMusicStatus').textContent='Поиск недоступен: '+e.message+' Можно использовать прямую HTTPS-ссылку или файл.';}
   finally{if(token===musicSearchToken)$('searchOnlineMusic').disabled=false;}
  }
@@ -467,6 +482,8 @@
    try{
     const u=new URL(raw);
     if(u.protocol!=='https:')throw Error('Нужна прямая HTTPS-ссылка.');
+    const isPage=/(?:^|\/)(?:song|songs|track|tracks|album|albums|artist|artists|playlist|wiki)\//i.test(u.pathname)||/(?:^|\.)hitmos\.site$/i.test(u.hostname);
+    if(isPage)throw Error('Ссылка ведёт на страницу песни. Для импорта нужен прямой адрес аудиофайла, а не адрес страницы. Можно найти трек по названию в каталоге выше.');
     const title=decodeURIComponent(u.pathname.split('/').pop()||'Аудио по ссылке').slice(0,120);
     loadMusicTrack({kind:'direct',title,creator:'По ссылке пользователя',url:u.href,license:'user'});
    }catch(e){musicLoadStatus('Проверь ссылку: '+e.message);}
