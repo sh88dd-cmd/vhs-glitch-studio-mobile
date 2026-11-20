@@ -1,0 +1,17 @@
+name: Private music bridge tests
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'music-bridge/**'
+      - '.github/workflows/music-bridge-check.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test private bridge authentication, CORS, MP3, Telegram
+        run: node --test music-bridge/test-worker.mjs
