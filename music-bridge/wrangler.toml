@@ -8,3 +8,9 @@ compatibility_date = "2026-11-01"
 # Optional secrets for Telegram: TELEGRAM_BOT_TOKEN,
 # TELEGRAM_WEBHOOK_SECRET, TELEGRAM_USER_ID.
 # Optional variable: ALLOWED_AUDIO_HOSTS (comma-separated public domains).
+
+# Deploy to Cloudflare templates can provision this KV namespace automatically.
+# If deploying manually via CLI, replace the placeholder ID with your namespace ID.
+[[kv_namespaces]]
+binding = "TRACKS"
+id = "00000000000000000000000000000000"
