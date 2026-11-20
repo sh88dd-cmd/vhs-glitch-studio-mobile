@@ -8,9 +8,9 @@
 </head><body>
 <header class="top"><div class="brand"><span class="mark">▥</span><div>VHS <b>GLITCH</b><small>STUDIO MOBILE · 1.0</small></div></div><span class="status" id="onlineState">ПРОВЕРКА…</span></header>
 <main>
-<section class="preview" aria-label="Предпросмотр"><div class="previewHead"><span id="photoLabel">Фотография не выбрана</span><span id="sizeLabel">—</span></div><div class="canvasWrap"><canvas id="previewCanvas" width="640" height="480"></canvas><div id="emptyMsg"><b>VHS / FILM</b><span>Выбери фотографию для обработки</span></div></div>
+<section class="preview" aria-label="Предпросмотр"><div class="previewHead"><span id="photoLabel">Фотография не выбрана</span><span id="sizeLabel">—</span></div><div class="canvasWrap" id="mainPreviewTap" role="button" tabindex="0" aria-label="Открыть основную фотографию крупно"><canvas id="previewCanvas" width="640" height="480"></canvas><div id="emptyMsg"><b>VHS / FILM</b><span>Выбери фотографию для обработки</span></div></div>
 <div class="previewActions"><label class="btn primary">＋ Открыть фото<input id="fileSingle" type="file" accept="image/*" hidden></label><button class="btn" id="reroll">↻ Новые помехи</button><button class="btn" id="saveOne">↓ Сохранить</button></div>
-<div class="row slim"><button class="btn mini" id="compare">◩ До / После</button><span id="renderStatus" class="muted">Локальная обработка · фото не загружаются на сервер</span><span id="renderTime" class="muted"></span></div></section>
+<div class="row slim"><button class="btn mini" id="compare">◩ До / После</button><button class="btn mini" id="openMainPreview">⛶ Открыть крупно</button><span id="renderStatus" class="muted">Локальная обработка · фото не загружаются на сервер</span><span id="renderTime" class="muted"></span></div></section>
 <nav class="tabs" aria-label="Разделы"><button data-tab="vhs" class="active">VHS</button><button data-tab="film">FILM</button><button data-tab="favorites" title="Избранные плёнки" aria-label="Избранные плёнки">★ ИЗБР.</button><button data-tab="batch">BATCH</button><button data-tab="camera">КАМЕРА</button></nav>
 <section class="panel active" id="panel-vhs"><h2>VHS / ANALOG TAPE</h2><div class="row switch"><span>Включить VHS</span><input id="vhsEnabled" type="checkbox" checked></div>
 <label>Стиль записи<select id="vhsPreset"><option>VHS 90s</option><option>Camcorder 90s</option><option>VHS — мягкий</option><option>VHS — повреждённая кассета</option><option>Dirty VHS Extreme</option><option>Tracking Error</option><option>Аналоговый шум</option><option>Цветные помехи</option><option>RGB Split</option></select></label>
@@ -41,6 +41,18 @@
 <button class="btn mini full" id="protectStorage">Попробовать защитить данные от очистки iOS</button><button class="btn mini full" id="installHelp">Как установить через Safari?</button></section>
 <footer class="footer"><p id="notice">Все фотографии обрабатываются на устройстве без отправки на сервер.</p><button class="btn mini" id="openSettings">Резервная копия · Настройки</button></footer>
 </main>
+<dialog id="mainPreviewDialog" aria-label="Увеличенный просмотр основной фотографии">
+  <div class="mainViewerTop"><strong id="mainViewerTitle">Просмотр фотографии</strong><button class="btn mini" type="button" id="closeMainPreview" aria-label="Закрыть увеличенный просмотр">✕ Закрыть</button></div>
+  <div id="mainViewerStage" class="mainViewerStage" aria-label="Фото: увеличивай двумя пальцами и перемещай"><canvas id="mainViewerCanvas" width="1" height="1"></canvas></div>
+  <div class="mainViewerBottom">
+    <span id="mainViewerStatus" role="status">Два пальца — увеличить, одним — перемещать</span>
+    <div class="mainViewerActions">
+      <button type="button" class="btn mini" id="mainZoomOut" aria-label="Уменьшить">−</button>
+      <button type="button" class="btn mini" id="mainZoomReset">Сброс</button>
+      <button type="button" class="btn mini" id="mainZoomIn" aria-label="Увеличить">＋</button>
+    </div>
+  </div>
+</dialog>
 <dialog id="photoDialog"><div class="dialogHead"><b id="dialogTitle">Просмотр кадра</b><button id="closeDialog" aria-label="Закрыть">✕</button></div><canvas id="largeCanvas" width="900" height="900"></canvas><button class="btn primary full" id="saveDialog">↓ Сохранить этот кадр</button></dialog>
 <dialog id="helpDialog"><div class="dialogHead"><b>Установка на iPhone</b><button id="closeHelp" aria-label="Закрыть">✕</button></div><div class="helpBody"><p>1. Открой адрес приложения в Safari на iPhone.</p><p>2. Нажми «Поделиться» → «На экран Домой» → «Добавить».</p><p>3. Открой новую иконку на экране. Дождись статуса «ГОТОВО ОФЛАЙН».</p><p>4. Отключи интернет и проверь, что приложение открывается и обрабатывает фото.</p><p>Если iOS очистит данные сайта, для восстановления потребуется снова открыть ссылку с интернетом. Настройки и импортированные плёнки можно вернуть из сохранённого файла резервной копии.</p></div></dialog>
 <script src="./jszip.min.js" defer></script><script src="./app.js" defer></script></body></html>
