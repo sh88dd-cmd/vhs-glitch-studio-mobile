@@ -393,16 +393,57 @@ function mountEdgeBurnControls(){
   function drawCamera(c,stateCamera){const ctx=c.getContext('2d'),w=c.width,h=c.height,base=Math.min(w,h);
     function fontSize(item,ratio){return Math.max(9,base*ratio*(item.size/100));}
     function xy(position,width,height){const gapX=Math.max(8,w*.04),gapY=Math.max(8,h*.04);return[position.includes('left')?gapX:w-gapX-width,position.includes('top')?gapY:h-gapY-height];}
-    function drawText(str,rec,color,ratio){const sz=fontSize(rec,ratio);ctx.font=`700 ${sz}px ui-monospace, Menlo, 'Courier New', monospace`;ctx.textBaseline='top';const lines=str.split('|').map(x=>x.trim()).slice(0,2);const textW=Math.max(...lines.map(line=>ctx.measureText(line).width)),lineH=sz*1.23,hh=lineH*lines.length;const [x,y]=xy(rec.position,textW,hh);
-      lines.forEach((line,j)=>{ctx.fillStyle='rgba(0,0,0,.8)';ctx.fillText(line,x+Math.max(1,sz*.06),y+j*lineH+Math.max(1,sz*.06));ctx.fillStyle=color;ctx.fillText(line,x,y+j*lineH);});}
+    function drawText(str,rec,color,ratio){
+      const lines=String(str||'').replace(/\r\n?/g,'\n').replace(/\|/g,'\n').split('\n').slice(0,4);
+      let sz=fontSize(rec,ratio);
+      ctx.textBaseline='top';
+      for(let n=0;n<12;n++){
+        ctx.font='700 '+sz+'px ui-monospace, Menlo, Courier New, monospace';
+        const mw=Math.max(0,...lines.map(line=>ctx.measureText(line).width));
+        if((mw<=w*.88&&sz*1.23*lines.length<=h*.8)||sz<=9)break;
+        sz=Math.max(9,sz*.86);
+      }
+      const textW=Math.max(0,...lines.map(line=>ctx.measureText(line).width));
+      const lineH=sz*1.23,hh=lineH*lines.length,[x,y]=xy(rec.position,textW,hh);
+      lines.forEach((line,j)=>{ctx.fillStyle='rgba(0,0,0,.8)';ctx.fillText(line,x+Math.max(1,sz*.06),y+j*lineH+Math.max(1,sz*.06));ctx.fillStyle=color;ctx.fillText(line,x,y+j*lineH);});
+    }
     if(stateCamera.date.on)drawText(stateCamera.date.text,stateCamera.date,'#eff3ee',.05);
     if(stateCamera.play.on)drawText('PLAY',stateCamera.play,'#f6f4ed',.038);
     if(stateCamera.rec.on){const item=stateCamera.rec,sz=fontSize(item,.038);ctx.font=`700 ${sz}px ui-monospace, Menlo, monospace`;const ww=ctx.measureText('REC').width+sz*.85,hh=sz*1.2,[x,y]=xy(item.position,ww,hh);ctx.fillStyle='#fa3f43';ctx.beginPath();ctx.arc(x+sz*.20,y+sz*.55,Math.max(2,sz*.15),0,Math.PI*2);ctx.fill();ctx.fillStyle='#ef5150';ctx.textBaseline='top';ctx.fillText('REC',x+sz*.48,y);}
     if(stateCamera.battery.on){const item=stateCamera.battery,sz=fontSize(item,.034),ww=sz*2.15,hh=sz*.75,[x,y]=xy(item.position,ww+sz*.25,hh);ctx.strokeStyle='#f5f4e9';ctx.lineWidth=Math.max(1,sz*.07);ctx.strokeRect(x,y,ww,hh);ctx.fillStyle='#f4f3e9';ctx.fillRect(x+ww,y+hh*.29,sz*.15,hh*.42);const count={FULL:4,'75%':3,'50%':2,'25%':1,LOW:1,EMPTY:0}[item.level];ctx.fillStyle=(["25%","LOW","EMPTY"].includes(item.level))?'#ff4c55':'#e9f6f1';for(let i=0;i<count;i++)ctx.fillRect(x+sz*.12+i*ww*.225,y+sz*.12,ww*.17,hh-sz*.24);}
   }
-  function drawBorder(canvas,settings){if(!settings.whiteBorder)return canvas;const w=canvas.width,h=canvas.height;
-    const mX=Math.round(w*.3),mY=Math.round(h*.3),out=newCanvas(w+2*mX,h+2*mY),ctx=out.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.drawImage(canvas,mX,mY);
-    if(settings.caption&&settings.captionText){const size=Math.max(8,Math.round(Math.min(w,h)*.021*(settings.captionSize/100)));ctx.fillStyle='#2a2a2a';ctx.font=`300 ${size}px -apple-system, Helvetica, Arial, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';const str=settings.captionText.slice(0,100),y=mY+h+h*.1;ctx.fillText(str,out.width/2,y,out.width*.90);}
+  function drawBorder(canvas,settings){
+    const w=canvas.width,h=canvas.height;
+    const frameStyle=['black','white'].includes(settings.frameStyle)?settings.frameStyle:(settings.whiteBorder?'white':'none');
+    const text=String(settings.captionText||'').replace(/\r\n?/g,'\n');
+    const lines=settings.caption&&text?text.split('\n').slice(0,6):[];
+    if(frameStyle==='none'&&!lines.length)return canvas;
+    const percentage=clamp(Number(settings.frameSize??(settings.whiteBorder?30:8)),3,30)/100;
+    const padX=frameStyle==='none'?0:Math.round(w*percentage);
+    const padY=frameStyle==='none'?0:Math.round(h*percentage);
+    let fontSize=Math.max(9,Math.round(Math.min(w,h)*.021*clamp(Number(settings.captionSize)/100||1,.5,2.2)));
+    const color=frameStyle==='white'?'#242424':'#f5f5f5';
+    const bg=frameStyle==='white'?'#ffffff':'#080808';
+    const maxW=w+2*padX-Math.max(16,w*.08);
+    const fontFamily='-apple-system, Helvetica, Arial, sans-serif';
+    const probe=newCanvas(2,2).getContext('2d');
+    for(let j=0;j<28&&lines.length;j++){
+      probe.font='400 '+fontSize+'px '+fontFamily;
+      if(Math.max(...lines.map(str=>probe.measureText(str).width),0)<=maxW||fontSize<=9)break;
+      fontSize=Math.max(9,fontSize*.92);
+    }
+    const lineHeight=fontSize*1.34,textHeight=lines.length*lineHeight;
+    const bottomPad=lines.length?Math.max(padY,Math.ceil(textHeight+fontSize*1.8)):padY;
+    const out=newCanvas(w+2*padX,h+padY+bottomPad);
+    const ctx=out.getContext('2d');
+    ctx.fillStyle=bg;ctx.fillRect(0,0,out.width,out.height);
+    ctx.drawImage(canvas,padX,padY);
+    if(lines.length){
+      ctx.fillStyle=color;ctx.font='400 '+fontSize+'px '+fontFamily;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      const firstY=padY+h+(bottomPad-textHeight)/2+lineHeight/2;
+      lines.forEach((line,index)=>ctx.fillText(line,out.width/2,firstY+index*lineHeight,maxW));
+    }
     return out;
   }
   async function processImage(im,seed,opts={},sizeLimit=PREVIEW_MAX){
@@ -430,7 +471,7 @@ function mountEdgeBurnControls(){
     if(state.filmEnabled)paintFilmExtras(frame,w,h,state.film,seed);
     paintEdgeBurns(frame,state.edgeBurn,selectedFilmIsMonochrome());
     drawCamera(frame,state.camera);
-    return state.filmEnabled ? drawBorder(frame,state.film) : frame;
+    return drawBorder(frame,state.film);
   }
   // Catalogue: local recipes plus XMP imports persisted in IndexedDB.
   function catalog(){return Object.keys(looks).map(name=>({id:'builtin:'+name,name,category:name.split(' ')[0],type:'builtin'}))
@@ -759,7 +800,7 @@ function mountEdgeBurnControls(){
     if(('serviceWorker' in navigator) && (location.protocol==='https:'||location.hostname==='localhost')){
       await navigator.serviceWorker.register('./sw.js',{scope:'./'});
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.0.6');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.0.7');const files=['./index.html','./styles.css','./app.js','./looks.json','./jszip.min.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
