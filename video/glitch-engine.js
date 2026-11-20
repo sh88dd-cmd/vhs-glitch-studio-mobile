@@ -206,7 +206,7 @@ function interlace(p,prev,w,h,amt,t){
  for(let y=1;y<h;y+=2){
   const off=y*w*4,above=(y-1)*w*4;
   for(let x=0;x<w;x++){
-   const i=off+x*4,j=(prev?.length===p.length?prev: p)[above+x*4]===undefined?above+x*4:above+x*4;
+   const i=off+x*4,j=above+x*4;
    const from=(prev?.length===p.length?prev:p);
    for(let c=0;c<3;c++)p[i+c]=p[i+c]*(1-amt*.88)+from[j+c]*amt*.88;
   }
@@ -316,6 +316,7 @@ class Processor{
    amt[def.id]=envelope(t,def,seed,density,Number(settings[def.id]??0))*overall;
   }
   const mode=options.mode||'vhs',tape=tapes.find(x=>x.id===options.tape)||tapes[1],level=tape.level;
+  if(options.splicePulse>0)amt.tapeSplice=Math.max(amt.tapeSplice,C(options.splicePulse*Number(settings.tapeSplice||0)/100,0,1.3)*overall);
   // Analog faults. Tape profiles influence their amplitude, not unrelated FILM filters.
   if(amt.tapeChew)tapeChew(p,w,h,C(amt.tapeChew*level,0,1.4),t,seed);
   if(amt.pause)pauseFrame(p,w,h,C(amt.pause*level,0,1),t,prev,seed);
