@@ -369,6 +369,7 @@
    clips[j].duration=await probeClipDuration(clips[j]);
   }
   updateClipNav();
+  textStatus('Готово к просмотру: '+clips.length+' клип(ов). Выбери VHS, FILM или ГЛИТЧ.');
  }
  function onLoaded(){
   if(!source.videoWidth||!source.videoHeight)return;
