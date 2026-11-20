@@ -290,12 +290,20 @@
   $('copyMusicCredit').disabled=track.kind!=='openverse';
   $('reloadMusic').hidden=!!audioEngine.musicBuffer||track.kind==='file';
   $('reloadMusic').disabled=musicLoading;
+  $('clearMusicMemory').disabled=musicLoading||!audioEngine.musicBuffer;
+  $('musicMemoryStatus').textContent=audioEngine.musicBuffer?
+   'Временная память музыки: около '+audioEngine.getMusicMemoryMB()+' МБ. После очистки трек можно восстановить по ссылке.':
+   'Аудиоданные не загружены в память. Сохранены только название и ссылка.';
  }
  async function loadMusicTrack(track,inputFile=null){
   if(recording)return musicLoadStatus('Останови экспорт перед заменой музыки.');
   const request=++musicRequest;
   musicLoading=true;
   musicLoadStatus('Подключаю дорожку к общему VHS-аудиомикшеру…');
+  // Release the previous decoded song BEFORE loading another to avoid RAM spikes.
+  audioEngine.setMusicBuffer(null);
+  const audition=$('musicSample');
+  audition.pause();audition.removeAttribute('src');audition.load();audition.hidden=true;
   showMusicSelection();
   try{
    // Called from an explicit button/file action: unlock iOS AudioContext first.
@@ -325,6 +333,48 @@
    if(request===musicRequest)musicLoadStatus('Не удалось добавить музыку: '+e.message+' Другой трек или файл может сработать.');
   }finally{
    if(request===musicRequest){musicLoading=false;showMusicSelection();}
+  }
+ }
+ function clearMusicFromMemory(){
+  if(recording){musicLoadStatus('Во время экспорта нельзя выгружать аудиодорожку.');return;}
+  musicRequest++;musicLoading=false;
+  audioEngine.setMusicBuffer(null);musicTrackInfo=null;
+  const previewAudio=$('musicSample');
+  previewAudio.pause();previewAudio.removeAttribute('src');previewAudio.load();previewAudio.hidden=true;
+  showMusicSelection();
+  if(state.selectedTrack){
+   musicLoadStatus(state.selectedTrack.kind==='file'?
+    'Музыка удалена из оперативной памяти. Для продолжения выбери этот файл заново.':
+    'Музыка удалена из оперативной памяти. Ссылка на трек сохранена — нажми «↻ Восстановить» при необходимости.');
+  }else musicLoadStatus('Музыкальный буфер очищен.');
+ }
+ function releaseOnLeave(event){
+  // Browser owns GC; drop our strong references when leaving this app.
+  musicRequest++;musicLoading=false;musicSearchResults=[];musicTrackInfo=null;
+  audioEngine.setMusicBuffer(null);
+  const sample=$('musicSample');
+  sample.pause();sample.removeAttribute('src');sample.load();
+  if(!event?.persisted)audioEngine.release();
+ }
+ function mountRecommendedMusic(){
+  const categories=[
+   ['VHS / Lo-Fi','lofi ambient'],
+   ['Ночной город','dark ambient'],
+   ['Электронный бит','electronic dance'],
+   ['Ретро-синт','synthwave instrumental'],
+   ['Кино и плёнка','cinematic instrumental'],
+   ['Спокойный джаз','jazz instrumental']
+  ];
+  const parent=$('musicRecommendationChips');parent.replaceChildren();
+  for(const [name,query] of categories){
+   const button=document.createElement('button');button.type='button';
+   button.textContent=name;button.title='Найти '+name;
+   button.addEventListener('click',()=>{
+    if(musicSearchTimer){clearTimeout(musicSearchTimer);musicSearchTimer=null;}
+    $('onlineMusicSearch').value=query;
+    searchOnlineMusic();
+   });
+   parent.append(button);
   }
  }
  function removeMusicTrack(){
@@ -400,6 +450,7 @@
    };
   }
   $('musicLoop').onchange=()=>{state.mix.musicLoop=$('musicLoop').checked;persist();syncAudio(!source.paused);};
+  mountRecommendedMusic();
   $('searchOnlineMusic').onclick=searchOnlineMusic;
   $('onlineMusicSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(musicSearchTimer)clearTimeout(musicSearchTimer);searchOnlineMusic();}});
   $('onlineMusicSearch').addEventListener('input',()=>{
@@ -421,6 +472,7 @@
    e.target.value='';
   };
   $('removeMusic').onclick=removeMusicTrack;
+  $('clearMusicMemory').onclick=clearMusicFromMemory;
   $('reloadMusic').onclick=()=>{
    const track=state.selectedTrack;
    if(track?.url&&track.kind!=='file')loadMusicTrack(track);
@@ -947,6 +999,14 @@
    document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+button.dataset.tab));
   }));
   $('videoInput').onchange=e=>{loadVideo(e.target.files).catch(err=>textStatus(err.message));e.target.value='';};
+  window.addEventListener('pagehide',releaseOnLeave);
+  window.addEventListener('pageshow',e=>{
+   if(e?.persisted){
+    showMusicSelection();
+    if(state.selectedTrack&&!audioEngine.musicBuffer)
+     musicLoadStatus('Приложение восстановлено после закрытия страницы. Для музыки нажми «↻ Восстановить».');
+   }
+  });
   $('prevClip').onclick=()=>{if(recording)return;selectClip(clipIndex-1,false).catch(e=>textStatus(e.message));};
   $('nextClip').onclick=()=>{if(recording)return;selectClip(clipIndex+1,false).catch(e=>textStatus(e.message));};
   source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);
