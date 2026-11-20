@@ -19,7 +19,7 @@
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem('vhs.video.settings')||'null')}catch{}
  const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{})}};
- let sourceUrl='',file=null,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
+ let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
  let importedDB=null,recording=null,recordStream=null,exportBlob=null,exportMime='';
  let downloadUrl='',exportStopRequested=false,audioContext=null,audioSource=null,audioMonitor=null;
  let lastDraw=0,framePending=false,loopId=0,renderBusy=false,seedHistory=[],audioErrorShown=false;
@@ -294,27 +294,86 @@
   if(!Number.isFinite(source.duration)||!source.duration)return;
   if(!$('seek').matches(':active'))$('seek').value=Math.round(clamp(source.currentTime/source.duration,0,1)*1000);
  }
+ function clipTotalTime(){return clips.reduce((sum,c)=>sum+(Number.isFinite(c.duration)?c.duration:0),0);}
+ function globalVideoTime(){return clips.slice(0,clipIndex).reduce((sum,c)=>sum+(c.duration||0),0)+(source.currentTime||0);}
+ function clipHasNext(){return clipIndex<clips.length-1;}
+ function updateClipNav(){
+  $('clipLabel').textContent=clips.length>1?(clipIndex+1)+' / '+clips.length+' · '+(file?.name||''):'Один видеоклип';
+  $('prevClip').disabled=recording||clipIndex<=0;
+  $('nextClip').disabled=recording||!clipHasNext();
+ }
+ async function waitVideoReady(){
+  if(source.readyState>=2)return;
+  await new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>{cleanup();reject(Error('Видео не удалось подготовить к воспроизведению.'));},12000);
+   function cleanup(){clearTimeout(timer);source.removeEventListener('loadeddata',ok);source.removeEventListener('error',bad);}
+   function ok(){cleanup();resolve();}
+   function bad(){cleanup();reject(Error('Формат видеоклипа не поддерживается в Safari.'));}
+   source.addEventListener('loadeddata',ok,{once:true});source.addEventListener('error',bad,{once:true});
+  });
+ }
+ async function selectClip(index,autoplay=false){
+  if(index<0||index>=clips.length)return;
+  const clip=clips[index];
+  const same=clipIndex===index&&source.src===clip.url&&source.readyState>=2;
+  if(!same){
+   source.pause();audioEngine.suspendNoise();
+   clipIndex=index;file=clip.file;sourceUrl=clip.url;
+   resetFrameHistory();
+   source.src=sourceUrl;source.load();
+   $('videoName').textContent=file.name;
+   $('videoMeta').textContent=(file.size/1048576).toFixed(1)+' МБ';
+   updateClipNav();
+   await waitVideoReady();
+  }
+  if(autoplay){
+   try{await source.play();$('play').textContent='Ⅱ Пауза';}
+   catch(e){textStatus('Не удалось автоматически продолжить следующий клип: '+e.message);if(recording)stopExport();}
+  }else renderCurrentFrame();
+ }
+ async function probeClipDuration(clip){
+  return new Promise(resolve=>{
+   const video=document.createElement('video');let timer,doneAlready=false;
+   function done(value){
+    if(doneAlready)return;doneAlready=true;
+    clearTimeout(timer);video.removeAttribute('src');video.load();resolve(value);
+   }
+   video.preload='metadata';video.playsInline=true;
+   video.onloadedmetadata=()=>done(Number.isFinite(video.duration)?video.duration:0);
+   video.onerror=()=>done(0);
+   timer=setTimeout(()=>done(0),6500);
+   video.src=clip.url;video.load();
+  });
+ }
  async function loadVideo(input){
-  if(!input)return;
+  const list=Array.from(input||[]).slice(0,10);
+  if(!list.length)return;
   if(recording)throw Error('Нельзя сменить ролик во время экспорта.');
   source.pause();audioEngine.suspendNoise();resetFrameHistory();seedHistory=[];$('undoGlitch').disabled=true;
-  if(sourceUrl)URL.revokeObjectURL(sourceUrl);
-  file=input;sourceUrl=URL.createObjectURL(input);
+  for(const entry of clips)URL.revokeObjectURL(entry.url);
+  clips=list.map(f=>({file:f,url:URL.createObjectURL(f),duration:0}));
+  clipIndex=0;file=clips[0].file;sourceUrl=clips[0].url;
   source.src=sourceUrl;source.load();
-  $('videoName').textContent=input.name;
-  $('videoMeta').textContent=(input.size/1048576).toFixed(1)+' МБ';
+  $('videoName').textContent=file.name;
+  $('videoMeta').textContent=(file.size/1048576).toFixed(1)+' МБ';
   $('empty').hidden=true;$('play').disabled=true;$('export').disabled=true;$('seek').disabled=true;
-  $('exportResult').hidden=true;
-  textStatus('Читаю видео и проверяю декодирование…');
+  $('exportResult').hidden=true;updateClipNav();
+  textStatus('Подготавливаю '+clips.length+' клип(ов)…');
+  if(clips.length>1)for(let j=1;j<clips.length;j++){
+   clips[j].duration=await probeClipDuration(clips[j]);
+  }
+  updateClipNav();
  }
  function onLoaded(){
   if(!source.videoWidth||!source.videoHeight)return;
   const [w,h]=videoDimensions(520);
   preview.width=w;preview.height=h;
+  if(clips[clipIndex])clips[clipIndex].duration=Number.isFinite(source.duration)?source.duration:0;
   $('videoMeta').textContent=source.videoWidth+' × '+source.videoHeight+' · '+timeString(source.duration);
+  updateClipNav();
   $('play').disabled=false;$('export').disabled=false;$('regenerate').disabled=false;$('seek').disabled=false;
   $('timeTotal').textContent=timeString(source.duration);
-  textStatus('Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
+  textStatus(clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
   renderCurrentFrame();
  }
  async function togglePlay(){
