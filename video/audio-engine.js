@@ -12,6 +12,8 @@ class TapeAudio{
  constructor(element){
   this.element=element;this.ctx=null;this.stream=null;this.filter=null;this.delay=null;this.saturator=null;this.gain=null;this.noiseGain=null;this.noise=null;this.bypass=false;this.connected=false;
   this.state={enabled:false,mode:'linear',strength:55,hiss:45,wow:40,flutter:30,drop:25,saturation:20,seed:0};
+  this.mix={videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicLoop:true};
+  this.musicBuffer=null;this.musicSource=null;this.musicPlayAt=-1;this.musicCtxStart=0;
  }
  async start(){
   if(this.connected){if(this.ctx.state==='suspended')await this.ctx.resume();return;}
@@ -26,6 +28,14 @@ class TapeAudio{
   this.source.connect(this.analyser);
   this.analysisSink=ctx.createGain();this.analysisSink.gain.value=0;
   this.analyser.connect(this.analysisSink);this.analysisSink.connect(ctx.destination);
+  // Two independent volume controls; both feed the SAME VHS damage pipeline.
+  this.videoGain=ctx.createGain();this.videoGain.gain.value=1;
+  this.musicGain=ctx.createGain();this.musicGain.gain.value=.75;
+  this.mixer=ctx.createGain();this.mixer.gain.value=1;
+  this.source.connect(this.videoGain);this.videoGain.connect(this.mixer);
+  this.musicGain.connect(this.mixer);
+  this.musicAnalyser=ctx.createAnalyser();this.musicAnalyser.fftSize=1024;this.musicAnalyser.smoothingTimeConstant=.65;
+  this.musicAnalyser.connect(this.analysisSink);
   this.filter=ctx.createBiquadFilter();this.filter.type='lowpass';
   this.delay=ctx.createDelay(.25);this.delay.delayTime.value=.015;
   this.saturator=ctx.createWaveShaper();this.saturator.oversample='none';
@@ -34,9 +44,9 @@ class TapeAudio{
   // Dry bypass preserves the unchanged original when VHS AUDIO is switched off.
   this.dry=ctx.createGain();this.dry.gain.value=1;
   this.wet=ctx.createGain();this.wet.gain.value=0;
-  this.source.connect(this.dry);this.dry.connect(ctx.destination);this.dry.connect(this.monitor);
-  // Same processed wet graph serves local speakers and the exported audio track.
-  this.source.connect(this.filter);
+  this.mixer.connect(this.dry);this.dry.connect(ctx.destination);this.dry.connect(this.monitor);
+  // The combined music + camera-audio signal passes through VHS damage together.
+  this.mixer.connect(this.filter);
   this.filter.connect(this.saturator);this.saturator.connect(this.delay);this.delay.connect(this.gain);
   this.gain.connect(this.wet);this.wet.connect(ctx.destination);this.wet.connect(this.monitor);
   const buffer=ctx.createBuffer(1,Math.round(ctx.sampleRate*2),ctx.sampleRate);
@@ -51,6 +61,7 @@ class TapeAudio{
   this.stream=this.monitor.stream;
   this.connected=true;
   this.update(this.state,0,false);
+  this.setMix(this.mix);
   if(ctx.state==='suspended')await ctx.resume();
  }
  update(settings,time,playing=true){
@@ -87,9 +98,72 @@ class TapeAudio{
   const noise=enabled&&playing?C((s.hiss||0)/100,0,1)*strength*(type==='hifi'?.006:.025):0;
   this.noiseGain.gain.setTargetAtTime(noise,now,.035);
  }
+ setMix(settings){
+  const prev=this.mix;
+  const next={...prev,...(settings||{})};
+  next.videoVolume=C(Number(next.videoVolume)||0,0,100);
+  next.musicVolume=C(Number(next.musicVolume)||0,0,100);
+  next.musicStart=C(Number(next.musicStart)||0,0,7200);
+  next.musicOffset=C(Number(next.musicOffset)||0,0,7200);
+  next.musicLoop=!!next.musicLoop;
+  const shift=next.musicStart!==prev.musicStart||next.musicOffset!==prev.musicOffset||next.musicLoop!==prev.musicLoop;
+  this.mix=next;
+  if(this.connected){
+   const now=this.ctx.currentTime;
+   this.videoGain.gain.setTargetAtTime(next.videoVolume/100,now,.014);
+   this.musicGain.gain.setTargetAtTime(next.musicVolume/100,now,.014);
+   if(shift)this.stopMusic();
+  }
+ }
+ setMusicBuffer(buffer){
+  this.stopMusic();
+  this.musicBuffer=buffer||null;
+ }
+ stopMusic(){
+  if(this.musicSource){
+   const old=this.musicSource;this.musicSource=null;
+   try{old.stop()}catch{}
+   try{old.disconnect()}catch{}
+  }
+  this.musicPlayAt=-1;
+ }
+ async decodeMusic(bytes){
+  await this.start();
+  if(!bytes?.byteLength)throw Error('Аудиоданные пустые.');
+  // Safari might detach source ArrayBuffer when decoding; caller never reuses it.
+  const buffer=await this.ctx.decodeAudioData(bytes.slice(0));
+  if(!buffer||!Number.isFinite(buffer.duration)||buffer.duration<=0)throw Error('Не удалось декодировать музыкальный файл.');
+  this.setMusicBuffer(buffer);
+  return buffer;
+ }
+ syncMusic(videoTime,playing){
+  if(!this.connected||!this.musicBuffer||!playing){this.stopMusic();return;}
+  const duration=this.musicBuffer.duration;
+  const local=Number(videoTime)-this.mix.musicStart;
+  if(!Number.isFinite(local)||local<0||duration<=0){this.stopMusic();return;}
+  const absolute=local+this.mix.musicOffset;
+  if(!this.mix.musicLoop&&absolute>=duration){this.stopMusic();return;}
+  // A BufferSource cannot pause/seek. Recreate only on a seek or clock drift.
+  const drift=this.musicSource?
+   Math.abs(this.musicPlayAt+(this.ctx.currentTime-this.musicCtxStart)-Number(videoTime)):Infinity;
+  if(this.musicSource&&drift<.40)return;
+  this.stopMusic();
+  const offset=this.mix.musicLoop?((absolute%duration)+duration)%duration:Math.min(duration-.002,absolute);
+  const node=this.ctx.createBufferSource();node.buffer=this.musicBuffer;node.loop=this.mix.musicLoop;
+  node.connect(this.musicGain);
+  // The analyser reads the selected MUSIC track before its volume control.
+  node.connect(this.musicAnalyser);
+  this.musicSource=node;
+  this.musicPlayAt=Number(videoTime);
+  this.musicCtxStart=this.ctx.currentTime;
+  node.onended=()=>{if(this.musicSource===node){this.musicSource=null;this.musicPlayAt=-1;}};
+  try{node.start(0,offset);}
+  catch(err){this.musicSource=null;this.musicPlayAt=-1;throw err;}
+ }
  getLevels(){
   if(!this.connected||!this.analyser||!this.spectrum||this.ctx?.state==='suspended')return{bass:0,mid:0,high:0,rms:0,available:false};
-  this.analyser.getByteFrequencyData(this.spectrum);
+  const active=this.musicBuffer?this.musicAnalyser:this.analyser;
+  active.getByteFrequencyData(this.spectrum);
   const nyquist=this.ctx.sampleRate/2,bins=this.spectrum.length;
   function band(lo,hi){
    const a=Math.max(0,Math.ceil(lo/nyquist*bins)),b=Math.min(bins,Math.max(a+1,Math.ceil(hi/nyquist*bins)));
