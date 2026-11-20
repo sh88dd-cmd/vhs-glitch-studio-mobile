@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="../icons/icon-192.png">
 <link rel="apple-touch-icon" href="../icons/icon-180.png">
-<link rel="stylesheet" href="./styles.css?v=0.4.0">
+<link rel="stylesheet" href="./styles.css?v=0.5.0">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.4.0 · AUDIO + TIMELINE</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.5.0 · MUSIC MIXER</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -67,6 +67,7 @@
   <button class="active" data-tab="vhs">VHS</button>
   <button data-tab="glitch">ГЛИТЧ</button>
   <button data-tab="music">♫ БИТ</button>
+  <button data-tab="library">♫ ТРЕКИ</button>
   <button data-tab="timeline">▤ СЦЕНЫ</button>
   <button data-tab="film">FILM</button>
   <button data-tab="audio">ЗВУК</button>
@@ -97,12 +98,49 @@
 <section id="panel-music" class="panel">
   <h2>♫ ПОМЕХИ В ТАКТ МУЗЫКЕ</h2>
   <button type="button" id="musicActivate" class="button primary full" aria-pressed="false">♫ Включить только музыкальные помехи</button>
-  <p class="hint">Включи «♫ МУЗЫКА» выше: будут работать только выбранные эффекты от звуковой дорожки самого видео. Бас и резкие высокие звуки управляют независимыми сбоями; случайные помехи из вкладки ГЛИТЧ не добавляются.</p>
+  <p class="hint">Включи «♫ МУЗЫКА» выше: при наличии выбранной дорожки из раздела «♫ ТРЕКИ» эффекты реагируют именно на неё. Без добавленной музыки используется звук исходного видео. Случайные глитчи из вкладки ГЛИТЧ не добавляются.</p>
   <div class="musicMeter"><span>БАС <strong id="bassLevel">0%</strong></span><progress id="bassMeter" max="100" value="0"></progress><span>ВЫСОКИЕ <strong id="highLevel">0%</strong></span><progress id="highMeter" max="100" value="0"></progress></div>
   <label>На басах включать<select id="bassEffect"></select></label>
   <label>На резких звуках включать<select id="highEffect"></select></label>
   <div id="musicControls"></div>
   <p class="hint" id="musicStatus">Нажми ▶, чтобы начать анализ музыки из видео. Звуковая дорожка не загружается на сервер.</p>
+</section>
+<section id="panel-library" class="panel">
+  <h2>МУЗЫКА ДЛЯ ВИДЕО / ОНЛАЙН</h2>
+  <p class="hint">Ищи музыку с открытой лицензией, слушай и добавляй сразу в проект — без предварительного сохранения в «Файлы». Для поиска нужен интернет; не каждый сайт разрешает загрузить свою аудиодорожку для монтажа.</p>
+  <div class="musicSearchRow">
+    <input id="onlineMusicSearch" type="search" placeholder="Поиск: ambient, jazz, electronic…" autocomplete="off" aria-label="Поиск музыки в интернете">
+    <button id="searchOnlineMusic" type="button" class="button primary">Найти</button>
+  </div>
+  <p id="onlineMusicStatus" class="hint" role="status">Поиск по каталогу Openverse — открытые лицензии CC0, PDM, CC BY. Некоторые треки требуют указания автора.</p>
+  <div id="onlineMusicResults" class="onlineMusicResults" aria-live="polite"></div>
+  <audio id="musicSample" controls preload="none" hidden aria-label="Прослушивание найденной музыки"></audio>
+  <details class="importBox">
+    <summary>＋ Прямая ссылка или файл с iPhone</summary>
+    <p class="hint">Можно добавить прямую ссылку HTTPS на MP3 / M4A / WAV / OGG, если сервер разрешает аудиообработку. Ссылка на страницу песни или Telegram-бота не равна прямой ссылке на аудиофайл.</p>
+    <input id="musicDirectUrl" type="url" placeholder="https://example.org/music.mp3" aria-label="Прямая ссылка на музыку">
+    <button type="button" id="addMusicUrl" class="button full">＋ Подключить аудио по ссылке</button>
+    <label class="button full">＋ Выбрать аудиофайл с телефона<input id="musicFileInput" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg" hidden></label>
+  </details>
+  <div id="musicSelection" class="musicSelection" hidden>
+    <div class="musicSelectedTitle">ВЫБРАННАЯ МУЗЫКА</div>
+    <strong id="musicTitle">—</strong>
+    <text id="musicArtist" class="hint">—</text>
+    <div class="musicSelectedActions">
+      <button id="removeMusic" type="button" class="button">✕ Убрать музыку</button>
+      <button id="copyMusicCredit" type="button" class="button">Скопировать авторство</button>
+    </div>
+    <p id="musicCredit" class="hint"></p>
+  </div>
+  <h2>ЗВУКОВОЙ МИКШЕР</h2>
+  <p class="hint">Оригинальный звук и музыка регулируются независимо. При включении VHS AUDIO повреждения накладываются на их общую сумму и сохраняются при поддерживаемом экспорте.</p>
+  <div id="musicMixerControls"></div>
+  <div class="musicTimes">
+    <label>Начало музыки в видео, сек<input id="musicVideoStart" type="number" min="0" max="7200" step="0.1" value="0"></label>
+    <label>Начать с секунды трека<input id="musicAudioOffset" type="number" min="0" max="7200" step="0.1" value="0"></label>
+  </div>
+  <div class="switch"><span>Повторять трек, если видео длиннее</span><input id="musicLoop" type="checkbox" checked></div>
+  <p id="musicLoadStatus" class="hint" role="status">Музыка пока не выбрана. Для монтажа онлайн-трек временно загружается в память браузера; это не создаёт файл в хранилище iPhone.</p>
 </section>
 <section id="panel-timeline" class="panel">
   <h2>▤ ТАЙМЛАЙН ПОВРЕЖДЕНИЙ</h2>
@@ -140,7 +178,7 @@
   <div class="switch"><span>Повреждать звук</span><input type="checkbox" id="audioEnabled"></div>
   <label>Тип звуковой дорожки<select id="audioMode"><option value="linear">VHS Linear / SP-LP-EP</option><option value="hifi">VHS Hi-Fi AFM</option></select></label>
   <div id="audioControls"></div>
-  <p class="hint">Низкие и высокие частоты, шипение, плавание скорости (wow/flutter), провалы громкости и насыщение. При доступном экспорте звуковые эффекты записываются вместе с видео. Для воспроизведения обработанного звука на iPhone нажми ▶.</p>
+  <p class="hint">Шипение, низкочастотная фильтрация, wow/flutter, провалы громкости и насыщение применяются к общей сумме звука видео и добавленной музыки. Громкость каждой дорожки регулируется в разделе «♫ ТРЕКИ».</p>
 </section>
 <section id="panel-camera" class="panel">
   <h2>КАМЕРА / ПОЛОЖЕНИЕ ИНДИКАТОРОВ</h2>
@@ -165,7 +203,7 @@
     <button id="share" class="button full">Поделиться / Сохранить в «Фото»</button>
   </div>
 </section>
-<footer><span>VHS Video Lab · 0.4.0</span></footer>
+<footer><span>VHS Video Lab · 0.5.0</span></footer>
 </main>
 <dialog id="videoViewer" class="videoViewer" aria-label="Увеличенный видеопросмотр">
   <div class="viewerHead">
@@ -188,9 +226,10 @@
 <script src="../ntsc-photo.js?v=1.1.3" defer></script>
 <script src="./film-core.js?v=0.1.0" defer></script>
 <script src="./glitch-engine.js?v=0.4.0" defer></script>
-<script src="./audio-engine.js?v=0.4.0" defer></script>
+<script src="./audio-engine.js?v=0.5.0" defer></script>
+<script src="./music-catalog.js?v=0.5.0" defer></script>
 <script src="./special-modes.js?v=0.4.0" defer></script>
 <script src="./player-ui.js?v=0.3.1" defer></script>
-<script src="./app.js?v=0.4.0" defer></script>
+<script src="./app.js?v=0.5.0" defer></script>
 </body>
 </html>
