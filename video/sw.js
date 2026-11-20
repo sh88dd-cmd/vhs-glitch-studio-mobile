@@ -1,6 +1,6 @@
 /* VHS Video Lab offline assets; separate cache and service worker from photo app. */
-const VERSION='vhs-video-lab-0.4.0';
-const FILES=['./','./index.html','./app.js','./film-core.js','./glitch-engine.js','./audio-engine.js','./special-modes.js','./player-ui.js','./styles.css','./manifest.webmanifest',
+const VERSION='vhs-video-lab-0.5.0';
+const FILES=['./','./index.html','./app.js','./film-core.js','./glitch-engine.js','./audio-engine.js','./music-catalog.js','./special-modes.js','./player-ui.js','./styles.css','./manifest.webmanifest',
  '../ntsc-photo.js','../looks.json','../jszip.min.js'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));
