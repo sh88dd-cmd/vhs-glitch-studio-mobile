@@ -67,3 +67,7 @@ input[type="file"][hidden], [hidden]{display:none !important}
 .warmBurnSection label{color:#e3c5a9}
 .warmBurnSection #edgeBurnWarmReroll{background:#57382c;border-color:#bd7a4b;color:#ffe9c9}
 .warmBurnSection.warmBurnDisabled #edgeBurnWarmControls,.warmBurnSection.warmBurnDisabled #edgeBurnWarmReroll{opacity:.6}
+
+/* Multiline caption and camcorder text fields, including Enter on iPhone. */
+#captionTextInput,#cameraDateText{display:block;box-sizing:border-box;width:100%;min-height:90px;margin:8px 0 12px;padding:11px 10px;background:#222b36;border:1px solid #475767;border-radius:9px;color:#eef5f6;font:inherit;font-size:14px;line-height:1.45;resize:vertical;white-space:pre-wrap;overflow-wrap:break-word;appearance:none}
+#captionTextInput:focus,#cameraDateText:focus{outline:2px solid #76decc;outline-offset:1px}
