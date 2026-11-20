@@ -11,7 +11,7 @@
   const defaults={
     vhsEnabled:true,filmEnabled:false,preset:'VHS 90s',master:65,seed:123456789,
     fx:{hiss:74,wobble:42,tear:28,chroma:40,rgb:35,grain:35,streaks:0},
-    film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,caption:false,captionText:'',captionSize:100,customLut:false},
+    film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,frameStyle:'none',frameSize:8,caption:false,captionText:'',captionSize:100,customLut:false},
     edgeBurn:{"enabled":false,"mode":"auto","side":"random","strength":90,"width":35,"roughness":75,"scratches":38,"seed":238711811,"shape":"random","warmEnabled":true,"warmPattern":"random","warmStrength":90,"warmWidth":55,"warmSeed":170730923},
     camera:{date:{on:false,text:'PM 10:28 | JUN 16 1995',position:'right-bottom',size:125},rec:{on:false,position:'left-top',size:125},play:{on:false,position:'left-top',size:125},battery:{on:false,position:'right-top',size:125,level:'LOW'}},
     singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[],previewDock:{enabled:true,collapsed:false}
@@ -19,7 +19,7 @@
   let state=clone(defaults);
   try{
     const saved=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');
-    if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera},edgeBurn:{...state.edgeBurn,...saved.edgeBurn},previewDock:{...state.previewDock,...saved.previewDock}};}
+    if(saved){state={...state,...saved,fx:{...state.fx,...saved.fx},film:{...state.film,...saved.film},camera:{...state.camera,...saved.camera},edgeBurn:{...state.edgeBurn,...saved.edgeBurn},previewDock:{...state.previewDock,...saved.previewDock}};if(saved.film?.whiteBorder&&!('frameStyle' in saved.film)){state.film.frameStyle='white';state.film.frameSize=30;}}
   }catch(e){console.warn('Settings unavailable',e);}
   if(!Array.isArray(state.favoriteFilms))state.favoriteFilms=[];
   state.previewDock={...defaults.previewDock,...(state.previewDock||{})};
@@ -67,14 +67,15 @@
     for(const [key,label] of [['grain','Плёночное зерно'],['halation','Halation / засветка света'],['leaks','Light leaks / световые протечки'],['dust','Пыль и царапины'],['vignette','Виньетка']]){
       addControl(film,label,state.film[key],v=>{state.film[key]=v;persist();});
     }
-    addToggle(film,'Белая рамка · по 30% со всех сторон',state.film.whiteBorder,v=>{state.film.whiteBorder=v;persist();});
-    addToggle(film,'Тонкая подпись под фотографией',state.film.caption,v=>{state.film.caption=v;persist();});
-    const line=document.createElement('label');line.textContent='Текст подписи';const f=document.createElement('input');f.value=state.film.captionText;f.maxLength=100;f.placeholder='Например: SUMMER 1997';f.addEventListener('input',()=>{state.film.captionText=f.value;persist();schedulePreview();});line.append(f);film.append(line);
+    addSelect(film,'Рамка фотографии',[['none','Без рамки'],['black','Чёрная рамка'],['white','Белая рамка']],state.film.frameStyle||'none',v=>{state.film.frameStyle=v;state.film.whiteBorder=v==='white';persist();});
+    addControl(film,'Толщина рамки',state.film.frameSize??8,v=>{state.film.frameSize=v;persist();},3,30);
+    addToggle(film,'Подпись под фотографией',state.film.caption,v=>{state.film.caption=v;persist();});
+    const line=document.createElement('label');line.textContent='Текст подписи (Enter — новая строка, до 6 строк)';const f=document.createElement('textarea');f.id='captionTextInput';f.value=state.film.captionText;f.maxLength=320;f.rows=4;f.placeholder='SUMMER 1997 | 35MM FILM';f.addEventListener('input',()=>{state.film.captionText=f.value;persist();schedulePreview();});line.append(f);film.append(line);
     addControl(film,'Размер подписи',state.film.captionSize,v=>{state.film.captionSize=v;persist();},50,220);
     for(const [key,title] of [['date','Дата / время'],['rec','REC + красная точка'],['play','PLAY'],['battery','Батарейка']]){
       const block=document.createElement('div');block.className='cameraSetting';const heading=document.createElement('h3');heading.textContent=title;block.append(heading);
       addToggle(block,'Включить',state.camera[key].on,v=>{state.camera[key].on=v;persist();});
-      if(key==='date'){const label=document.createElement('label');label.textContent='Дата и время';const inp=document.createElement('input');inp.value=state.camera.date.text;inp.maxLength=62;inp.addEventListener('input',()=>{state.camera.date.text=inp.value;persist();schedulePreview();});label.append(inp);block.append(label);}
+      if(key==='date'){const label=document.createElement('label');label.textContent='Дата и текст (Enter — новая строка, до 4 строк)';const inp=document.createElement('textarea');inp.id='cameraDateText';inp.value=state.camera.date.text.replace(/\|/g,'\n');inp.maxLength=180;inp.rows=3;inp.addEventListener('input',()=>{state.camera.date.text=inp.value;persist();schedulePreview();});label.append(inp);block.append(label);}
       addSelect(block,'Положение',positions,state.camera[key].position,v=>{state.camera[key].position=v;persist();});
       if(key==='battery')addSelect(block,'Уровень заряда',[['FULL','Полная'],['75%','75%'],['50%','50%'],['25%','25%'],['LOW','Мало — красная'],['EMPTY','Разряжена']],state.camera.battery.level,v=>{state.camera.battery.level=v;persist();});
       addControl(block,'Размер',state.camera[key].size,v=>{state.camera[key].size=v;persist();},60,400);
