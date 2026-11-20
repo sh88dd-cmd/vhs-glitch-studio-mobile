@@ -36,7 +36,7 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
- let musicSearchResults=[],musicTrackInfo=null,musicRequest=0,musicLoading=false,musicSearchTimer=null,musicSearchToken=0;
+ let musicSearchResults=[],musicTrackInfo=null,musicRequest=0,musicLoading=false,musicSearchTimer=null,musicSearchToken=0,musicAbort=null;
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
@@ -297,7 +297,9 @@
  }
  async function loadMusicTrack(track,inputFile=null){
   if(recording)return musicLoadStatus('Останови экспорт перед заменой музыки.');
+  if(musicAbort){musicAbort.abort();musicAbort=null;}
   const request=++musicRequest;
+  musicAbort=typeof AbortController==='function'?new AbortController():null;
   musicLoading=true;
   musicLoadStatus('Подключаю дорожку к общему VHS-аудиомикшеру…');
   // Release the previous decoded song BEFORE loading another to avoid RAM spikes.
@@ -313,7 +315,7 @@
     if(inputFile.size>window.VHSVideoMusicCatalog.MAX_BYTES)throw Error('Аудиофайл больше 18 МБ. Выбери более короткий.');
     bytes=await inputFile.arrayBuffer();
    }else{
-    bytes=await window.VHSVideoMusicCatalog.readAudio(track.url);
+    bytes=await window.VHSVideoMusicCatalog.readAudio(track.url,fetch,musicAbort?.signal);
    }
    if(request!==musicRequest)return;
    const buffer=await audioEngine.ctx.decodeAudioData(bytes.slice(0));
@@ -332,11 +334,12 @@
   }catch(e){
    if(request===musicRequest)musicLoadStatus('Не удалось добавить музыку: '+e.message+' Другой трек или файл может сработать.');
   }finally{
-   if(request===musicRequest){musicLoading=false;showMusicSelection();}
+   if(request===musicRequest){musicAbort=null;musicLoading=false;showMusicSelection();}
   }
  }
  function clearMusicFromMemory(){
   if(recording){musicLoadStatus('Во время экспорта нельзя выгружать аудиодорожку.');return;}
+  if(musicAbort){musicAbort.abort();musicAbort=null;}
   musicRequest++;musicLoading=false;
   audioEngine.setMusicBuffer(null);musicTrackInfo=null;
   const previewAudio=$('musicSample');
@@ -350,6 +353,7 @@
  }
  function releaseOnLeave(event){
   // Browser owns GC; drop our strong references when leaving this app.
+  if(musicAbort){musicAbort.abort();musicAbort=null;}
   musicRequest++;musicLoading=false;musicSearchResults=[];musicTrackInfo=null;
   audioEngine.setMusicBuffer(null);
   const sample=$('musicSample');
@@ -379,6 +383,7 @@
  }
  function removeMusicTrack(){
   if(recording)return;
+  if(musicAbort){musicAbort.abort();musicAbort=null;}
   musicRequest++;musicLoading=false;
   audioEngine.setMusicBuffer(null);
   musicTrackInfo=null;state.selectedTrack=null;
