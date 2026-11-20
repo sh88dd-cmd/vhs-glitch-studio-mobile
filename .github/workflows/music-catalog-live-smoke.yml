@@ -13,6 +13,18 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
+      - name: Diagnose direct Hitmos MP3 headers (no media download)
+        shell: bash
+        run: |
+          node <<'NODE'
+          const url='https://ru.hitmos.site/get/music/20200910/Prosto_Lera_-_Lyutiki_Remix_70879231.mp3';
+          for(const method of ['HEAD']){
+            try{
+              const r=await fetch(url,{method,redirect:'follow',headers:{Origin:'https://sh88dd-cmd.github.io', 'User-Agent':'Mozilla/5.0'},signal:AbortSignal.timeout(15000)});
+              console.log('HITMOS_DIRECT_MP3',JSON.stringify({http:r.status,finalDomain:new URL(r.url).host,contentType:r.headers.get('content-type'),bytes:r.headers.get('content-length'),cors:r.headers.get('access-control-allow-origin'),disposition:r.headers.get('content-disposition')}));
+            }catch(e){console.log('HITMOS_DIRECT_MP3_UNAVAILABLE',String(e));}
+          }
+          NODE
       - name: Test actual Commons catalog parsing, licensing and download CORS
         shell: bash
         run: |
