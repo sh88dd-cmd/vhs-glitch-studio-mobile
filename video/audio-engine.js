@@ -12,8 +12,9 @@ class TapeAudio{
  constructor(element){
   this.element=element;this.ctx=null;this.stream=null;this.filter=null;this.delay=null;this.saturator=null;this.gain=null;this.noiseGain=null;this.noise=null;this.bypass=false;this.connected=false;
   this.state={enabled:false,mode:'linear',strength:55,hiss:45,wow:40,flutter:30,drop:25,saturation:20,seed:0};
-  this.mix={videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicLoop:true};
+  this.mix={videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true};
   this.musicBuffer=null;this.musicSource=null;this.musicPlayAt=-1;this.musicCtxStart=0;
+  this.musicMediaElement=null;this.musicMediaSource=null;this.musicMediaConnected=false;this.musicMediaPlayPending=false;
  }
  async start(){
   if(this.connected){if(this.ctx.state==='suspended')await this.ctx.resume();return;}
@@ -105,8 +106,9 @@ class TapeAudio{
   next.musicVolume=C(Number(next.musicVolume)||0,0,100);
   next.musicStart=C(Number(next.musicStart)||0,0,7200);
   next.musicOffset=C(Number(next.musicOffset)||0,0,7200);
+  next.musicTrimEnd=C(Number(next.musicTrimEnd)||0,0,7200);
   next.musicLoop=!!next.musicLoop;
-  const shift=next.musicStart!==prev.musicStart||next.musicOffset!==prev.musicOffset||next.musicLoop!==prev.musicLoop;
+  const shift=next.musicStart!==prev.musicStart||next.musicOffset!==prev.musicOffset||next.musicTrimEnd!==prev.musicTrimEnd||next.musicLoop!==prev.musicLoop;
   this.mix=next;
   if(this.connected){
    const now=this.ctx.currentTime;
@@ -117,55 +119,89 @@ class TapeAudio{
  }
  setMusicBuffer(buffer){
   this.stopMusic();
+  this.musicMediaElement=null;
+  if(this.musicMediaSource&&this.musicMediaConnected){this.musicMediaSource.disconnect();this.musicMediaConnected=false;}
   this.musicBuffer=buffer||null;
+ }
+ setMusicVideo(element){
+  if(!this.connected||!this.ctx)throw Error('Аудиомикшер ещё не подготовлен.');
+  this.stopMusic();this.musicBuffer=null;this.musicMediaElement=element;
+  if(!this.musicMediaSource)this.musicMediaSource=this.ctx.createMediaElementSource(element);
+  if(!this.musicMediaConnected){
+   this.musicMediaSource.connect(this.musicGain);
+   this.musicMediaSource.connect(this.musicAnalyser);
+   this.musicMediaConnected=true;
+  }
+ }
+ getMusicDuration(){
+  if(this.musicBuffer)return this.musicBuffer.duration;
+  const seconds=this.musicMediaElement?.duration;
+  return Number.isFinite(seconds)&&seconds>0?seconds:0;
  }
  stopMusic(){
   if(this.musicSource){
-   const old=this.musicSource;this.musicSource=null;
-   old.onended=null;
+   const old=this.musicSource;this.musicSource=null;old.onended=null;
    try{old.stop()}catch{}
    try{old.disconnect()}catch{}
-   // Release the source's strong reference to the decoded audio buffer.
    try{old.buffer=null}catch{}
   }
+  if(this.musicMediaElement&&!this.musicMediaElement.paused)this.musicMediaElement.pause();
   this.musicPlayAt=-1;
  }
  async decodeMusic(bytes){
   await this.start();
   if(!bytes?.byteLength)throw Error('Аудиоданные пустые.');
-  // Safari might detach source ArrayBuffer when decoding; caller never reuses it.
   const buffer=await this.ctx.decodeAudioData(bytes.slice(0));
   if(!buffer||!Number.isFinite(buffer.duration)||buffer.duration<=0)throw Error('Не удалось декодировать музыкальный файл.');
   this.setMusicBuffer(buffer);
   return buffer;
  }
  syncMusic(videoTime,playing){
-  if(!this.connected||!this.musicBuffer||!playing){this.stopMusic();return;}
-  const duration=this.musicBuffer.duration;
-  const local=Number(videoTime)-this.mix.musicStart;
-  if(!Number.isFinite(local)||local<0||duration<=0){this.stopMusic();return;}
-  const absolute=local+this.mix.musicOffset;
-  if(!this.mix.musicLoop&&absolute>=duration){this.stopMusic();return;}
-  // A BufferSource cannot pause/seek. Recreate only on a seek or clock drift.
+  const duration=this.getMusicDuration();
+  if(!this.connected||!duration||!playing){this.stopMusic();return;}
+  const start=C(this.mix.musicOffset,0,Math.max(0,duration-.05));
+  const end=this.mix.musicTrimEnd>0?C(this.mix.musicTrimEnd,start+.05,duration):duration;
+  const length=end-start,local=Number(videoTime)-this.mix.musicStart;
+  if(!Number.isFinite(local)||local<0||length<=0||(!this.mix.musicLoop&&local>=length)){
+   this.stopMusic();return;
+  }
+  const offset=start+(this.mix.musicLoop?(local%length):local);
+  if(this.musicMediaElement){
+   const media=this.musicMediaElement;
+   const drift=Math.abs((media.currentTime||0)-offset);
+   if(drift>.27||media.currentTime<start-.05||media.currentTime>=end-.02){
+    try{media.currentTime=Math.min(end-.01,offset)}catch{}
+   }
+   if(media.paused&&!this.musicMediaPlayPending){
+    this.musicMediaPlayPending=true;
+    try{
+     Promise.resolve(media.play()).catch(e=>{
+      console.warn('Не удалось включить дорожку из видео',e);
+     }).finally(()=>{this.musicMediaPlayPending=false;});
+    }catch(e){this.musicMediaPlayPending=false;console.warn('Музыка из видео',e);}
+   }
+   return;
+  }
+  if(!this.musicBuffer)return;
   const drift=this.musicSource?
    Math.abs(this.musicPlayAt+(this.ctx.currentTime-this.musicCtxStart)-Number(videoTime)):Infinity;
   if(this.musicSource&&drift<.40)return;
   this.stopMusic();
-  const offset=this.mix.musicLoop?((absolute%duration)+duration)%duration:Math.min(duration-.002,absolute);
-  const node=this.ctx.createBufferSource();node.buffer=this.musicBuffer;node.loop=this.mix.musicLoop;
+  const node=this.ctx.createBufferSource();
+  node.buffer=this.musicBuffer;node.loop=this.mix.musicLoop;
+  if(node.loop){node.loopStart=start;node.loopEnd=end;}
   node.connect(this.musicGain);
-  // The analyser reads the selected MUSIC track before its volume control.
   node.connect(this.musicAnalyser);
   this.musicSource=node;
   this.musicPlayAt=Number(videoTime);
   this.musicCtxStart=this.ctx.currentTime;
   node.onended=()=>{if(this.musicSource===node){this.musicSource=null;this.musicPlayAt=-1;}};
-  try{node.start(0,offset);}
+  try{if(node.loop)node.start(0,offset);else node.start(0,offset,Math.max(.005,end-offset));}
   catch(err){this.musicSource=null;this.musicPlayAt=-1;throw err;}
  }
  getLevels(){
   if(!this.connected||!this.analyser||!this.spectrum||this.ctx?.state==='suspended')return{bass:0,mid:0,high:0,rms:0,available:false};
-  const active=this.musicBuffer?this.musicAnalyser:this.analyser;
+  const active=(this.musicBuffer||this.musicMediaElement)?this.musicAnalyser:this.analyser;
   active.getByteFrequencyData(this.spectrum);
   const nyquist=this.ctx.sampleRate/2,bins=this.spectrum.length;
   function band(lo,hi){
@@ -182,7 +218,8 @@ class TapeAudio{
  }
  // Called during real navigation/close; garbage collection timing is browser-controlled.
  release(){
-  this.stopMusic();this.musicBuffer=null;
+  this.stopMusic();this.musicBuffer=null;this.musicMediaElement=null;
+  if(this.musicMediaSource){try{this.musicMediaSource.disconnect()}catch{}this.musicMediaConnected=false;}
   this.suspendNoise();
   if(this.noise){try{this.noise.stop()}catch{}try{this.noise.disconnect()}catch{}this.noise=null;}
   const ctx=this.ctx;
