@@ -535,6 +535,202 @@
    if(mode==='music')showAudioSection('beat');
   }
  }
+ function updateKeyframePlayhead(){
+  const marker=$('keyframePlayhead');
+  if(!marker)return;
+  const duration=Number(source.duration)||1;
+  marker.style.left=clamp((Number(source.currentTime)||0)/duration*100,0,100)+'%';
+ }
+ function renderKeyframes(){
+  const engine=window.VHSVideoKeyframes;
+  const track=$('keyframeTrack').value;
+  const list=$('keyframeList'),markers=$('keyframeMarkers');
+  list.replaceChildren();markers.replaceChildren();
+  $('keyframesEnabled').checked=state.keyframesEnabled!==false;
+  const entries=state.keyframes.filter(item=>item.clip===clipIndex&&item.track===track)
+   .sort((a,b)=>a.time-b.time);
+  const duration=Math.max(1,Number(source.duration)||1);
+  for(const item of entries){
+   const dot=document.createElement('button');dot.type='button';dot.className='keyframeMarker';
+   dot.style.left=clamp(item.time/duration*100,0,100)+'%';
+   dot.setAttribute('aria-label',item.time.toFixed(2)+' секунд · '+item.value+' процентов');
+   dot.title=dot.getAttribute('aria-label');
+   dot.onclick=()=>{
+    $('keyframeTime').value=String(item.time);$('keyframeValue').value=String(item.value);
+    $('keyframeValueRange').value=String(item.value);
+    if(file&&!recording)source.currentTime=item.time;
+   };
+   markers.append(dot);
+   const row=document.createElement('div');row.className='keyframeItem';
+   const go=document.createElement('button');go.type='button';go.className='button';
+   go.textContent=item.time.toFixed(2)+' с · '+item.value+'%';
+   go.onclick=dot.onclick;
+   const del=document.createElement('button');del.type='button';del.className='button keyframeDelete';
+   del.textContent='✕';del.title='Удалить точку';del.setAttribute('aria-label','Удалить ключевой кадр '+item.time);
+   del.disabled=!!recording;
+   del.onclick=()=>{
+    if(recording)return;
+    state.keyframes=state.keyframes.filter(e=>e.id!==item.id);
+    persist();resetFrameHistory();renderKeyframes();renderCurrentFrame();
+   };
+   row.append(go,del);list.append(row);
+  }
+  if(!entries.length){
+   const empty=document.createElement('p');empty.className='hint';
+   empty.textContent='Для этого эффекта пока нет ключевых кадров. Добавь минимум две точки.';
+   list.append(empty);
+  }
+  $('keyframeStatus').textContent='Клип '+(clipIndex+1)+' · '+entries.length+' точек для «'+engine.TRACKS[track]+'». Значения между точками меняются плавно.';
+  updateKeyframePlayhead();
+ }
+ function addKeyframe(){
+  if(!file||recording){$('keyframeStatus').textContent='Сначала выбери видео и останови экспорт.';return;}
+  const track=$('keyframeTrack').value,time=Number($('keyframeTime').value),
+   value=Number($('keyframeValue').value),duration=Number(source.duration);
+  if(!Number.isFinite(time)||time<0||!Number.isFinite(value)||value<0||value>100||
+   !Number.isFinite(duration)||duration<=0||time>duration){
+   $('keyframeStatus').textContent='Время должно быть внутри ролика, а сила — от 0 до 100%.';
+   return;
+  }
+  const item=window.VHSVideoKeyframes.normalize({id:'kf-'+Date.now().toString(36),clip:clipIndex,track,time,value});
+  if(!item)return;
+  const exist=state.keyframes.findIndex(old=>old.clip===clipIndex&&old.track===track&&Math.abs(old.time-item.time)<.001);
+  if(exist<0&&state.keyframes.length>=120){
+   $('keyframeStatus').textContent='Достигнут предел 120 точек на проект.';return;
+  }
+  if(exist>=0)state.keyframes.splice(exist,1);
+  state.keyframes=window.VHSVideoKeyframes.normalizeAll([...state.keyframes,item]);
+  state.keyframesEnabled=true;
+  if((track==='vhs'||track==='glitch')&&state.fxMode!=='classic'){
+   state.fxMode='classic';syncModeUI();
+  }
+  if(track==='vhs'&&Object.values(state.signal).every(x=>Number(x)===0)){
+   Object.assign(state.signal,defaults.signal);
+   syncCassetteUI();
+  }
+  if(track==='glitch'){
+   if(Object.values(state.glitches).every(x=>Number(x)===0)){
+    Object.assign(state.glitches,glitchDefaults);
+    mountGlitchControls();
+   }
+   if(state.eventDensity===0)state.eventDensity=48;
+  }
+  persist();resetFrameHistory();renderKeyframes();renderCurrentFrame();
+ }
+ function mountKeyframes(){
+  $('keyframesEnabled').checked=state.keyframesEnabled!==false;
+  $('keyframesEnabled').onchange=()=>{
+   state.keyframesEnabled=$('keyframesEnabled').checked;
+   persist();resetFrameHistory();renderCurrentFrame();
+  };
+  $('keyframeTrack').onchange=renderKeyframes;
+  $('keyframeValue').addEventListener('input',()=>{$('keyframeValueRange').value=$('keyframeValue').value;});
+  $('keyframeValueRange').addEventListener('input',()=>{$('keyframeValue').value=$('keyframeValueRange').value;});
+  $('keyframeUseTime').onclick=()=>{
+   if(!file)return;
+   $('keyframeTime').value=(Number(source.currentTime)||0).toFixed(2);
+  };
+  $('keyframeAdd').onclick=addKeyframe;
+  renderKeyframes();
+ }
+ function syncCompareButtons(){
+  const disabled=!file||recording||source.readyState<2;
+  for(const id of ['compareMain','compareViewer']){
+   $(id).disabled=disabled;
+   $(id).classList.toggle('is-holding',comparisonHeld&&!disabled);
+  }
+ }
+ function setComparing(enabled){
+  const usable=!!file&&!recording&&source.readyState>=2;
+  const next=!!enabled&&usable;
+  if(comparisonHeld===next)return;
+  comparisonHeld=next;
+  if(!next)resetFrameHistory(); // avoid temporal effect ghosting after raw frames
+  syncCompareButtons();
+  renderCurrentFrame();
+ }
+ function mountCompare(){
+  for(const id of ['compareMain','compareViewer']){
+   const node=$(id);
+   node.addEventListener('pointerdown',event=>{
+    if(node.disabled)return;
+    if(event.cancelable)event.preventDefault();
+    try{node.setPointerCapture?.(event.pointerId);}catch{}
+    setComparing(true);
+   });
+   node.addEventListener('contextmenu',event=>event.preventDefault());
+   node.addEventListener('pointercancel',()=>setComparing(false));
+   node.addEventListener('lostpointercapture',()=>setComparing(false));
+   // Keyboard accessibility: Space/Enter hold also compares the original.
+   node.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='Enter'){e.preventDefault();setComparing(true);}});
+   node.addEventListener('keyup',e=>{if(e.code==='Space'||e.code==='Enter')setComparing(false);});
+   node.addEventListener('blur',()=>setComparing(false));
+  }
+  window.addEventListener('pointerup',()=>setComparing(false));
+  window.addEventListener('pointercancel',()=>setComparing(false));
+  window.addEventListener('blur',()=>setComparing(false));
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)setComparing(false);});
+  syncCompareButtons();
+ }
+ function frameTimestamp(seconds){
+  const sec=Math.max(0,Number(seconds)||0),total=Math.floor(sec);
+  return String(Math.floor(total/3600)).padStart(2,'0')+':'+
+   String(Math.floor(total/60)%60).padStart(2,'0')+':'+
+   String(total%60).padStart(2,'0')+'.'+String(Math.floor((sec-total)*1000)).padStart(3,'0');
+ }
+ function syncFrameTools(){
+  const ready=!!file&&!recording&&source.readyState>=2;
+  for(const id of ['frameBack','frameForward','frameSavePng'])$(id).disabled=!ready;
+  $('frameTimeExact').textContent=frameTimestamp(source.currentTime||0);
+ }
+ function stepFrame(direction){
+  if(!file||recording||source.readyState<2)return;
+  source.pause();
+  const fps=clamp(Number($('frameStepFps').value)||30,1,120);
+  const duration=Number(source.duration);
+  if(!Number.isFinite(duration)||duration<=0)return;
+  const count=Math.round((Number(source.currentTime)||0)*fps);
+  const target=clamp((count+direction)/fps,0,Math.max(0,duration-.001));
+  source.currentTime=target;
+  $('frameToolStatus').textContent='Переход к '+frameTimestamp(target)+'. На iPhone Safari показывает ближайший декодируемый кадр.';
+  syncFrameTools();
+ }
+ let framePngUrl='';
+ async function saveFramePng(){
+  if(!file||recording||source.readyState<2)return;
+  $('frameSavePng').disabled=true;
+  try{
+   const [w,h]=videoDimensions(1920);
+   const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+   if($('frameSaveEffects').checked){
+    // The same renderer and timestamp as the encoded video, not a screenshot
+    // of the scaled preview and not the temporary BEFORE/AFTER comparison.
+    exportProcessor.reset();holdExportProcessor.reset();
+    drawFrame(canvas,true);
+    exportProcessor.reset();holdExportProcessor.reset();
+   }else window.VHSVideoCleanPath.drawClean(source,canvas);
+   if(typeof canvas.toBlob!=='function')throw Error('Этот Safari не поддерживает PNG из Canvas.');
+   const png=await new Promise((resolve,reject)=>{
+    canvas.toBlob(blob=>blob?resolve(blob):reject(Error('Не удалось создать PNG.')),'image/png');
+   });
+   if(framePngUrl)URL.revokeObjectURL(framePngUrl);
+   framePngUrl=URL.createObjectURL(png);
+   const name=(file.name||'video').replace(/\.[^.]+$/,'').slice(0,50);
+   const link=$('framePngDownload');link.href=framePngUrl;
+   link.download=name+'_frame_'+(source.currentTime||0).toFixed(3).replace('.','-')+'.png';
+   link.hidden=false;
+   $('frameToolStatus').textContent='PNG готов: '+w+' × '+h+' пикс. Нажми «Скачать созданный PNG» для сохранения в iPhone.';
+   // Safari can block an automatic download after an async toBlob; leave the
+   // visible link for a second direct user tap.
+  }catch(err){$('frameToolStatus').textContent='PNG не создан: '+err.message;}
+  finally{syncFrameTools();}
+ }
+ function mountFrameTools(){
+  $('frameBack').onclick=()=>stepFrame(-1);
+  $('frameForward').onclick=()=>stepFrame(1);
+  $('frameSavePng').onclick=saveFramePng;
+  syncFrameTools();
+ }
  function buildModeControls(){
   const fx=window.VHSVideoSpecialModes;
   for(const id of ['bassEffect','highEffect','timelineEffect']){
