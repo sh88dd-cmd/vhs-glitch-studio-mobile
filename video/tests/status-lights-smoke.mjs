@@ -17,7 +17,7 @@ const state={
  music:{bassEffect:'vhold',highEffect:'rf',sensitivity:66,threshold:25,strength:75,release:35},
  timelineEvents:[{clip:0,time:1,effect:'rf',strength:95}],timelineStrength:70,
  holdEvents:[{clip:0,start:1,end:2,blend:75}],holdBalance:45,
- filmStrength:60,signal:{chromaBleed:60,tracking:55,noise:80},
+ filmStrength:60,keyframesEnabled:true,keyframes:[],signal:{chromaBleed:60,tracking:55,noise:80},
  glitches:{tapeChew:85,rf:43},
  audio:{enabled:true,mode:'hifi',strength:65,hiss:50,wow:20,flutter:20,drop:40,saturation:80},
  camera:{date:true,rec:true,battery:true,positions:{date:'left-top'},sizes:{rec:125}},
@@ -69,7 +69,7 @@ assert.ok(subtabs[0].classList.contains('is-lit'));
 assert.ok(tabs[5].classList.contains('is-lit'));
 fx.zero(state);engine.extraAudio[0].volume=0;lights();
 assert.ok([...tabs,...subtabs].every(el=>!el.classList.contains('is-lit')),'Zero reset must extinguish all effects lamps');
-assert.equal($('allEffectsLabel').textContent,'ВЫКЛЮЧИТЬ ВСЁ');
+assert.equal($('allEffectsLabel').textContent,'СБРОС');
 assert.equal($('restoreEffects').disabled,true);
 fx.restore(state,backup);engine.extraAudio[0].volume=75;lights();
 assert.ok(tabs[5].classList.contains('is-lit'),'Restoring settings lights the enabled effects again');
