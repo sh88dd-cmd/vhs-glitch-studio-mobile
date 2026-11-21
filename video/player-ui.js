@@ -1,4 +1,4 @@
-/* VHS Video Lab 0.3.1 — sticky monitor + enlarged processed canvas player.
+/* VHS Video Lab 0.7.8 — Safari-stable sticky monitor + enlarged processed canvas player.
  * A pure UI adapter: playback and decoding remain in app.js, and only the
  * already-processed preview is mirrored. No additional effects/render passes.
  */
@@ -7,14 +7,30 @@
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const fmt=s=>{if(!Number.isFinite(s)||s<0)return'00:00';const n=Math.floor(s);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')};
+// Watch the VIDEO FRAME, not its surrounding stage (which includes upload,
+// transport and status controls). On short iPhone tabs the stage footer may
+// remain on screen even at maximum scroll, and a whole-stage threshold would
+// show the dock only during elastic overscroll before hiding it again.
+function shouldDock({hasVideo,frameBottom,viewportTop=0,viewerOpen=false}){
+ const visibleTop=Math.max(0,Number(viewportTop)||0);
+ return !!hasVideo&&!viewerOpen&&Number.isFinite(frameBottom)&&frameBottom<=visibleTop+12;
+}
 function create(config){
  const {source,preview,getState,onPlay,onReroll,onUndo,onPrev,onNext,onSeek}=config;
  const dock=$('monitorDock'),viewer=$('videoViewer'),body=document.body;
+ const frame=$('videoStage').querySelector('.stageCanvas');
  let previousReady=false;
  function state(){return getState()||{}}
  function updateVisibility(){
-  const s=state(),rect=$('videoStage').getBoundingClientRect();
-  const visible=!!s.file&&source.readyState>=2&&rect.bottom<=0&&!viewer.open;
+  const s=state();
+  const frameBottom=frame.getBoundingClientRect().bottom;
+  // Safari's visual viewport can have a top offset when the browser chrome
+  // expands/collapses. The dock's visibility follows what is actually visible.
+  const viewportTop=window.visualViewport?.offsetTop||0;
+  const visible=shouldDock({
+   hasVideo:!!s.file&&source.readyState>=2,frameBottom,
+   viewportTop,viewerOpen:viewer.open
+  });
   const wasHidden=dock.hidden;
   dock.hidden=!visible;
   body.classList.toggle('dock-visible',visible);
@@ -96,8 +112,11 @@ function create(config){
  for(const event of ['play','pause','timeupdate','seeked','loadedmetadata','loadeddata','ended'])source.addEventListener(event,sync);
  window.addEventListener('scroll',updateVisibility,{passive:true});
  window.addEventListener('resize',updateVisibility);
+ window.visualViewport?.addEventListener('scroll',updateVisibility,{passive:true});
+ window.visualViewport?.addEventListener('resize',updateVisibility,{passive:true});
+ window.addEventListener('pageshow',updateVisibility);
  sync();updateVisibility();
  return Object.freeze({render:mirror,sync,updateVisibility,open,close});
 }
-root.VHSVideoPlayerUI=Object.freeze({create});
+root.VHSVideoPlayerUI=Object.freeze({create,shouldDock});
 })(window);
