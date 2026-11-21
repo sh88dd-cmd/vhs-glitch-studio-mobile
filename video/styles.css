@@ -414,3 +414,13 @@ body.effects-bypassed .audioSubtabs button.is-lit::after{content:none}
  width:6px;height:6px;margin:0 0 2px 7px;border-radius:50%;
  background:var(--status-led);box-shadow:0 0 5px 2px var(--status-glow);
 }
+
+/* 0.7.2 — resilient Photos/Files video selection. One video at a time by default. */
+.videoImportOptions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:-2px 0 9px}
+.videoImportOptions .button{display:flex;align-items:center;justify-content:center;text-align:center;min-height:35px;
+ border-radius:8px;border:1px solid #666;background:#252525;color:#eee;font-size:11px;font-weight:650;padding:7px 9px}
+.videoImportStatus{margin:3px 0 11px!important;min-height:20px;line-height:1.5;white-space:normal;overflow-wrap:anywhere;color:#c2c2c2}
+.videoImportHelp{border:1px solid #9b763c;border-left:3px solid #e9a65a;border-radius:8px;background:#261d13;
+ color:#e3cbaa;padding:10px 12px;margin:8px 0 12px;font-size:12px;line-height:1.5}
+.videoImportHelp strong{display:block;margin-bottom:5px;color:#ffcf90}
+@media(max-width:360px){.videoImportOptions .button{font-size:10px}}
