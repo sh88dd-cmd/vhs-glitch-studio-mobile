@@ -691,3 +691,8 @@ body.helpDialogOpen{overflow:hidden}
 @media(max-width:360px){
  .monitorDock .dockBottom>.helpButtonSlot{flex-basis:27px;width:27px;max-width:27px;height:28px}
 }
+
+/* Avoid lone '?' badges on disabled/hidden result buttons. */
+.helpButtonSlot:has(> [hidden]){display:none!important}
+.helpStandalone>canvas{max-width:100%;height:auto;display:block}
+details.helpBlock{padding-right:33px}
