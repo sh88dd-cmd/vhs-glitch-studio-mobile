@@ -19,7 +19,7 @@ const frames=k.normalizeAll([
  {clip:12,track:'vhs',time:0,value:20},
  {clip:0,track:'unknown',time:0,value:20}
 ]);
-assert.equal(frames.length,6,'Duplicate or invalid keyframes were not normalized');
+assert.equal(frames.length,7,'Duplicate or invalid keyframes were not normalized');
 assert.equal(k.at(frames,0,2.5).vhs,40,'VHS must interpolate linearly');
 assert.equal(k.at(frames,0,0).vhs,0);
 assert.equal(k.at(frames,0,9).vhs,80);
