@@ -75,7 +75,7 @@
   const actualBeat=engaged&&state.fxMode==='music'&&state.music.strength>0;
   const actualTimeline=engaged&&state.fxMode==='timeline';
   const duration=audioEngine.getMusicDuration();
-  const actualTrim=engaged&&hasMusic&&(
+  const actualTrim=engaged&&hasMusic&&Number(state.mix.musicVolume)>0&&(
    Number(state.mix.musicOffset)>0.001||
    (Number(state.mix.musicTrimEnd)>0&&Number(state.mix.musicTrimEnd)<duration-.01)||
    Number(state.mix.musicStart)>0||Number(state.mix.fadeIn)>0||Number(state.mix.fadeOut)>0||
