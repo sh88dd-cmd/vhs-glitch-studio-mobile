@@ -358,7 +358,7 @@
   <button id="faceAuto" type="button" class="button full" disabled>◎ Найти лица автоматически</button>
   <button id="faceMark" type="button" class="button primary full" disabled>＋ Выделить лицо пальцем</button>
   <button id="faceClear" type="button" class="button full">✕ Убрать маски лиц</button>
-  <p class="hint">Маска двигается за выбранным лицом благодаря локальному сопоставлению соседних кадров. Автоопределение доступно лишь при поддержке FaceDetector браузером; для iPhone есть ручное выделение. При быстрых поворотах и выходе из кадра отслеживание может ошибаться.</p>
+  <p class="hint">Маска двигается за выбранным лицом благодаря локальному сопоставлению соседних кадров. Автоматический поиск лиц выполняется локальной моделью tracking.js, включённой в приложение. Если лицо не распознано, его можно выделить вручную. При быстрых поворотах и выходе из кадра отслеживание может ошибаться.</p>
  </div>
  <p id="touchStatus" class="hint" role="status">Загрузи видео. Изображение не отправляется на сервер.</p>
 </section>
@@ -516,6 +516,8 @@
 <script src="./help-content.js?v=0.7.9" defer></script>
 <script src="./help-illustrations.js?v=0.7.9" defer></script>
 <script src="./help-ui.js?v=0.7.10" defer></script>
+<script src="./vendor/tracking-min.js?v=1.1.3" defer></script>
+<script src="./vendor/tracking-face-min.js?v=1.0.0" defer></script>
 <script src="./creative-engine.js?v=0.8.0" defer></script>
 <script src="./creative-ui.js?v=0.8.0" defer></script>
 <script src="./app.js?v=0.8.0" defer></script>
