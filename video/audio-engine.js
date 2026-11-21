@@ -69,14 +69,22 @@ class TapeAudio{
   if(!this.connected)return;
   const s=this.state,ctx=this.ctx,now=ctx.currentTime;
   const strength=C(Number(s.strength??50)/100,0,1);
-  const enabled=!!s.enabled&&strength>0;
+  const tapeEnabled=!!s.enabled&&strength>0;
+  // A press of the ⚡ hold button temporarily corrupts the shared mixed
+  // soundtrack (camera + imported music), independently from VHS AUDIO.
+  // Only the time-based event envelope is stored; no extra video/audio decoder.
+  const held=playing?C(Number(s.holdGlitch)||0,0,1):0;
+  const enabled=tapeEnabled||held>.001;
   const type=s.mode==='hifi'?'hifi':'linear';
-  const hz=enabled?(type==='hifi'?14800-(s.strength||0)*42:4900-(s.strength||0)*27):19500;
-  this.dry.gain.setTargetAtTime(enabled?0:1,now,.015);
-  this.wet.gain.setTargetAtTime(enabled?1:0,now,.015);
-  this.filter.frequency.setTargetAtTime(C(hz,1100,19500),now,.028);
-  this.filter.Q.setTargetAtTime(.5,now,.025);
-  const distort=enabled?strength*C((s.saturation||0)/100,0,1):0;
+  const baseHz=tapeEnabled?(type==='hifi'?14800-(s.strength||0)*42:4900-(s.strength||0)*27):19500;
+  const tearingHz=5600-3800*held+300*Math.sin(time*13.1);
+  const hz=held>0?Math.min(baseHz,tearingHz):baseHz;
+  this.dry.gain.setTargetAtTime(enabled?0:1,now,.012);
+  this.wet.gain.setTargetAtTime(enabled?1:0,now,.012);
+  this.filter.frequency.setTargetAtTime(C(hz,1100,19500),now,.012);
+  this.filter.Q.setTargetAtTime(.5+held*1.1,now,.02);
+  const tapeDistort=tapeEnabled?strength*C((s.saturation||0)/100,0,1):0;
+  const distort=Math.max(tapeDistort,held*.72);
   // AudioTape effect uses one simple, deterministic analog-like smooth saturation curve.
   if(distort>.002){
    const curve=new Float32Array(257);
@@ -84,19 +92,33 @@ class TapeAudio{
    for(let i=0;i<curve.length;i++)curve[i]=Math.tanh(((i/128)-1)*drive)/denom;
    this.saturator.curve=curve;
   }else this.saturator.curve=null;
-  const wobble=enabled?(s.wow||0)/100*strength:0;
-  const flutter=enabled?(s.flutter||0)/100*strength:0;
-  const delaySeconds=enabled?.012+wobble*.006*Math.sin(time*2.3)+flutter*.0016*Math.sin(time*26.4):0;
-  this.delay.delayTime.setTargetAtTime(C(delaySeconds,0,.065),now,.018);
+  const wobble=tapeEnabled?(s.wow||0)/100*strength:0;
+  const flutter=tapeEnabled?(s.flutter||0)/100*strength:0;
+  const delaySeconds=enabled?
+   .012+wobble*.006*Math.sin(time*2.3)+flutter*.0016*Math.sin(time*26.4)+
+   held*(.004+Math.sin(time*33)*.0028):0;
+  this.delay.delayTime.setTargetAtTime(C(delaySeconds,0,.065),now,.012);
   let dropout=1;
-  if(enabled&&(s.drop||0)>0){
+  if(tapeEnabled&&(s.drop||0)>0){
    const slot=Math.floor(time*2.4),u=rand(s.seed||1,slot);
    const fade=(time*2.4)%1;
    if(u<.12+(s.drop||0)/100*.43&&fade<.20)dropout=C(.08+fade*3.7,0,1);
   }
-  this.gain.gain.setTargetAtTime(dropout*(enabled?(1-.16*strength):1),now,.018);
-  const noise=enabled&&playing?C((s.hiss||0)/100,0,1)*strength*(type==='hifi'?.006:.025):0;
-  this.noiseGain.gain.setTargetAtTime(noise,now,.035);
+  if(held>.001){
+   // Short repeatable tape-head cuts, synchronized to the *video timestamp*.
+   // At the same timestamp during playback and export the envelope is equal.
+   const cutIndex=Math.floor(time*17);
+   const randomCut=rand(s.seed||1,cutIndex+17413);
+   if(randomCut<.24+.48*held){
+    const phase=(time*17)%1;
+    const cutShape=phase<.62?1:Math.max(0,(1-phase)/.38);
+    dropout=Math.min(dropout,1-held*.94*cutShape);
+   }
+  }
+  this.gain.gain.setTargetAtTime(dropout*(tapeEnabled?(1-.16*strength):1),now,.009);
+  const tapeNoise=tapeEnabled&&playing?C((s.hiss||0)/100,0,1)*strength*(type==='hifi'?.006:.025):0;
+  const noise=tapeNoise+(playing?held*.024:0);
+  this.noiseGain.gain.setTargetAtTime(C(noise,0,.12),now,.018);
  }
  setMix(settings){
   const prev=this.mix;

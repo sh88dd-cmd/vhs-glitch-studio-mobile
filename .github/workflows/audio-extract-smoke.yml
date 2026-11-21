@@ -10,6 +10,7 @@ on:
       - 'video/tests/studio-core-smoke.mjs'
       - 'video/tests/status-lights-smoke.mjs'
       - 'video/tests/video-import-smoke.mjs'
+      - 'video/tests/hold-audio-offline-smoke.mjs'
       - 'video/tests/audio-extract-smoke.mjs'
       - '.github/workflows/audio-extract-smoke.yml'
   pull_request:
@@ -22,6 +23,7 @@ on:
       - 'video/tests/studio-core-smoke.mjs'
       - 'video/tests/status-lights-smoke.mjs'
       - 'video/tests/video-import-smoke.mjs'
+      - 'video/tests/hold-audio-offline-smoke.mjs'
       - 'video/tests/audio-extract-smoke.mjs'
   workflow_dispatch:
 permissions:
@@ -46,6 +48,8 @@ jobs:
         run: node video/tests/status-lights-smoke.mjs
       - name: Test Safari local video picker and metadata-only fallback
         run: node video/tests/video-import-smoke.mjs
+      - name: Test audio/video hold balance and offline mode
+        run: node video/tests/hold-audio-offline-smoke.mjs
       - name: Check studio audio mixing and analog film effects
         run: node video/tests/studio-core-smoke.mjs
       - name: Test AAC extraction from real MP4 and MOV files
