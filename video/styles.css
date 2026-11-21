@@ -241,3 +241,14 @@ body.dock-visible .specialModeBar{scroll-margin-top:calc(var(--dock-height,280px
 .musicSelectedActions .button{width:100%;font-size:10px;min-height:36px;padding:7px 3px}
 #musicMemoryStatus{font-size:11px;color:#ddd;margin:10px 0 4px}
 @media(max-width:360px){.musicRecommendationChips button{font-size:10px;min-height:35px}}
+
+/* v0.6.0 — offline soundtrack import, local-video audio source, segment trimming. */
+.musicTrim{border:1px solid #656565;background:#1a1a1a;border-radius:10px;padding:13px;margin:17px 0}
+.musicTrim h2{margin:0 0 8px}
+.musicTrimHead{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;margin:13px 0 7px}
+.musicTrimHead strong{font-variant-numeric:tabular-nums;color:#f3f3f3}
+.musicTrim>input[type=range]{width:100%;margin:0 0 12px;accent-color:#dddddd;min-height:32px}
+.musicTrimNumbers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.musicTrimNumbers input{width:100%;background:#292929;color:#fff;border:1px solid #626262;border-radius:8px;padding:10px;margin:6px 0 10px;font-size:14px}
+.musicTrimNumbers label{min-width:0}
+#musicVideoSource{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}

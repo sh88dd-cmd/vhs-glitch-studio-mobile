@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.5.3">
+<link rel="stylesheet" href="./styles.css?v=0.6.0">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.5.3 · ПРОВЕРКА ПРЯМЫХ MP3</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.6.0 · МУЗЫКА ИЗ ФАЙЛОВ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -27,6 +27,7 @@
     <div id="empty" class="empty"><strong>VHS / VIDEO</strong><span>Открой видео с iPhone</span></div>
   </div>
   <video id="source" playsinline preload="metadata"></video>
+  <video id="musicVideoSource" playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>
   <canvas id="recordCanvas" width="480" height="270"></canvas>
   <div class="stageButtons">
     <label class="button primary">＋ Видео / клипы<input id="videoInput" type="file" accept="video/*" multiple hidden></label>
@@ -106,50 +107,42 @@
   <p class="hint" id="musicStatus">Нажми ▶, чтобы начать анализ музыки из видео. Звуковая дорожка не загружается на сервер.</p>
 </section>
 <section id="panel-library" class="panel">
-  <h2>МУЗЫКА ДЛЯ ВИДЕО / ОНЛАЙН</h2>
-  <p class="hint">Ищи музыку с открытой лицензией, слушай и добавляй сразу в проект — без предварительного сохранения в «Файлы». Для поиска нужен интернет; не каждый сайт разрешает загрузить свою аудиодорожку для монтажа.</p>
-  <div class="musicRecommendations" aria-label="Рекомендуемые музыкальные подборки">
-    <div class="musicRecommendationHeading">РЕКОМЕНДУЕМЫЕ ДЛЯ ВИДЕО</div>
-    <div id="musicRecommendationChips" class="musicRecommendationChips"></div>
-    <p class="hint">Тематические подборки по жанрам. Поиск использует Wikimedia Commons и резервный каталог Openverse; результаты не гарантируют право использовать любую композицию.</p>
-  </div>
-  <div class="musicSearchRow">
-    <input id="onlineMusicSearch" type="search" placeholder="Название или жанр: jazz, ambient; либо .mp3 ссылка" autocomplete="off" aria-label="Поиск музыки в интернете">
-    <button id="searchOnlineMusic" type="button" class="button primary">Найти</button>
-  </div>
-  <p id="onlineMusicStatus" class="hint" role="status">Основной поиск — Wikimedia Commons (проверенные MP3-ссылки); при отсутствии подходящих файлов подключается Openverse (до 20 результатов). Вводи название или жанр, не адрес страницы песни. Некоторые треки требуют указания автора.</p>
-  <div id="onlineMusicResults" class="onlineMusicResults" aria-live="polite"></div>
-  <audio id="musicSample" controls preload="none" hidden aria-label="Прослушивание найденной музыки"></audio>
-  <details class="importBox">
-    <summary>＋ Прямая ссылка или файл с iPhone</summary>
-    <p class="hint">Нужна прямая HTTPS-ссылка на сам аудиофайл — MP3 / M4A / WAV / OGG. Например, адрес вида site.com/music.mp3. Ссылка вида /song/70879231 открывает страницу, а не звук, и не может быть добавлена напрямую. В поиске выше вводи название трека.</p>
-    <input id="musicDirectUrl" type="url" placeholder="https://example.org/music.mp3" aria-label="Прямая ссылка на музыку">
-    <button type="button" id="addMusicUrl" class="button full">＋ Подключить аудио по ссылке</button>
-    <p id="musicDirectStatus" class="hint" role="status" aria-live="polite">После нажатия здесь появится результат проверки ссылки или точная ошибка. Поддерживаются только источники, разрешающие загрузку аудио.</p>
-    <label class="button full">＋ Выбрать аудиофайл с телефона<input id="musicFileInput" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg" hidden></label>
-  </details>
+  <h2>♫ МУЗЫКА ИЗ ФАЙЛОВ</h2>
+  <p class="hint">Добавляй свою музыку или звук из видео на iPhone. Всё остаётся на устройстве: без поиска, ссылок, серверов и загрузки файлов в интернет.</p>
+  <label class="button primary full">＋ Добавить аудиофайл<input id="musicFileInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac" hidden></label>
+  <label class="button full">♫ Извлечь звук из видео<input id="musicVideoInput" type="file" accept="video/*,.mp4,.mov,.m4v,.webm" hidden></label>
+  <p class="hint">При выборе видео его звук становится отдельной дорожкой в микшере, без дополнительного сохранения файла. Поддержка форматов зависит от Safari. Само видео на экран монтажа не добавляется.</p>
   <div id="musicSelection" class="musicSelection" hidden>
-    <div class="musicSelectedTitle">ВЫБРАННАЯ МУЗЫКА</div>
+    <div class="musicSelectedTitle">ВЫБРАННАЯ ДОРОЖКА</div>
     <strong id="musicTitle">—</strong>
     <span id="musicArtist" class="hint">—</span>
-    <div class="musicSelectedActions">
-      <button id="reloadMusic" type="button" class="button">↻ Восстановить</button>
-      <button id="clearMusicMemory" type="button" class="button">Очистить память</button>
-      <button id="removeMusic" type="button" class="button">✕ Убрать</button>
-      <button id="copyMusicCredit" type="button" class="button">Авторство</button>
-    </div>
     <p id="musicMemoryStatus" class="hint"></p>
-    <p id="musicCredit" class="hint"></p>
+    <div class="musicSelectedActions">
+      <button id="removeMusic" type="button" class="button">✕ Удалить дорожку</button>
+    </div>
+  </div>
+  <div id="musicTrim" class="musicTrim" hidden>
+    <h2>✂ ОБРЕЗКА АУДИО</h2>
+    <p class="hint">Выбери начало и конец нужного отрывка. Обрезка не изменяет оригинальный файл; выбранный фрагмент используется при воспроизведении и экспорте видео.</p>
+    <div class="musicTrimHead"><span>Начало фрагмента</span><strong id="musicTrimStartLabel">00:00</strong></div>
+    <input id="musicTrimStartRange" type="range" min="0" max="1" step="0.1" value="0" aria-label="Начало аудиофрагмента">
+    <div class="musicTrimHead"><span>Конец фрагмента</span><strong id="musicTrimEndLabel">00:00</strong></div>
+    <input id="musicTrimEndRange" type="range" min="0" max="1" step="0.1" value="1" aria-label="Конец аудиофрагмента">
+    <div class="musicTrimNumbers">
+      <label>Начало, сек<input id="musicTrimStartInput" type="number" min="0" step="0.1" value="0"></label>
+      <label>Конец, сек<input id="musicTrimEndInput" type="number" min="0.1" step="0.1" value="0.1"></label>
+    </div>
+    <p id="musicTrimDuration" class="hint">Длительность выбранного отрывка: —</p>
+    <button type="button" id="musicTrimReset" class="button full">↻ Восстановить полную длину</button>
   </div>
   <h2>ЗВУКОВОЙ МИКШЕР</h2>
-  <p class="hint">Оригинальный звук и музыка регулируются независимо. При включении VHS AUDIO повреждения накладываются на их общую сумму и сохраняются при поддерживаемом экспорте.</p>
+  <p class="hint">Громкость оригинального видео и добавленной дорожки настраиваются отдельно. VHS AUDIO обрабатывает их общую сумму и сохраняется при поддерживаемом экспорте.</p>
   <div id="musicMixerControls"></div>
   <div class="musicTimes">
     <label>Начало музыки в видео, сек<input id="musicVideoStart" type="number" min="0" max="7200" step="0.1" value="0"></label>
-    <label>Начать с секунды трека<input id="musicAudioOffset" type="number" min="0" max="7200" step="0.1" value="0"></label>
   </div>
-  <div class="switch"><span>Повторять трек, если видео длиннее</span><input id="musicLoop" type="checkbox" checked></div>
-  <p id="musicLoadStatus" class="hint" role="status">Музыка пока не выбрана. Для монтажа онлайн-трек временно загружается в память браузера; это не создаёт файл в хранилище iPhone.</p>
+  <div class="switch"><span>Повторять выбранный отрывок</span><input id="musicLoop" type="checkbox" checked></div>
+  <p id="musicLoadStatus" class="hint" role="status" aria-live="polite">Дорожка не выбрана. Нажми «Добавить аудиофайл» или «Извлечь звук из видео».</p>
 </section>
 <section id="panel-timeline" class="panel">
   <h2>▤ ТАЙМЛАЙН ПОВРЕЖДЕНИЙ</h2>
@@ -235,10 +228,9 @@
 <script src="../ntsc-photo.js?v=1.1.3" defer></script>
 <script src="./film-core.js?v=0.1.0" defer></script>
 <script src="./glitch-engine.js?v=0.4.0" defer></script>
-<script src="./audio-engine.js?v=0.5.1" defer></script>
-<script src="./music-catalog.js?v=0.5.3" defer></script>
+<script src="./audio-engine.js?v=0.6.0" defer></script>
 <script src="./special-modes.js?v=0.4.0" defer></script>
 <script src="./player-ui.js?v=0.3.1" defer></script>
-<script src="./app.js?v=0.5.3" defer></script>
+<script src="./app.js?v=0.6.0" defer></script>
 </body>
 </html>
