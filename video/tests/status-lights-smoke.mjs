@@ -78,4 +78,46 @@ assert.ok(html.includes('effects-reset.js?v=0.7.4'));
 assert.ok(css.includes('.restoreEffects'));
 assert.ok(!app.includes('toggleAllEffects()'),'Obsolete hard bypass action must be removed');
 assert.ok(!app.includes('extraTracks.length'),'Old undefined variable must not return');
+
+/* Test the actual editor button handlers: second zero-click must keep backup. */
+const resetStart=app.indexOf(' function resetAllEffects(){');
+const resetStop=app.indexOf(' function showAudioSection(',resetStart);
+assert.ok(resetStart>0&&resetStop>resetStart,'Reset button functions missing.');
+const handlers=app.slice(resetStart,resetStop);
+const savedData=new Map();let updated=0,repainter=0;
+const storage={
+ getItem:k=>savedData.get(k)||null,
+ setItem:(k,v)=>savedData.set(k,v),
+ removeItem:k=>savedData.delete(k)
+};
+const reference={...JSON.parse(raw),masterBypass:false};
+const studioLayer={id:'extra-one',volume:75};
+const studio={
+ isMuted:()=>studioLayer.volume===0,
+ snapshotTracks:()=>[{id:studioLayer.id,volume:studioLayer.volume}],
+ resetTrackSettings:()=>{studioLayer.volume=0;},
+ restoreTrackSettings:rows=>{studioLayer.volume=rows[0].volume;}
+};
+const editor=new Function('state','window','audioStudio','localStorage','LAST_FX_KEY',
+ 'recording','holdActive','finishHold','textStatus','resyncAfterEffectReset','persist',
+ 'console','Date','let lastFxSnapshot=null;\n'+handlers+
+ 'return {resetAllEffects,restoreLastEffects,getBackup:()=>lastFxSnapshot};')
+ (reference,{VHSVideoEffectsReset:fx},studio,storage,'test.backup',false,null,
+ ()=>{},()=>{},()=>{repainter++;},()=>{updated++;},console,Date);
+editor.resetAllEffects();
+assert.ok(fx.isZero(reference));
+assert.equal(studioLayer.volume,0);
+assert.ok(editor.getBackup()?.settings);
+const originalBackup=savedData.get('test.backup');
+editor.resetAllEffects();
+assert.equal(savedData.get('test.backup'),originalBackup,'Repeated reset erased original settings');
+reference.filmEnabled=true;reference.filmStrength=18;
+editor.restoreLastEffects();
+assert.equal(reference.filmStrength,60,'Restore ignored prior FILM settings');
+assert.equal(studioLayer.volume,75,'Restore ignored extra audio layer volume');
+assert.equal(editor.getBackup(),null);
+assert.ok(!savedData.has('test.backup'),'Restore must clear one-time backup');
+assert.ok(repainter>=2&&updated>=2);
+console.log('PASS: button handlers keep latest backup, allow new effects and restore audio tracks');
+
 console.log('PASS: actual zero reset, reversible full settings backup, original media preserved, LEDs update');
