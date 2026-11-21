@@ -252,7 +252,7 @@
  function holdBalanceText(value){
   const n=clamp(Math.round(Number(value)||0),0,100);
   return n===0?'ТОЛЬКО ВИДЕО':n===100?'ТОЛЬКО ЗВУК':n===50?'ВИДЕО + ЗВУК':
-   n<50?'ВИДЕО '+(100-n*2)+'% · ЗВУК '+n*2+'%':
+   n<50?'ВИДЕО 100% · ЗВУК '+n*2+'%':
     'ВИДЕО '+(200-n*2)+'% · ЗВУК 100%';
  }
  function syncHoldBalance(){
