@@ -1716,7 +1716,11 @@
    // until then: a failed Photos import must not destroy the old edit.
    clips=candidate;clipIndex=0;file=first;sourceUrl=candidate[0].url;videoImportCommitted=true;
    resetFrameHistory();seedHistory=[];$('undoGlitch').disabled=true;
-   state.holdEvents=[];persist();
+   state.holdEvents=[];state.keyframes=[];state.keyframesEnabled=true;
+   comparisonHeld=false;
+   if(framePngUrl){URL.revokeObjectURL(framePngUrl);framePngUrl='';}
+   $('framePngDownload').hidden=true;
+   persist();
    source.loop=clips.length===1;
    $('videoName').textContent=file.name;
    $('videoMeta').textContent=summary;
@@ -1948,7 +1952,7 @@
   };
   document.addEventListener('input',e=>{enableAfterResetInput(e.target);scheduleLights();});
   document.addEventListener('change',scheduleLights);
-  mountHoldControls();
+  mountHoldControls();mountFrameTools();mountCompare();
   for(const [id,origin] of [['videoInput','gallery'],['videoFilesInput','files'],['videoClipsInput','clips']]){
    const input=$(id);
    input.addEventListener('click',()=>{
@@ -2032,7 +2036,7 @@
   $('share').onclick=shareExport;
  }
  async function init(){
-  mountControls();initEvents();
+  mountControls();mountKeyframes();initEvents();
   if(!window.VHSVideoPlayerUI)throw Error('Модуль просмотра не загружен. Обнови страницу с интернетом.');
   videoUI=window.VHSVideoPlayerUI.create({
    source,preview,
