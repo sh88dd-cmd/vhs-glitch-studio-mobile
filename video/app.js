@@ -37,7 +37,7 @@
  // Old network tracks cannot be restored: v0.6 supports only local files.
  if(state.selectedTrack&&!['file','video'].includes(state.selectedTrack.kind))state.selectedTrack=null;
  let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
- let importedDB=null,recording=null,recordStream=null,exportBlob=null,exportMime='';
+ let importedDB=null,recording=null,recordStream=null,exportBlob=null,exportMime='',exportOriginalFile=false;
  let downloadUrl='',exportStopRequested=false,audioContext=null,audioSource=null,audioMonitor=null;
  let lastDraw=0,framePending=false,loopId=0,renderBusy=false,seedHistory=[],audioErrorShown=false,videoUI=null;
  const source=$('source'),preview=$('preview'),recordCanvas=$('recordCanvas'),stage=preview.getContext('2d',{willReadFrequently:true});
@@ -1240,6 +1240,19 @@
  }
  function drawFrame(canvas,forExport=false){
   if(!file||source.readyState<2||!source.videoWidth)return;
+  // A zero-effects frame must never pass through the 192–240px VHS signal
+  // buffer: that downsample was blurring the original even after "Reset all".
+  const holdVideo=holdStrengthsAt(source.currentTime||0,clipIndex).video;
+  const clean=!window.VHSVideoCleanPath.hasVisualEffects(state,holdVideo);
+  if(canvas===preview){
+   const [width,height]=videoDimensions(clean?1920:520);
+   if(canvas.width!==width)canvas.width=width;
+   if(canvas.height!==height)canvas.height=height;
+  }
+  if(clean){
+   window.VHSVideoCleanPath.drawClean(source,canvas);
+   return;
+  }
   const limit=state.signalWidth==='auto'?(forExport||recording?adaptiveExportWidth:adaptivePreviewWidth):Number(state.signalWidth);
   const ratio=CFinite(Math.min(1,limit/Math.max(canvas.width,canvas.height)),.1,1);
   const iw=Math.max(2,Math.round(canvas.width*ratio/2)*2),ih=Math.max(2,Math.round(canvas.height*ratio/2)*2);
@@ -1527,7 +1540,7 @@
  }
  function onLoaded(force=false){
   if((videoImportBusy&&!videoImportCommitted&&force!==true)||!source.videoWidth||!source.videoHeight)return;
-  const [w,h]=videoDimensions(520);
+  const [w,h]=videoDimensions(window.VHSVideoCleanPath.hasVisualEffects(state,holdStrengthsAt(source.currentTime||0,clipIndex).video)?520:1920);
   source.loop=!recording&&clips.length===1;
   preview.width=w;preview.height=h;
   if(clips[clipIndex])clips[clipIndex].duration=Number.isFinite(source.duration)?source.duration:0;
@@ -1568,6 +1581,7 @@
   return {stream:{getAudioTracks:()=>audioEngine.getTracks()}};
  }
  function finishExport(chunks,mime){
+  exportOriginalFile=false;
   const blob=new Blob(chunks,{type:mime});
   if(!blob.size){exportStatus('Не получены данные видео. Попробуй короткий MP4 или другой формат.');return;}
   exportBlob=blob;exportMime=mime;
@@ -1598,6 +1612,27 @@
  }
  async function beginExport(){
   if(!file||recording)return;
+  // If a single, entire clip has not been changed, return its real bytes.
+  // Canvas/MediaRecorder would otherwise re-encode and reduce quality even
+  // though the user explicitly set every video/audio effect to zero.
+  const held=holdStrengthsAt(source.currentTime||0,clipIndex);
+  if(window.VHSVideoCleanPath.canCopyOriginal(state,{
+   clipCount:clips.length,duration:Number(source.duration),
+   holdVideo:held.video,holdAudio:held.audio,
+   extraTracks:audioEngine.extraAudio,musicLoaded:!!audioEngine.musicBuffer
+  })){
+   if(downloadUrl)URL.revokeObjectURL(downloadUrl);
+   exportBlob=file;exportMime=file.type||'application/octet-stream';
+   exportOriginalFile=true;
+   downloadUrl=URL.createObjectURL(file);
+   const link=$('download');link.href=downloadUrl;
+   link.download=file.name||'original_video';
+   $('exportResult').hidden=false;
+   $('cancel').hidden=true;$('progress').hidden=true;
+   exportStatus('Готово: оригинальный файл без фильтров и без повторного сжатия · '+
+    (file.size/1048576).toFixed(1)+' МБ. Исходное разрешение и кадры сохранены.');
+   return;
+  }
   if(!preview.captureStream){exportStatus('Захват Canvas недоступен в этом браузере. Нужен экспорт через WebCodecs.');return;}
   const mime=chooseMime();
   if(!mime){exportStatus('Этот браузер не поддерживает доступный видеокодек. Требуется альтернативный WebCodecs-экспорт.');return;}
@@ -1666,7 +1701,8 @@
   if(!exportBlob)return;
   if(!navigator.share||typeof File==='undefined'){exportStatus('Используй «Скачать результат» и затем «Файлы» на iPhone.');return;}
   const ext=exportMime.includes('mp4')?'mp4':'webm',name=(clips[0]?.file?.name||'video').replace(/\.[^.]+$/,'')+'_VHS_VIDEO.'+ext;
-  const f=new File([exportBlob],name,{type:exportMime});
+  const f=exportOriginalFile&&exportBlob instanceof File?exportBlob:
+   new File([exportBlob],name,{type:exportMime});
   try{
    if(navigator.canShare?.({files:[f]}))await navigator.share({files:[f],title:'VHS Video Lab'});
    else exportStatus('Системная отправка недоступна для этого файла. Используй «Скачать».');
@@ -1780,7 +1816,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset||!window.VHSVideoCleanPath)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
