@@ -549,3 +549,35 @@ body.effects-bypassed .audioSubtabs button.is-lit::after{content:none}
  font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;
  letter-spacing:.7px;border:1px solid #5d564f;border-radius:9px;background:#151515;padding:12px}
 #framePngDownload{margin-top:9px}
+
+/* 0.7.8 — compact always-available editing monitor.
+   Avoid covering the frame-tool buttons on small iPhones. */
+.monitorDock{
+ top:env(safe-area-inset-top,0px);
+ padding:4px max(7px,env(safe-area-inset-left,0px)) 5px;
+ transform:translateZ(0);-webkit-transform:translateZ(0);
+ contain:layout style;
+}
+.monitorDock .dockUpper{gap:3px}
+.monitorDock .dockScreen{max-height:min(19svh,180px);min-height:0}
+.monitorDock #dockCanvas{
+ display:block;width:100%;height:auto;
+ max-height:min(19svh,180px);
+ object-fit:contain;
+}
+.monitorDock .dockBottom{gap:4px}
+.monitorDock .dockButton{height:31px;min-height:31px}
+body.dock-visible .tabs{
+ top:calc(env(safe-area-inset-top,0px) + var(--dock-height,215px));
+}
+body.dock-visible .panel{
+ scroll-margin-top:calc(var(--dock-height,215px) + 52px);
+}
+@media(max-width:380px){
+ .monitorDock .dockScreen{max-height:min(18svh,160px)}
+ .monitorDock #dockCanvas{max-height:min(18svh,160px)}
+}
+@media(orientation:landscape) and (max-height:540px){
+ .monitorDock .dockScreen{max-height:min(19svh,95px)}
+ .monitorDock #dockCanvas{max-height:min(19svh,95px)}
+}
