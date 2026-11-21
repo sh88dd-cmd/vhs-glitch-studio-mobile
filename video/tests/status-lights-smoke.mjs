@@ -100,7 +100,8 @@ const studio={
 };
 const editor=new Function('state','window','audioStudio','localStorage','LAST_FX_KEY',
  'recording','holdActive','finishHold','textStatus','resyncAfterEffectReset','persist',
- 'console','Date','let lastFxSnapshot=null;\n'+handlers+
+ 'console','Date','let lastFxSnapshot=null,cassetteBefore=null;\n'+
+ 'function clearCassetteBefore(){cassetteBefore=null;}\nfunction setCassetteBefore(value){cassetteBefore=value;}\n'+handlers+
  'return {resetAllEffects,restoreLastEffects,getBackup:()=>lastFxSnapshot};')
  (reference,{VHSVideoEffectsReset:fx},studio,storage,'test.backup',false,null,
  ()=>{},()=>{},()=>{repainter++;},()=>{updated++;},console,Date);
