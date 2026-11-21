@@ -8,6 +8,11 @@ const num=value=>Number.isFinite(Number(value))?Number(value):0;
 function hasVisualEffects(settings,holdVideo=0){
  const s=settings||{};
  if(num(holdVideo)>0)return true;
+ const c=s.creative;
+ if(c?.touch?.enabled&&c.touch.strokes?.length)return true;
+ if(c?.touch?.facesEnabled&&(c.touch.manualFaces?.length||c.touch.faceAutodetect))return true;
+ if(c?.aging?.enabled&&Number(c.aging.amount)>0)return true;
+ if(c?.look?.enabled&&c.look.target&&Number(c.look.strength)>0)return true;
  if(s.filmEnabled&&num(s.filmStrength)>0)return true;
  if(s.filmDamage?.enabled&&['leak','dust','grain','scratches','flicker','halation'].some(k=>num(s.filmDamage[k])>0))return true;
  if(CAMERA.some(k=>s.camera?.[k]===true))return true;
@@ -19,6 +24,10 @@ function hasVisualEffects(settings,holdVideo=0){
 }
 function canCopyOriginal(s,opts={}){
  if(hasVisualEffects(s,opts.holdVideo))return false;
+ if(s.creative?.speed?.enabled&&
+  (s.creative.speed.reverse||Number(s.creative.speed.rate)!==1||
+   s.creative.speed.curveEnabled&&s.creative.speed.points?.length))return false;
+ if(s.creative?.live?.events?.length)return false;
  // One keyframe can be zero at the current playhead yet nonzero later.
  if(s.keyframesEnabled!==false&&Array.isArray(s.keyframes)&&s.keyframes.some(x=>Number(x.value)>0))return false;
  if(num(opts.clipCount)!==1)return false;
