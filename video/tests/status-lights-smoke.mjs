@@ -49,7 +49,7 @@ assert.equal(state.mix,mix,'Restore must preserve the mixer reference');
 const element=()=>{
  const classes=new Set();
  return{classList:{contains:k=>classes.has(k),toggle:(k,on)=>{if(on)classes.add(k);else classes.delete(k);},remove:k=>classes.delete(k)},
-  dataset:{},textContent:'',disabled:false,setAttribute(k,v){this[k]=v;},querySelectorAll:()=>[],querySelector:()=>null};
+  dataset:{},textContent:'',value:'',disabled:false,setAttribute(k,v){this[k]=v;},querySelectorAll:()=>[],querySelector:()=>null,closest:()=>null};
 };
 const map=new Map(),$=id=>{if(!map.has(id))map.set(id,element());return map.get(id);};
 const tabs=['vhs','glitch','audio','timeline','film','filmDamage','camera','cassettes'].map(key=>{const e=element();e.dataset.tab=key;return e;});
