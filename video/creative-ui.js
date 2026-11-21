@@ -339,20 +339,29 @@ function create(opts){
   }
  }
  function mountAging(){
-  const a=c.aging;const tabs=[['cassetteLibraryTab','cassetteLibraryPage'],['cassetteAgingTab','cassetteAgingPage']];
+  const a=c.aging,tabs=[['cassetteLibraryTab','cassetteLibraryPage'],['cassetteAgingTab','cassetteAgingPage']];
   tabs.forEach(([id])=>$(id).onclick=()=>showSubnav(tabs,id));
-  $('agingEnabled').checked=!!a.enabled;
   $('agingEnabled').onchange=()=>{a.enabled=$('agingEnabled').checked;refreshAging();save();};
   for(const [id,key] of [['agingAmount','amount'],['agingStart','start'],['agingEnd','end']]){
    $(id).value=String(a[key]);$(id).oninput=()=>{a[key]=Number($(id).value);refreshAging();save();};
   }
+  $('agingPreviewLate').onclick=()=>{
+   if(!opts.hasVideo()||opts.isRecording())return;
+   source.pause();
+   source.currentTime=Math.max(0,(Number(source.duration)||0)*.85-.02);
+   refreshAging();callbacks.render();
+  };
   refreshAging();
  }
  function refreshAging(){
   $('agingEnabled').checked=!!c.aging.enabled;
-  for(const [id,key] of [['agingAmount','amount'],['agingStart','start'],['agingEnd','end']])$(id).value=String(c.aging[key]);
+  for(const [id,key] of [['agingAmount','amount'],['agingStart','start'],['agingEnd','end']])
+   $(id).value=String(c.aging[key]);
   $('agingAmountText').textContent=Math.round(c.aging.amount)+'%';
-  $('agingStatus').textContent=c.aging.enabled?'Старение активно: эффект усиливается от '+c.aging.start+'% до '+c.aging.end+'% ролика.':'Эффект выключен.';
+  const current=Math.round(E.agingAt(c.aging,source.currentTime||0,source.duration||0)*100);
+  $('agingStatus').textContent=c.aging.enabled?
+   'Старение включено. На текущем кадре разрушение: '+current+'%. От начала ('+c.aging.start+'%) до конца ('+c.aging.end+'%) оно нарастает. Чтобы увидеть сильный эффект сразу, нажми кнопку выше.':
+   'Старение выключено. Включи и проверь ближе к концу ролика.';
  }
  function mountLook(){
   const l=c.look;
