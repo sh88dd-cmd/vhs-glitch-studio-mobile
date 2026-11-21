@@ -2072,6 +2072,54 @@
  }
  async function init(){
   mountControls();mountKeyframes();initEvents();
+  const mixSnapshots=(a,b,v)=>{
+   if(typeof a==='number'&&typeof b==='number')return a+(b-a)*v;
+   if(a&&b&&typeof a==='object'&&typeof b==='object'&&!Array.isArray(a)&&!Array.isArray(b)){
+    const result={...a};
+    for(const key of Object.keys(b))if(key in a)result[key]=mixSnapshots(a[key],b[key],v);
+    return result;
+   }
+   return v<.5?a:b;
+  };
+  creativeUI=window.VHSVideoCreativeUI.create({
+   state,source,preview,
+   hasVideo:()=>!!file&&source.readyState>=2,
+   isRecording:()=>!!recording,
+   getClip:()=>clipIndex,
+   getAudioBuffer:()=>audioEngine.musicBuffer,
+   getCassettes:()=>[...builtInCassettes(),...state.cassettes],
+   callbacks:{
+    save:()=>persist(),
+    render:()=>{renderCurrentFrame();syncAudio(!source.paused);},
+    audio:()=>syncAudio(!source.paused),
+    speed:()=>{creativeUI?.updateSpeed();syncAudio(!source.paused);renderCurrentFrame();},
+   },
+   onBeat:events=>{
+    if(recording)return;
+    const manual=state.timelineEvents.filter(e=>!(String(e.id).startsWith('auto-')&&e.clip===clipIndex));
+    state.timelineEvents=[...manual,...events].slice(0,120);
+    state.fxMode='timeline';syncModeUI();persist();renderTimeline();resetFrameHistory();renderCurrentFrame();
+   },
+   onLiveStart:ev=>{
+    if(recording)return;liveActive=ev;state.fxMode='timeline';
+    syncModeUI();renderCurrentFrame();
+   },
+   onLive:ev=>{
+    if(recording)return;liveActive=null;
+    const event=window.VHSVideoSpecialModes.cleanEvent(ev);
+    if(event)state.timelineEvents=[...state.timelineEvents,event].slice(-120);
+    state.fxMode='timeline';syncModeUI();persist();renderTimeline();renderCurrentFrame();
+   },
+   onMorph:(a,b,v)=>{
+    if(recording)return;
+    const snap={};
+    for(const key of CASSETTE_FIELDS)if(Object.prototype.hasOwnProperty.call(a,key)&&Object.prototype.hasOwnProperty.call(b,key))
+     snap[key]=mixSnapshots(a[key],b[key],v);
+    applyCassetteSnapshot(snap,null);
+    renderCassetteShelf();
+   }
+  });
+  creativeUI.mount();
   if(!window.VHSVideoPlayerUI)throw Error('Модуль просмотра не загружен. Обнови страницу с интернетом.');
   videoUI=window.VHSVideoPlayerUI.create({
    source,preview,
