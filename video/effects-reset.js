@@ -56,6 +56,9 @@ function restore(state,saved){
    Object.assign(state.mix,value);continue;
   }
   if(key==='camera'&&value&&typeof value==='object'&&!Array.isArray(value)){
+   // A reset can introduce disabled flag keys absent from older snapshots.
+   // Remove only those added keys so restoration reproduces the saved state.
+   for(const own of Object.keys(state.camera))if(!(own in value))delete state.camera[own];
    Object.assign(state.camera,value);
    if(value.positions)state.camera.positions={...value.positions};
    if(value.sizes)state.camera.sizes={...value.sizes};
