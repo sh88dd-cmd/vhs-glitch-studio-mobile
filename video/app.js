@@ -527,6 +527,155 @@
   showMusicSelection();
   if(state.selectedTrack)musicLoadStatus('После перезапуска выбери локальный файл или видео заново: '+state.selectedTrack.title);
  }
+ function mountFilmDamageControls(){
+  const box=$('filmDamageControls');box.replaceChildren();
+  $('filmDamageEnabled').checked=!!state.filmDamage.enabled;
+  $('filmDamageEnabled').onchange=()=>{state.filmDamage.enabled=$('filmDamageEnabled').checked;persist();renderCurrentFrame();};
+  $('filmLeakType').value=state.filmDamage.type;
+  $('filmLeakType').onchange=()=>{state.filmDamage.type=$('filmLeakType').value;persist();renderCurrentFrame();};
+  const names={leak:'Сила засветов',dust:'Пыль и грязь',grain:'Живое зерно',scratches:'Царапины',
+   flicker:'Мерцание экспозиции',halation:'Свечение света (halation)'};
+  for(const [id,label] of Object.entries(names))
+   control(box,label,state.filmDamage[id],v=>{state.filmDamage[id]=v;});
+ }
+ const CASSETTE_FIELDS=['vhsEnabled','filmEnabled','glitchEnabled','preset','master','mode','modeStrength','tape','signalWidth',
+  'eventDensity','glitchStrength','fxMode','music','speed','filmId','filmStrength','signal','glitches','audio','camera','filmDamage'];
+ function cassetteSnapshot(){
+  const result={};
+  for(const key of CASSETTE_FIELDS)result[key]=JSON.parse(JSON.stringify(state[key]));
+  return result;
+ }
+ function applyCassetteSnapshot(snapshot,id){
+  if(recording)return;
+  if(!snapshot||typeof snapshot!=='object')return;
+  for(const key of CASSETTE_FIELDS){
+   if(!Object.prototype.hasOwnProperty.call(snapshot,key))continue;
+   const value=snapshot[key],original=defaults[key];
+   if(value===null||(Array.isArray(value))||typeof value!==typeof original)continue;
+   if(original&&typeof original==='object'){
+    state[key]={...original,...state[key],...value};
+    if(key==='camera'){
+     state.camera.positions={...defaults.camera.positions,...state.camera.positions,...value.positions};
+     state.camera.sizes={...defaults.camera.sizes,...state.camera.sizes,...value.sizes};
+    }
+   }else state[key]=value;
+  }
+  state.selectedCassetteId=id;
+  syncCassetteUI();persist();resetFrameHistory();syncAudio(!source.paused);renderCurrentFrame();
+ }
+ function setControlByTitle(parent,title,value){
+  if(!parent||value===undefined)return;
+  for(const item of parent.querySelectorAll('.control')){
+   if(item.querySelector('strong')?.textContent!==title)continue;
+   const slider=item.querySelector('input[type="range"]'),count=item.querySelector('em');
+   if(slider)slider.value=String(value);
+   if(count)count.textContent=String(value)+'%';
+  }
+ }
+ function syncCassetteUI(){
+  for(const [id,key] of [['vhsEnabled','vhsEnabled'],['filmEnabled','filmEnabled'],['glitchEnabled','glitchEnabled']])
+   $(id).checked=!!state[key];
+  $('vhsPreset').value=state.preset;$('tapeKind').value=state.tape;
+  $('signalWidth').value=state.signalWidth;$('modeSelect').value=state.mode;
+  $('filmSelect').value=state.filmId;
+  $('audioEnabled').checked=!!state.audio.enabled;$('audioMode').value=state.audio.mode;
+  setControlByTitle($('vhsControls'),'Общая сила VHS',state.master);
+  const sig={chromaBleed:'Растекание цвета',composite:'Артефакты композитного сигнала',edgeWave:'Нестабильность видеострок',
+   tracking:'Помехи видеоголовки (1–4 полосы)',noise:'Шум и снег',chromaLoss:'Выпадения цвета',ringing:'Контурное эхо'};
+  for(const [key,label] of Object.entries(sig))setControlByTitle($('vhsControls'),label,state.signal[key]);
+  setControlByTitle($('modeStrengthControl'),'Сила режима (MiniDV / CRT / Night Vision)',state.modeStrength);
+  setControlByTitle($('filmControls'),'Сила плёнки',state.filmStrength);
+  for(const [key,label] of [['strength','Сила деградации аудио'],['hiss','Шипение ленты'],['wow','Плавание звука / Wow'],
+   ['flutter','Дрожание звука / Flutter'],['drop','Выпадения звука'],['saturation','Перегрузка и насыщение']])
+   setControlByTitle($('audioControls'),label,state.audio[key]);
+  mountGlitchControls();
+  $('eventControls').replaceChildren();
+  control($('eventControls'),'Частота случайных сбоев',state.eventDensity,v=>{state.eventDensity=v;resetFrameHistory();});
+  control($('eventControls'),'Общая сила дополнительных помех',state.glitchStrength,v=>{state.glitchStrength=v;resetFrameHistory();});
+  for(const [key,label] of [['sensitivity','Чувствительность к музыке'],['threshold','Порог срабатывания'],
+   ['strength','Сила музыкальных повреждений'],['release','Длительность затухания эффекта']])
+   setControlByTitle($('musicControls'),label,state.music[key]);
+  $('bassEffect').value=state.music.bassEffect;$('highEffect').value=state.music.highEffect;
+  mountCameraControls();mountFilmDamageControls();syncModeUI();renderFilmSelect();
+  const sp=$('vhsControls').querySelector('select');if(sp)sp.value=state.speed;
+ }
+ function builtInCassettes(){
+  const base=cassetteSnapshot();
+  const make=(id,name,patch)=>({id,name,builtin:true,settings:{...JSON.parse(JSON.stringify(base)),...patch}});
+  return [
+   make('builtin-home','ДОМАШНЯЯ VHS · 1997',{vhsEnabled:true,tape:'used',preset:'classic',master:57,
+    filmDamage:{...base.filmDamage,enabled:true,type:'edge-left',leak:40,dust:8,grain:20,scratches:8,flicker:12,halation:12}}),
+   make('builtin-chewed','ЗАЖЁВАННАЯ · RENTAL',{vhsEnabled:true,tape:'chewed',preset:'damaged',master:85,
+    eventDensity:85,glitchStrength:90,glitchEnabled:true,glitches:{...base.glitches,tapeChew:85,dropouts:83,headClog:75}}),
+   make('builtin-film','ЗАСВЕЧЕННАЯ ПЛЁНКА',{filmEnabled:true,vhsEnabled:false,filmDamage:{...base.filmDamage,enabled:true,type:'random',
+    leak:80,dust:40,scratches:48,grain:57,halation:70,flicker:39}}),
+   make('builtin-hi8','HI8 · ЧИСТАЯ ЗАПИСЬ',{vhsEnabled:true,tape:'hi8',preset:'camcorder',master:40,
+    filmDamage:{...base.filmDamage,enabled:false},glitchEnabled:false})
+  ];
+ }
+ function renderCassetteShelf(){
+  const shelf=$('cassetteShelf');shelf.replaceChildren();
+  const all=[...builtInCassettes(),...(Array.isArray(state.cassettes)?state.cassettes:[])];
+  for(const cassette of all){
+   if(!cassette||!cassette.settings)continue;
+   const card=document.createElement('div');card.className='cassetteCard';
+   card.classList.toggle('selected',state.selectedCassetteId===cassette.id);
+   const face=document.createElement('button');face.type='button';face.className='cassetteFace';
+   face.setAttribute('aria-label','Применить кассету '+cassette.name);
+   const top=document.createElement('div');top.className='cassetteTop';
+   top.textContent=cassette.builtin?'VHS VIDEO LAB  ·  FACTORY TAPE':'VHS VIDEO LAB  ·  MY TAPE';
+   const reels=document.createElement('div');reels.className='cassetteReels';
+   reels.innerHTML='<span class="cassetteReel"></span><span class="cassetteReel"></span>';
+   const stripe=document.createElement('div');stripe.className='cassetteLabel';stripe.textContent=cassette.name;
+   face.append(top,reels,stripe);
+   face.onclick=()=>{applyCassetteSnapshot(cassette.settings,cassette.id);renderCassetteShelf();$('cassetteStatus').textContent='Применена кассета «'+cassette.name+'». Настройки обновлены.';};
+   const footer=document.createElement('div');footer.className='cassetteFooter';
+   const name=document.createElement('span');name.textContent=cassette.builtin?'ВСТРОЕННАЯ':'МОЯ КАССЕТА';
+   footer.append(name);
+   if(!cassette.builtin){
+    const del=document.createElement('button');del.className='cassetteDelete';del.type='button';del.textContent='Удалить';
+    del.onclick=()=>{if(recording)return;state.cassettes=state.cassettes.filter(x=>x.id!==cassette.id);if(state.selectedCassetteId===cassette.id)state.selectedCassetteId=null;persist();renderCassetteShelf();};
+    footer.append(del);
+   }
+   card.append(face,footer);shelf.append(card);
+  }
+ }
+ function mountCassetteShelf(){
+  $('cassetteSave').onclick=()=>{
+   if(recording)return;
+   const name=$('cassetteName').value.trim().slice(0,44);
+   if(!name){$('cassetteStatus').textContent='Введи название кассеты.';return;}
+   if(state.cassettes.length>=40){$('cassetteStatus').textContent='Максимум 40 своих кассет.';return;}
+   const item={id:'user-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1000),name,settings:cassetteSnapshot()};
+   state.cassettes.push(item);state.selectedCassetteId=item.id;persist();renderCassetteShelf();
+   $('cassetteName').value='';$('cassetteStatus').textContent='Кассета сохранена: '+name;
+  };
+  $('cassetteExport').onclick=()=>{
+   const blob=new Blob([JSON.stringify({kind:'VHS_VIDEO_CASSETTES',version:1,cassettes:state.cassettes},null,2)],{type:'application/json'});
+   const link=document.createElement('a'),url=URL.createObjectURL(blob);
+   link.href=url;link.download='VHS_VIDEO_CASSETTES.json';document.body.append(link);link.click();link.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),2000);
+   $('cassetteStatus').textContent='Файл JSON создан. Сохрани его через меню iPhone.';
+  };
+  $('cassetteImport').onchange=async e=>{
+   const file=e.target.files?.[0];e.target.value='';
+   if(!file||recording)return;
+   try{
+    if(file.size>300000)throw Error('JSON-файл слишком большой.');
+    const content=JSON.parse(await file.text());
+    if(content?.kind!=='VHS_VIDEO_CASSETTES'||!Array.isArray(content.cassettes))throw Error('Не найден архив видеокассет.');
+    let n=0;
+    for(const item of content.cassettes){
+     if(state.cassettes.length>=40)break;
+     if(!item||typeof item.name!=='string'||!item.settings||typeof item.settings!=='object')continue;
+     const settings=Object.fromEntries(CASSETTE_FIELDS.filter(k=>k in item.settings).map(k=>[k,item.settings[k]]));
+     state.cassettes.push({id:'import-'+Date.now().toString(36)+'-'+n,name:item.name.slice(0,44),settings});n++;
+    }
+    persist();renderCassetteShelf();$('cassetteStatus').textContent='Импортировано '+n+' кассет.';
+   }catch(err){$('cassetteStatus').textContent='Не удалось импортировать: '+err.message;}
+  };
+  renderCassetteShelf();
+ }
  function mountControls(){
   control($('vhsControls'),'Общая сила VHS',state.master,v=>{state.master=v;resetFrameHistory();});
   const tape=document.createElement('label');tape.textContent='Режим видеокассеты';
@@ -581,7 +730,7 @@
   $('outputSize').value=state.size;$('fps').value=String(state.fps);
   $('exportScope').value=state.exportScope;
   $('keepAudio').checked=state.keepAudio;
-  mountCameraControls();buildModeControls();mountMusicLibrary();
+  mountCameraControls();mountFilmDamageControls();buildModeControls();mountMusicLibrary();mountCassetteShelf();
   $('vhsEnabled').onchange=()=>{state.vhsEnabled=$('vhsEnabled').checked;persist();renderCurrentFrame();};
   $('filmEnabled').onchange=()=>{state.filmEnabled=$('filmEnabled').checked;persist();renderCurrentFrame();};
   $('vhsPreset').onchange=()=>{state.preset=$('vhsPreset').value;persist();renderCurrentFrame();};
@@ -1122,7 +1271,7 @@
   importedXMP=savedXMP.slice(0,FILM_LIMIT);
   sharedXMP=fromPhoto.slice(0,FILM_LIMIT);
   try{const prev=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');favoriteIds=Array.isArray(prev?.favoriteFilms)?prev.favoriteFilms:[];}catch{}
-  rebuildFilmList();
+  rebuildFilmList();renderCassetteShelf();
   $('filmImportStatus').textContent=fromPhoto.length?
    'Автоматически обнаружены '+fromPhoto.length+' XMP-профилей из фото-версии в этом браузере.':
    'Локальная XMP-библиотека фото-версии пока недоступна. Можно импортировать ZIP либо резервную копию.';
