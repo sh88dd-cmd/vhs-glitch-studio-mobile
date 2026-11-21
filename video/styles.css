@@ -309,3 +309,8 @@ body.dock-visible .specialModeBar{scroll-margin-top:calc(var(--dock-height,280px
 #filmDamageControls .control{margin:12px 0}
 @media(min-width:720px){.cassetteShelf{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:360px){.audioSubtabs button{font-size:9px}.cassetteLabel{font-size:9px}.cassetteReel{width:30px;height:30px;border-width:5px}}
+
+/* Make seconds and date/time fields legible in iPhone Safari dark mode. */
+.cameraCardOptions input[type="datetime-local"],.cameraCardOptions input[type="number"],.cameraCardOptions input[type="text"]{
+ width:100%;min-height:42px;border:1px solid #656565;border-radius:8px;background:#232323;color:#f6f6f6;color-scheme:dark;padding:8px 9px
+}
