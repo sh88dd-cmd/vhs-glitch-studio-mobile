@@ -424,3 +424,33 @@ body.effects-bypassed .audioSubtabs button.is-lit::after{content:none}
  color:#e3cbaa;padding:10px 12px;margin:8px 0 12px;font-size:12px;line-height:1.5}
 .videoImportHelp strong{display:block;margin-bottom:5px;color:#ffcf90}
 @media(max-width:360px){.videoImportOptions .button{font-size:10px}}
+
+/* 0.7.3 — touch-friendly video / sound mix for recorded ⚡ HOLD glitches. */
+.holdActionRow{display:grid;grid-template-columns:minmax(110px,1.1fr) minmax(142px,.9fr) auto;align-items:center;gap:8px;margin:3px 0 10px}
+.holdActionRow .holdGlitch{min-width:0;width:100%;min-height:57px;white-space:normal;padding:9px 6px;font-size:11px;line-height:1.25}
+.holdActionRow #holdClear{min-width:0;max-width:100px;min-height:41px;padding:6px 9px;font-size:11px}
+.holdActionRow #holdStatus{grid-column:1/-1;margin:0!important;font-size:10px}
+.holdBlend{display:flex;flex-direction:column;min-width:0;gap:5px;padding:7px 8px;border:1px solid #62584b;border-radius:9px;background:#191816}
+.holdBlendHeading{display:flex;align-items:center;justify-content:space-between;gap:3px;color:#b6ad9f;white-space:nowrap;min-width:0;font-size:8px;letter-spacing:.15px}
+.holdBlendHeading strong{color:#f7bc72;font-size:8px;min-width:0;text-align:center;white-space:normal;font-weight:750;letter-spacing:0}
+.holdBlendRange{display:block;width:100%;min-width:0;height:27px;accent-color:#ec9b48;touch-action:pan-x;cursor:pointer;margin:0}
+.holdBlendRange::-webkit-slider-thumb{width:22px;height:22px}
+.viewerHold{display:grid;grid-template-columns:minmax(115px,1fr) minmax(138px,1fr);align-items:center;gap:9px;padding:10px 12px 3px}
+.viewerHold .holdGlitch{height:58px;white-space:normal;font-size:11px;line-height:1.2}
+.viewerHold .holdBlend{height:58px;justify-content:center}
+#dockHoldGlitch{min-width:33px;color:#f1bb7b}
+#dockHoldGlitch:disabled{opacity:.35}
+@media(max-width:445px){
+ .holdActionRow{grid-template-columns:minmax(110px,1fr) minmax(150px,1fr);gap:7px}
+ .holdActionRow #holdClear{grid-column:1;grid-row:2;max-width:none;width:100%;min-height:35px}
+ .holdActionRow #holdStatus{grid-column:2;grid-row:2;text-align:center}
+ .holdActionRow .holdBlendHeading{font-size:8px}
+ .viewerHold{grid-template-columns:minmax(112px,1fr) minmax(138px,1fr);gap:7px;padding-inline:8px}
+ .viewerHold .holdBlend{padding:6px}
+}
+@media(max-width:340px){
+ .holdActionRow{grid-template-columns:minmax(0,1fr)}
+ .holdActionRow #holdClear,.holdActionRow #holdStatus{grid-column:1;grid-row:auto}
+ .viewerHold{grid-template-columns:minmax(0,1fr)}
+ .viewerHold .holdBlend{height:auto}
+}
