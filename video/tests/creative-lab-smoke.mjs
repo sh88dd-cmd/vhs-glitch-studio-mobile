@@ -114,14 +114,24 @@ for(const id of [
  assert.ok(html.includes('id="'+id+'"'),'Missing UI '+id);
 }
 for(const script of ['creative-engine.js','creative-ui.js']){
- assert.ok(html.includes(script+'?v=0.8.0'),'Missing browser JS '+script);
+ assert.ok(html.includes(script+'?v=0.8.2'),'Missing browser JS '+script);
  assert.ok(sw.includes("'./"+script+"'"),'Missing offline precache '+script);
 }
 assert.ok(app.includes('window.VHSVideoCreative.transfer(image.data,iw,ih'),
  'Palette copy must be applied to actual video pixels');
 assert.ok(app.includes('creativeUI?.drawTouch(ctx,atTime,clipIndex)'),
  'Finger/face masks must be applied to video frames and export');
-assert.ok(app.includes('window.VHSVideoCreative.aged('),'Age ramp must affect actual frames');
+assert.ok(app.includes('window.VHSVideoCreative.agingAt(') &&
+ app.includes('window.VHSVideoCreative.damageTape('),
+ 'Aging must use one independent, visible damage pass for preview and export');
+assert.ok(app.includes('const localOnly=hasLocalEdits') &&
+ app.includes('if(clean||localOnly)'),
+ 'Face and brush edits must not force the entire source through a low-resolution VHS buffer');
+assert.ok(ui.includes('if(!active)return;') &&
+ ui.includes("if(tool||!overlay.hidden)updateOverlay();"),
+ 'Inactive drawing canvas must not be cleared during regular playback');
+assert.ok(ui.includes("const count=await detectFace();"),
+ 'Face detection must be requested explicitly and report its actual result');
 assert.ok(app.includes('creativeUI?.updateSpeed(now)'),'Speed controls must drive playback');
 assert.ok(app.includes('creativeUI.mount()'),'New UI must be mounted');
 assert.ok(ui.includes('trackBoxes('),'Manual face tracking must execute');
@@ -129,5 +139,5 @@ assert.ok(ui.includes('vision.detect(pixels,w,h,1.1,1.28,2,.13,vision.classifier
 assert.ok(ui.includes("source.currentTime=clamp(source.currentTime+rate*dt"),'Negative speed must seek real video frames');
 assert.ok(ui.includes('opts.onBeat(events)'),'Beat output must be committed to timeline');
 assert.ok(ui.includes('opts.onLive(ev)'),'Live pads must record timeline events');
-assert.ok(html.includes('БЕТА 0.8.0'));
+assert.ok(html.includes('БЕТА 0.8.2'));
 console.log('PASS: eight creative studio workflows, actual pixel change, face motion tracking, beat onsets, signed speed, UI and offline cache');
