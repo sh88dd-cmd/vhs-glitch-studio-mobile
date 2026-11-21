@@ -103,9 +103,14 @@ function speedAt(speed,time,duration){
   const x=points[j-1],y=points[j];
   if(p<=y.time){
    const ratio=clamp((p-x.time)/Math.max(.001,y.time-x.time),0,1);
+   if(x.rate*y.rate<0){
+    // Negative native video playbackRate is unsupported in Safari. Switching
+    // direction is an explicit discrete crossing, never an impossible 0x stall.
+    return ratio<.5?Math.sign(x.rate)*Math.max(1,Math.abs(x.rate)*(1-ratio*2)):
+     Math.sign(y.rate)*Math.max(1,Math.abs(y.rate)*(ratio-.5)*2);
+   }
    const value=Number(x.rate)+(Number(y.rate)-Number(x.rate))*ratio;
-   // Crossing from forward to reverse goes via a pause instead of sign jumps.
-   return Math.abs(value)<.08?0:clamp(value,-10,10);
+   return Math.sign(value||1)*clamp(Math.abs(value),1,10);
   }
  }
  return clamp(points[points.length-1].rate,-10,10);
@@ -135,7 +140,7 @@ function beatEvents(buffer,{sensitivity=55,limit=90,duration=30,clip=0,effect='t
  const minGap=Math.ceil(.22*rate/hop),events=[];
  let last=-minGap;
  for(let i=2;i<novelty.length-2;i++){
-  const v=novelty[i];if(v<threshold||i-last<minGap)continue;
+  const v=novelty[i];if(v<=.0001||v<threshold||i-last<minGap)continue;
   if(v<novelty[i-1]||v<novelty[i+1])continue;
   events.push({
    id:'auto-'+clip+'-'+i,clip,time:Math.round(i*hop/rate*1000)/1000,
