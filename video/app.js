@@ -18,7 +18,7 @@
   signal:{chromaBleed:52,composite:35,edgeWave:38,tracking:54,noise:38,chromaLoss:15,ringing:19},
   glitches:glitchDefaults,
   audio:{enabled:false,mode:'linear',strength:65,hiss:48,wow:42,flutter:32,drop:32,saturation:28},
-  camera:{rec:false,play:false,battery:false,date:false,counter:false,zoom:false,modeInfo:false,focus:false,
+  camera:{rec:false,play:false,battery:false,date:false,counter:false,zoom:false,modeInfo:false,focus:false,frame:false,frameSize:100,frameColor:'white',
    text:'PM 10:28 | JUN 16 1995',clockStart:'1995-06-16T22:28:00',zoomValue:3,
    positions:{rec:'left-top',play:'left-top',battery:'right-top',date:'right-bottom',counter:'left-bottom',zoom:'right-bottom',modeInfo:'right-top',focus:'left-bottom'},
    sizes:{rec:125,play:125,battery:125,date:125,counter:105,zoom:105,modeInfo:105,focus:105},batteryLevel:'LOW'},
@@ -70,7 +70,7 @@
   const actualFilm=engaged&&state.filmEnabled&&state.filmStrength>0;
   const actualDamage=engaged&&state.filmDamage.enabled&&
    ['leak','dust','grain','scratches','flicker','halation'].some(k=>Number(state.filmDamage[k])>0);
-  const actualCamera=engaged&&['rec','play','battery','date','counter','zoom','modeInfo','focus'].some(k=>state.camera[k]);
+  const actualCamera=engaged&&['rec','play','battery','date','counter','zoom','modeInfo','focus','frame'].some(k=>state.camera[k]);
   const actualTape=engaged&&state.audio.enabled&&state.audio.strength>0;
   const actualBeat=engaged&&state.fxMode==='music'&&state.music.strength>0;
   const actualTimeline=engaged&&state.fxMode==='timeline';
@@ -385,7 +385,35 @@
  }
  function mountCameraControls(){
   const parent=$('cameraControls');parent.replaceChildren();
-  const corners=[['left-top','Слева сверху'],['right-top','Справа сверху'],['left-bottom','Слева снизу'],['right-bottom','Справа снизу']];
+  const corners=[
+   ['left-top','Слева сверху'],['center-top','По центру сверху'],['right-top','Справа сверху'],
+   ['left-bottom','Слева снизу'],['center-bottom','По центру снизу'],['right-bottom','Справа снизу']
+  ];
+  const frameCard=document.createElement('section');frameCard.className='cameraCard cameraFrameCard';
+  const frameHead=document.createElement('div');frameHead.className='cameraCardTitle';
+  const frameName=document.createElement('strong');frameName.textContent='Уголки видоискателя · 4 угла';
+  const frameToggle=document.createElement('label');frameToggle.className='cameraSwitch';
+  const frameCheck=document.createElement('input');frameCheck.type='checkbox';frameCheck.id='cameraFrameOn';
+  frameCheck.checked=!!state.camera.frame;
+  frameCheck.onchange=()=>{state.camera.frame=frameCheck.checked;persist();renderCurrentFrame();};
+  frameToggle.append(frameCheck,document.createTextNode(' Вкл.'));frameHead.append(frameName,frameToggle);frameCard.append(frameHead);
+  const frameOptions=document.createElement('div');frameOptions.className='cameraCardOptions';
+  const scaleLabel=document.createElement('label');scaleLabel.textContent='Длина уголков';
+  const scaleSelect=document.createElement('select');scaleSelect.id='cameraFrameSize';
+  for(const size of [60,80,100,120,140,160])scaleSelect.add(new Option(size+'%',String(size)));
+  scaleSelect.value=String(state.camera.frameSize||100);
+  scaleSelect.onchange=()=>{state.camera.frameSize=Number(scaleSelect.value);persist();renderCurrentFrame();};
+  scaleLabel.append(scaleSelect);frameOptions.append(scaleLabel);
+  const colorLabel=document.createElement('label');colorLabel.textContent='Цвет уголков';
+  const colorSelect=document.createElement('select');colorSelect.id='cameraFrameColor';
+  for(const [value,label] of [['white','Белый'],['green','Зелёный'],['red','Красный']])
+   colorSelect.add(new Option(label,value));
+  colorSelect.value=state.camera.frameColor||'white';
+  colorSelect.onchange=()=>{state.camera.frameColor=colorSelect.value;persist();renderCurrentFrame();};
+  colorLabel.append(colorSelect);frameOptions.append(colorLabel);
+  const frameHint=document.createElement('p');frameHint.className='hint fullRow';
+  frameHint.textContent='Все включённые индикаторы автоматически размещаются внутри уголков, без наложения друг на друга. Положение и размер каждого индикатора ниже можно менять отдельно.';
+  frameOptions.append(frameHint);frameCard.append(frameOptions);parent.append(frameCard);
   const descriptions={rec:'REC / Запись',play:'PLAY / Воспроизведение',date:'Дата и время (секунды идут)',battery:'Батарея',counter:'Счётчик кассеты',zoom:'Индикатор ZOOM',modeInfo:'Режим SP / LP / EP',focus:'Индикатор автофокуса'};
   for(const key of ['rec','play','date','battery','counter','zoom','modeInfo','focus']){
    const card=document.createElement('section');card.className='cameraCard';
@@ -1181,62 +1209,7 @@
   persist();renderCurrentFrame();
  }
  function drawOsd(ctx,w,h){
-  const c=state.camera,base=Math.min(w,h),marginX=Math.max(8,w*.04),marginY=Math.max(8,h*.04);
-  const positionOf=(key,tw,th)=>{
-   const pos=c.positions[key]||'left-top';
-   return [pos.includes('left')?marginX:w-marginX-tw,pos.includes('top')?marginY:h-marginY-th];
-  };
-  const sizeOf=(key,factor)=>Math.max(6,base*factor*clamp(Number(c.sizes[key]||125)/100,.45,2.8));
-  function drawText(key,message,color,factor){
-   const lines=String(message||'').replace(/\r\n?/g,'\n').replace(/\|/g,'\n').split('\n').slice(0,4);
-   let size=sizeOf(key,factor);
-   ctx.textBaseline='top';
-   for(let tries=0;tries<10;tries++){
-    ctx.font='700 '+size+'px ui-monospace, Menlo, Courier New, monospace';
-    const measured=Math.max(0,...lines.map(line=>ctx.measureText(line).width));
-    if((measured<w*.87&&size*1.23*lines.length<h*.75)||size<=6)break;
-    size=Math.max(6,size*.86);
-   }
-   const width=Math.max(0,...lines.map(line=>ctx.measureText(line).width)),step=size*1.23;
-   const [x,y]=positionOf(key,width,step*lines.length);
-   for(let i=0;i<lines.length;i++){
-    ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillText(lines[i],x+1,y+i*step+1);
-    ctx.fillStyle=color;ctx.fillText(lines[i],x,y+i*step);
-   }
-  }
-  ctx.save();ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=Math.max(1,base*.004);
-  const elapsed=Math.max(0,globalVideoTime());
-  const startClock=new Date(c.clockStart||'1995-06-16T22:28:00');
-  const now=new Date((Number.isFinite(startClock.getTime())?startClock.getTime():Date.UTC(1995,5,16,22,28))+Math.floor(elapsed)*1000);
-  const pad=n=>String(n).padStart(2,'0');
-  const dateText=pad(now.getDate())+'.'+pad(now.getMonth()+1)+'.'+now.getFullYear()+' '+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
-  if(c.date){
-   const note=c.text&&c.text!=='PM 10:28 | JUN 16 1995'?String(c.text).slice(0,64):'';
-   drawText('date',dateText+(note?'\n'+note:''),'#f5f5f5',.068);
-  }
-  if(c.counter){
-   const seconds=Math.floor(elapsed);
-   drawText('counter','TAPE '+pad(Math.floor(seconds/3600))+':'+pad(Math.floor(seconds/60)%60)+':'+pad(seconds%60),'#f5f5f5',.058);
-  }
-  if(c.zoom)drawText('zoom','ZOOM '+Number(c.zoomValue||3).toFixed(1)+'x','#f3f3f3',.067);
-  if(c.modeInfo)drawText('modeInfo',state.speed+' / TAPE','#f3f3f3',.064);
-  if(c.focus)drawText('focus',Math.floor(elapsed*1.2)%9===0?'AF ●':'AF','#d8e9d8',.065);
-  if(c.play)drawText('play','PLAY','#f7f7f7',.07);
-  if(c.rec&&Math.floor(elapsed*2)%2===0){
-   const sz=sizeOf('rec',.07);ctx.font='700 '+sz+'px ui-monospace, Menlo, monospace';
-   const ww=ctx.measureText('REC').width+sz*.85,hh=sz*1.2,[x,y]=positionOf('rec',ww,hh);
-   ctx.textBaseline='top';ctx.fillStyle='#ef5555';ctx.beginPath();
-   ctx.arc(x+sz*.2,y+sz*.55,Math.max(2,sz*.15),0,Math.PI*2);ctx.fill();
-   ctx.fillText('REC',x+sz*.48,y);
-  }
-  if(c.battery){
-   const sz=sizeOf('battery',.068),ww=sz*2.15,hh=sz*.75,[x,y]=positionOf('battery',ww+sz*.25,hh);
-   ctx.strokeStyle='#f5f5f5';ctx.lineWidth=Math.max(1,sz*.07);ctx.strokeRect(x,y,ww,hh);
-   ctx.fillStyle='#f5f5f5';ctx.fillRect(x+ww,y+hh*.3,sz*.15,hh*.4);
-   const count={FULL:4,'75%':3,'50%':2,'25%':1,LOW:1,EMPTY:0}[c.batteryLevel]??1;
-   for(let i=0;i<count;i++)ctx.fillRect(x+sz*.12+i*ww*.225,y+sz*.12,ww*.17,Math.max(1,hh-sz*.24));
-  }
-  ctx.restore();
+  window.VHSVideoCameraOSD.draw(ctx,w,h,state.camera,state.speed,globalVideoTime());
  }
  function drawFrame(canvas,forExport=false){
   if(!file||source.readyState<2||!source.videoWidth)return;
@@ -1816,7 +1789,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset||!window.VHSVideoCleanPath)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset||!window.VHSVideoCleanPath||!window.VHSVideoCameraOSD)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
