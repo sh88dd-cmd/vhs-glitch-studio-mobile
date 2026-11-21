@@ -15,6 +15,8 @@ on:
       - 'video/tests/camera-cassette-smoke.mjs'
       - 'video/keyframes.js'
       - 'video/tests/frame-tools-smoke.mjs'
+      - 'video/player-ui.js'
+      - 'video/tests/sticky-monitor-smoke.mjs'
       - 'video/effects-reset.js'
       - 'video/tests/video-import-smoke.mjs'
       - 'video/tests/hold-audio-offline-smoke.mjs'
@@ -35,6 +37,8 @@ on:
       - 'video/tests/camera-cassette-smoke.mjs'
       - 'video/keyframes.js'
       - 'video/tests/frame-tools-smoke.mjs'
+      - 'video/player-ui.js'
+      - 'video/tests/sticky-monitor-smoke.mjs'
       - 'video/effects-reset.js'
       - 'video/tests/video-import-smoke.mjs'
       - 'video/tests/hold-audio-offline-smoke.mjs'
@@ -60,8 +64,11 @@ jobs:
           node --check video/clean-path.js
           node --check video/camera-osd.js
           node --check video/keyframes.js
+          node --check video/player-ui.js
           node --check video/film-damage.js
           node --check video/audio-studio.js
+      - name: Verify mini video monitor stays visible at iPhone scroll bottom
+        run: node video/tests/sticky-monitor-smoke.mjs
       - name: Test keyframe animation, original comparison, frame stepping and PNG
         run: node video/tests/frame-tools-smoke.mjs
       - name: Test cassette deselection, camera corners and layout collision avoidance
