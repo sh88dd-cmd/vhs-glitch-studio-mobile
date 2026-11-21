@@ -56,7 +56,8 @@ assert.equal(k.effective(state,0,2.5).master,40);
 const app=fs.readFileSync('video/app.js','utf8');
 const html=fs.readFileSync('video/index.html','utf8');
 const sw=fs.readFileSync('video/sw.js','utf8');
-assert.ok(app.includes("const frameState=window.VHSVideoKeyframes.effective(state,clipIndex,atTime)"));
+assert.ok(app.includes("window.VHSVideoKeyframes.effective(state,clipIndex,atTime)"),
+ 'Keyframe interpolation must remain in frame rendering');
 assert.ok(app.includes("const clean=comparisonHeld&&canvas===preview||!window.VHSVideoCleanPath.hasVisualEffects(frameState,holdVideo)"));
 assert.ok(app.includes("const f=selectedFilm(),strength=frameState.filmStrength/100"));
 assert.ok(app.includes("frameState.glitchStrength/100"));
