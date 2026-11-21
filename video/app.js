@@ -1276,7 +1276,7 @@
    $('empty').hidden=true;
    $('exportResult').hidden=true;
    selectedTimelineId='';$('addTimelineEvent').textContent='＋ Добавить повреждение';
-   updateClipNav();videoUI?.sync();renderTimeline();onLoaded();
+   updateClipNav();videoUI?.sync();renderTimeline();onLoaded(true);
    // Revoke old resources after successful commit; never touch candidate URLs.
    previous.clips.forEach(entry=>URL.revokeObjectURL(entry.url));
    importStatus('Видео открыто: '+first.name+' · '+summary+'. '+(list.length>1?'Проверяю остальные клипы…':'Готово к просмотру.'),false);
@@ -1314,8 +1314,8 @@
    videoImportBusy=false;
   }
  }
- function onLoaded(){
-  if(videoImportBusy||!source.videoWidth||!source.videoHeight)return;
+ function onLoaded(force=false){
+  if((videoImportBusy&&force!==true)||!source.videoWidth||!source.videoHeight)return;
   const [w,h]=videoDimensions(520);
   source.loop=!recording&&clips.length===1;
   preview.width=w;preview.height=h;
