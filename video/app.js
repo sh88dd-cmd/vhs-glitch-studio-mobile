@@ -476,6 +476,16 @@
  function selectMode(mode){
   if(recording||!['classic','music','timeline'].includes(mode))return;
   state.fxMode=mode;
+  if(mode==='music'&&state.music.strength===0){
+   Object.assign(state.music,{sensitivity:60,threshold:25,strength:85,release:35});
+   for(const [key,label] of [['sensitivity','Чувствительность к музыке'],['threshold','Порог срабатывания'],
+    ['strength','Сила музыкальных повреждений'],['release','Длительность затухания эффекта']])
+     setControlByTitle($('musicControls'),label,state.music[key]);
+  }
+  if(mode==='timeline'&&state.timelineStrength===0){
+   state.timelineStrength=85;
+   setControlByTitle($('timelineControls'),'Сила выбранного события',85);
+  }
   resetFrameHistory();syncModeUI();persist();renderCurrentFrame();
   if(mode!=='classic'){
    showMainTab(mode==='music'?'audio':'timeline');
@@ -687,6 +697,10 @@
    }
    if(request!==musicRequest)return;
    state.selectedTrack={kind,title:inputFile.name,duration};
+   if(lastFxSnapshot&&state.mix.musicVolume===0){
+    state.mix.musicVolume=75; // A newly added track is audible after a clean reset.
+    setControlByTitle($('musicMixerControls'),'Громкость добавленной музыки',75);
+   }
    state.mix.musicOffset=0;
    state.mix.musicTrimEnd=duration;
    audioEngine.setMix(state.mix);syncAudio(!source.paused);
@@ -770,7 +784,15 @@
    persist();renderCurrentFrame();
   };
   $('filmLeakType').value=state.filmDamage.type;
-  $('filmLeakType').onchange=()=>{state.filmDamage.type=$('filmLeakType').value;persist();renderCurrentFrame();};
+  $('filmLeakType').onchange=()=>{
+   state.filmDamage.type=$('filmLeakType').value;
+   if(!state.filmDamage.enabled&&Object.values(state.filmDamage).some(x=>typeof x==='number')===false){
+    state.filmDamage.leak=70;
+    setControlByTitle($('filmDamageControls'),'Сила засветов',70);
+   }
+   if(!state.filmDamage.enabled)enableAfterZero('damage');
+   persist();renderCurrentFrame();
+  };
   const names={leak:'Сила засветов',dust:'Пыль и грязь',grain:'Живое зерно',scratches:'Царапины',
    flicker:'Мерцание экспозиции',halation:'Свечение света (halation)'};
   for(const [id,label] of Object.entries(names))
@@ -970,7 +992,11 @@
   const tapes=$('tapeKind');
   for(const def of window.VHSVideoGlitchFX.TAPES)tapes.add(new Option(def.name,def.id));
   tapes.value=state.tape;
-  tapes.onchange=()=>{state.tape=tapes.value;persist();resetFrameHistory();renderCurrentFrame();};
+  tapes.onchange=()=>{
+   state.tape=tapes.value;
+   if(!state.vhsEnabled||state.master===0)enableAfterZero('vhs');
+   persist();resetFrameHistory();renderCurrentFrame();
+  };
   $('signalWidth').value=state.signalWidth;
   $('signalWidth').onchange=()=>{
    state.signalWidth=$('signalWidth').value;resetFrameHistory();persist();renderCurrentFrame();
@@ -1003,7 +1029,14 @@
     if(name==='chaosGlitch')state.eventDensity=80;
     if(name==='gentleGlitch')state.eventDensity=35;
     if(name==='offGlitch')state.eventDensity=0;
-    mountEventControls();mountGlitchControls();persist();resetFrameHistory();renderCurrentFrame();
+    if(name!=='offGlitch'){
+     state.glitchEnabled=true;
+     if(state.glitchStrength===0)state.glitchStrength=85;
+     $('glitchEnabled').checked=true;
+    }
+    mountEventControls();mountGlitchControls();
+    setControlByTitle($('eventControls'),'Общая сила дополнительных помех',state.glitchStrength);
+    persist();resetFrameHistory();renderCurrentFrame();
   };
   const audio=$('audioControls');
   for(const [id,label] of [
@@ -1045,7 +1078,11 @@
    }
    persist();renderCurrentFrame();
   };
-  $('vhsPreset').onchange=()=>{state.preset=$('vhsPreset').value;persist();renderCurrentFrame();};
+  $('vhsPreset').onchange=()=>{
+   state.preset=$('vhsPreset').value;
+   if(!state.vhsEnabled||state.master===0)enableAfterZero('vhs');
+   persist();renderCurrentFrame();
+  };
   $('outputSize').onchange=()=>{state.size=$('outputSize').value;persist();};
   $('fps').onchange=()=>{state.fps=Number($('fps').value);persist();};
   $('keepAudio').onchange=()=>{state.keepAudio=$('keepAudio').checked;persist();};
