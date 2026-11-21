@@ -12,7 +12,7 @@
   mode:'vhs',modeStrength:75,tape:'used',signalWidth:'auto',eventDensity:48,glitchStrength:85,
   fxMode:'classic',music:{bassEffect:'vhold',highEffect:'dropouts',sensitivity:60,threshold:25,strength:85,release:35},timelineEvents:[],timelineStrength:85,
   mix:{videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true,fadeIn:0,fadeOut:0},
-  selectedTrack:null,holdEvents:[],holdBalance:50,cassettes:[],selectedCassetteId:null,
+  selectedTrack:null,holdEvents:[],holdBalance:50,keyframesEnabled:true,keyframes:[],cassettes:[],selectedCassetteId:null,
   filmDamage:{enabled:false,type:'edge-left',leak:70,dust:23,grain:30,scratches:22,flicker:23,halation:30},
   speed:'SP',filmId:'builtin:Нейтральный / без плёнки',filmStrength:85,
   signal:{chromaBleed:52,composite:35,edgeWave:38,tracking:54,noise:38,chromaLoss:15,ringing:19},
@@ -25,7 +25,7 @@
   size:'480',fps:15,exportScope:'30',keepAudio:true,seed:91823710};
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem('vhs.video.settings')||'null')}catch{}
- const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},mix:{...defaults.mix,...(saved?.mix||{})},selectedTrack:saved?.selectedTrack||null,holdEvents:(Array.isArray(saved?.holdEvents)?saved.holdEvents.slice(0,150):[]).filter(e=>e&&Number.isFinite(e.start)&&Number.isFinite(e.end)&&Number.isInteger(e.clip)).map(e=>({...e,blend:Number.isFinite(Number(e.blend))?clamp(Number(e.blend),0,100):0})),holdBalance:clamp(Number(saved?.holdBalance??50)||0,0,100),cassettes:(Array.isArray(saved?.cassettes)?saved.cassettes.slice(0,80):[]),filmDamage:{...defaults.filmDamage,...(saved?.filmDamage||{})},timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
+ const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},mix:{...defaults.mix,...(saved?.mix||{})},selectedTrack:saved?.selectedTrack||null,holdEvents:(Array.isArray(saved?.holdEvents)?saved.holdEvents.slice(0,150):[]).filter(e=>e&&Number.isFinite(e.start)&&Number.isFinite(e.end)&&Number.isInteger(e.clip)).map(e=>({...e,blend:Number.isFinite(Number(e.blend))?clamp(Number(e.blend),0,100):0})),holdBalance:clamp(Number(saved?.holdBalance??50)||0,0,100),keyframesEnabled:saved?.keyframesEnabled!==false,keyframes:window.VHSVideoKeyframes.normalizeAll(saved?.keyframes),cassettes:(Array.isArray(saved?.cassettes)?saved.cassettes.slice(0,80):[]),filmDamage:{...defaults.filmDamage,...(saved?.filmDamage||{})},timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
  // Remove the obsolete persistent bypass: new effects must remain usable.
  state.masterBypass=false;
  const LAST_FX_KEY='vhs.video.last-effects.v1';
@@ -54,7 +54,7 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
- let musicRequest=0,musicLoading=false,audioStudio=null,holdActive=null;
+ let musicRequest=0,musicLoading=false,audioStudio=null,holdActive=null,comparisonHeld=false;
  let videoImportBusy=false,videoImportCommitted=false,videoImportSerial=0,videoPickerPending=false;
  const holdPreviewProcessor=window.VHSVideoGlitchFX.createProcessor(),holdExportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const FILM_LIMIT=1200;
@@ -80,6 +80,7 @@
   const actualTape=engaged&&state.audio.enabled&&state.audio.strength>0;
   const actualBeat=engaged&&state.fxMode==='music'&&state.music.strength>0;
   const actualTimeline=engaged&&state.fxMode==='timeline';
+  const actualKeyframes=engaged&&state.keyframesEnabled&&state.keyframes.length>0;
   const duration=audioEngine.getMusicDuration();
   const actualTrim=engaged&&hasMusic&&Number(state.mix.musicVolume)>0&&(
    Number(state.mix.musicOffset)>0.001||
@@ -91,7 +92,7 @@
    vhs:actualVhs||actualMode,glitch:actualGlitch,
    audio:(engaged&&(hasTracks||actualTape||actualBeat)),timeline:actualTimeline,
    film:actualFilm,filmDamage:actualDamage,camera:actualCamera,
-   cassettes:engaged&&!!state.selectedCassetteId
+   cassettes:engaged&&!!state.selectedCassetteId,keyframes:actualKeyframes,frameTools:false
   };
   document.querySelectorAll('.tabs [data-tab]').forEach(el=>setIndicator(el,active[el.dataset.tab]));
   const audioFlags={tracks:engaged&&hasTracks,trim:actualTrim,beat:actualBeat,tape:actualTape};
@@ -163,6 +164,8 @@
    musicTrimEndInput:engaged&&hasMusic&&Number(state.mix.musicTrimEnd)<duration-.01
   };
   for(const [id,on] of Object.entries(selectors))setIndicator($(id)?.closest('label'),on);
+  setIndicator($('keyframesEnabled')?.closest('.switch'),actualKeyframes);
+  $('keyframeList')?.querySelectorAll('.keyframeItem').forEach(node=>setIndicator(node,actualKeyframes));
   setIndicator($('musicTrim'),actualTrim);
   setIndicator($('musicSelection'),engaged&&hasMusic&&state.mix.musicVolume>0);
   setIndicator($('musicWaveform'),engaged&&hasMusic&&state.mix.musicVolume>0);
@@ -184,7 +187,7 @@
   $('masterFxStatus').textContent=lastFxSnapshot?
    'Последние настройки сохранены · новые эффекты доступны':
    'Все эффекты можно настраивать';
-  $('allEffectsLabel').textContent='ВЫКЛЮЧИТЬ ВСЁ';
+  $('allEffectsLabel').textContent='СБРОС';
   $('allEffectsToggle').disabled=!!recording;
   $('allEffectsToggle').setAttribute('aria-pressed','false');
   $('allEffectsToggle').classList.remove('is-bypassed');
@@ -205,6 +208,7 @@
   $('musicLoop').checked=!!state.mix.musicLoop;
   refreshMusicTrim();
   renderTimeline();
+  renderKeyframes();
   renderCassetteShelf();
   resetFrameHistory();
   audioEngine.setMix(state.mix);
@@ -256,6 +260,8 @@
  function showMainTab(key){
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===key));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+key));
+  if(key==='keyframes')renderKeyframes();
+  if(key==='frameTools')syncFrameTools();
  }
 
  function textStatus(s){$('status').textContent=s;}
@@ -592,6 +598,7 @@
    row.append(go,del);list.append(row);
   }
   $('timelineNow').textContent=timeString(source.currentTime);
+  updateKeyframePlayhead();
  }
  function selectTimelineEvent(event){
   if(recording||!file)return;
@@ -1374,6 +1381,7 @@
   $('timeCurrent').textContent=timeString(source.currentTime);
   $('timeTotal').textContent=timeString(source.duration);
   $('timelineNow').textContent=timeString(source.currentTime);
+  updateKeyframePlayhead();syncFrameTools();
   if(!Number.isFinite(source.duration)||!source.duration)return;
   if(!$('seek').matches(':active'))$('seek').value=Math.round(clamp(source.currentTime/source.duration,0,1)*1000);
  }
@@ -1559,7 +1567,8 @@
  }
  function onLoaded(force=false){
   if((videoImportBusy&&!videoImportCommitted&&force!==true)||!source.videoWidth||!source.videoHeight)return;
-  const [w,h]=videoDimensions(window.VHSVideoCleanPath.hasVisualEffects(state,holdStrengthsAt(source.currentTime||0,clipIndex).video)?520:1920);
+  const renderState=window.VHSVideoKeyframes.effective(state,clipIndex,source.currentTime||0);
+  const [w,h]=videoDimensions(window.VHSVideoCleanPath.hasVisualEffects(renderState,holdStrengthsAt(source.currentTime||0,clipIndex).video)?520:1920);
   source.loop=!recording&&clips.length===1;
   preview.width=w;preview.height=h;
   if(clips[clipIndex])clips[clipIndex].duration=Number.isFinite(source.duration)?source.duration:0;
@@ -1575,7 +1584,7 @@
   $('play').disabled=!!recording;$('export').disabled=!!recording||!frameReady;
   $('regenerate').disabled=!!recording;$('seek').disabled=!!recording;
   $('timeTotal').textContent=timeString(source.duration);
-  videoUI?.sync();syncHoldControls();
+  videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();renderKeyframes();
   textStatus(!frameReady?'Файл распознан. Нажми ▶ для первого кадра (особенность Safari на iPhone).':
    clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
   if(frameReady&&!videoImportBusy&&file)
@@ -1693,7 +1702,7 @@
    const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:3_000_000});
    recording=rec;exportStopRequested=false;
    $('exportResult').hidden=true;$('export').disabled=true;$('cancel').hidden=false;$('progress').hidden=false;$('progress').value=0;
-   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();syncSectionLights();
+   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();syncSectionLights();
    rec.ondataavailable=e=>{if(e.data?.size)blobs.push(e.data)};
    rec.onerror=e=>{exportStatus('Ошибка записи: '+(e.error?.message||'неизвестная ошибка'));};
    rec.onstop=()=>{
@@ -1703,7 +1712,7 @@
     for(const tr of recordStream?.getVideoTracks()||[])tr.stop();
     recordStream=null;
     $('cancel').hidden=true;$('progress').hidden=true;$('export').disabled=false;
-    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();syncHoldControls();syncSectionLights();
+    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();syncSectionLights();
     finishExport(blobs,contentType);
     renderCurrentFrame();
    };
@@ -1835,7 +1844,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset||!window.VHSVideoCleanPath||!window.VHSVideoCameraOSD)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset||!window.VHSVideoCleanPath||!window.VHSVideoCameraOSD||!window.VHSVideoKeyframes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
