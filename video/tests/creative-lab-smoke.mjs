@@ -85,6 +85,21 @@ assert.equal(tracked.length,1);
 assert.ok(tracked[0].x>faces[0].x,'Face rectangle should follow rightward motion');
 assert.ok(tracked[0].y>faces[0].y,'Face rectangle should follow downward motion');
 
+// The real BSD tracking.js detector and trained classifier are self-hosted.
+const visionContext={console,Float64Array,Float32Array,Int32Array,Uint8Array,Uint8ClampedArray,
+ Float64Array,ArrayBuffer,Math,Number,Object,Array,String,Date,setTimeout,clearTimeout};
+visionContext.window=visionContext;
+vm.runInNewContext(fs.readFileSync('video/vendor/tracking-min.js','utf8'),visionContext);
+vm.runInNewContext(fs.readFileSync('video/vendor/tracking-face-min.js','utf8'),visionContext);
+assert.ok(visionContext.tracking?.ViolaJones?.classifiers?.face);
+assert.ok(visionContext.tracking.ViolaJones.classifiers.face.length>1000,
+ 'The actual trained face cascade must be included, not only a button');
+const dark=new Uint8ClampedArray(100*100*4);
+const faceRects=visionContext.tracking.ViolaJones.detect(
+ dark,100,100,1.1,1.28,2,.13,visionContext.tracking.ViolaJones.classifiers.face);
+assert.ok(Array.isArray(faceRects),'The bundled offline cascade must process pixels');
+// Native FaceDetector is optional; actual Safari uses local Haar face cascade.
+
 const html=fs.readFileSync('video/index.html','utf8'),app=fs.readFileSync('video/app.js','utf8');
 const ui=fs.readFileSync('video/creative-ui.js','utf8'),sw=fs.readFileSync('video/sw.js','utf8');
 for(const id of [
@@ -107,6 +122,7 @@ assert.ok(app.includes('window.VHSVideoCreative.aged('),'Age ramp must affect ac
 assert.ok(app.includes('creativeUI?.updateSpeed(now)'),'Speed controls must drive playback');
 assert.ok(app.includes('creativeUI.mount()'),'New UI must be mounted');
 assert.ok(ui.includes('trackBoxes('),'Manual face tracking must execute');
+assert.ok(ui.includes('vision.detect(pixels,w,h,1.1,1.28,2,.13,vision.classifiers.face)'), 'Autodetection must run the locally bundled cascade');
 assert.ok(ui.includes("source.currentTime=clamp(source.currentTime+rate*dt"),'Negative speed must seek real video frames');
 assert.ok(ui.includes('opts.onBeat(events)'),'Beat output must be committed to timeline');
 assert.ok(ui.includes('opts.onLive(ev)'),'Live pads must record timeline events');
