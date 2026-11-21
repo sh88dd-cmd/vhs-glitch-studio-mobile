@@ -204,9 +204,25 @@
     input.value=state.camera.clockStart||'1995-06-16T22:28:00';
     input.addEventListener('change',()=>{
      if(!Number.isFinite(new Date(input.value).getTime()))return;
-     state.camera.clockStart=input.value;persist();renderCurrentFrame();
+     state.camera.clockStart=input.value.length===16?input.value+':'+(state.camera.clockStart||'00').slice(-2):input.value;persist();renderCurrentFrame();
     });
     clockLabel.append(input);options.append(clockLabel);
+    const secondsLabel=document.createElement('label');secondsLabel.className='fullRow';
+    secondsLabel.textContent='Секунды начала (00–59)';
+    const seconds=document.createElement('input');seconds.type='number';seconds.min='0';seconds.max='59';seconds.step='1';
+    seconds.value=(state.camera.clockStart||'1995-06-16T22:28:00').split(':')[2]||'00';
+    seconds.onchange=()=>{
+     const sec=String(clamp(Math.floor(Number(seconds.value)||0),0,59)).padStart(2,'0');
+     state.camera.clockStart=(state.camera.clockStart||'1995-06-16T22:28:00').slice(0,16)+':'+sec;
+     seconds.value=sec;persist();renderCurrentFrame();
+    };
+    secondsLabel.append(seconds);options.append(secondsLabel);
+    const extraLabel=document.createElement('label');extraLabel.className='fullRow';extraLabel.textContent='Дополнительная подпись (необязательно)';
+    const extra=document.createElement('input');extra.type='text';extra.id='dateText';extra.maxLength=64;
+    extra.value=state.camera.text==='PM 10:28 | JUN 16 1995'?'':state.camera.text||'';
+    extra.placeholder='Например: ЛЕТО 1997';
+    extra.oninput=()=>{state.camera.text=extra.value;persist();renderCurrentFrame();};
+    extraLabel.append(extra);options.append(extraLabel);
     const hint=document.createElement('p');hint.className='hint fullRow';
     hint.textContent='Часы идут от установленного времени по таймкоду видео и при экспорте сохраняют тот же отсчёт.';
     options.append(hint);
@@ -863,7 +879,10 @@
   const now=new Date((Number.isFinite(startClock.getTime())?startClock.getTime():Date.UTC(1995,5,16,22,28))+Math.floor(elapsed)*1000);
   const pad=n=>String(n).padStart(2,'0');
   const dateText=pad(now.getDate())+'.'+pad(now.getMonth()+1)+'.'+now.getFullYear()+' '+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
-  if(c.date)drawText('date',dateText,'#f5f5f5',.068);
+  if(c.date){
+   const note=c.text&&c.text!=='PM 10:28 | JUN 16 1995'?String(c.text).slice(0,64):'';
+   drawText('date',dateText+(note?'\n'+note:''),'#f5f5f5',.068);
+  }
   if(c.counter){
    const seconds=Math.floor(elapsed);
    drawText('counter','TAPE '+pad(Math.floor(seconds/3600))+':'+pad(Math.floor(seconds/60)%60)+':'+pad(seconds%60),'#f5f5f5',.058);
