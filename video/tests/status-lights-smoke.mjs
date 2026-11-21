@@ -11,7 +11,7 @@ const exports={};
 vm.runInNewContext(pure,{window:exports,JSON,Object,Array,Number,Math});
 const fx=exports.VHSVideoEffectsReset;
 assert.ok(fx);
-const state={
+const state={creative:{aging:{enabled:false},touch:{enabled:false,facesEnabled:false},speed:{enabled:false}},
  masterBypass:false,vhsEnabled:true,filmEnabled:true,glitchEnabled:true,master:80,
  preset:'damaged',mode:'crt',modeStrength:75,eventDensity:48,glitchStrength:65,fxMode:'music',
  music:{bassEffect:'vhold',highEffect:'rf',sensitivity:66,threshold:25,strength:75,release:35},
