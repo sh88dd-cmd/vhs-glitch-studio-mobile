@@ -1482,16 +1482,27 @@
   // A zero-effects frame must never pass through the 192–240px VHS signal
   // buffer: that downsample was blurring the original even after "Reset all".
   const atTime=source.currentTime||0;
-  const frameState=window.VHSVideoCreative.aged(window.VHSVideoKeyframes.effective(state,clipIndex,atTime),atTime,source.duration||0);
+  // Tape aging runs once in its dedicated damage pass below. Turning it on
+  // must not multiply VHS, film-damage and grain passes on every iPhone frame.
+  const frameState=window.VHSVideoKeyframes.effective(state,clipIndex,atTime);
   const holdVideo=holdStrengthsAt(atTime,clipIndex).video;
   const clean=comparisonHeld&&canvas===preview||!window.VHSVideoCleanPath.hasVisualEffects(frameState,holdVideo);
+  const touch=frameState.creative?.touch;
+  const hasLocalEdits=!!(touch&&((touch.enabled&&touch.strokes?.length)||
+   (touch.facesEnabled&&(touch.manualFaces?.length||touch.faceAutodetect))));
+  // Face/brush effects must not route the *entire* picture through a 240px
+  // VHS buffer when no global visual filter is enabled.
+  const withoutLocal={...frameState,creative:{...frameState.creative,
+   touch:{...touch,enabled:false,facesEnabled:false}}};
+  const localOnly=hasLocalEdits&&!window.VHSVideoCleanPath.hasVisualEffects(withoutLocal,holdVideo);
   if(canvas===preview){
-   const [width,height]=videoDimensions(clean?1920:520);
+   const [width,height]=videoDimensions(clean||localOnly?1920:520);
    if(canvas.width!==width)canvas.width=width;
    if(canvas.height!==height)canvas.height=height;
   }
-  if(clean){
+  if(clean||localOnly){
    window.VHSVideoCleanPath.drawClean(source,canvas);
+   if(localOnly&&!comparisonHeld)creativeUI?.drawTouch(canvas.getContext('2d'),atTime,clipIndex);
    return;
   }
   const limit=state.signalWidth==='auto'?(forExport||recording?adaptiveExportWidth:adaptivePreviewWidth):Number(state.signalWidth);
