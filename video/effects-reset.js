@@ -11,7 +11,7 @@ const FIELDS=[
  'filmStrength','signal','glitches','audio','camera','filmDamage',
  'selectedCassetteId','mix'
 ];
-const CAMERA_FLAGS=['rec','play','battery','date','counter','zoom','modeInfo','focus'];
+const CAMERA_FLAGS=['rec','play','battery','date','counter','zoom','modeInfo','focus','frame'];
 const deep=value=>JSON.parse(JSON.stringify(value));
 function snapshot(state){
  const result={};
