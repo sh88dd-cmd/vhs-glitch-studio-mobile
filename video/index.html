@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.8.1">
+<link rel="stylesheet" href="./styles.css?v=0.8.2">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.8.1 · ТВОРЧЕСКАЯ ЛАБОРАТОРИЯ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.8.2 · ТВОРЧЕСКАЯ ЛАБОРАТОРИЯ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -356,7 +356,7 @@
   <label>Стиль<select id="faceStyle"><option value="pixel">Пиксельное лицо</option><option value="blur">Мыльное лицо (размытие)</option></select></label>
   <label>Размер пикселей <strong id="facePixelText">18</strong><input id="facePixelSize" type="range" min="5" max="70" value="18"></label>
   <label>Сила размытия <strong id="faceBlurText">13</strong><input id="faceBlurSize" type="range" min="3" max="45" value="13"></label>
-  <button id="faceAuto" type="button" class="button full" disabled>◎ Найти лица автоматически</button>
+  <button id="faceAuto" type="button" class="button full" disabled>◎ Найти лица на текущем кадре</button>
   <button id="faceMark" type="button" class="button primary full" disabled>＋ Выделить лицо пальцем</button>
   <button id="faceClear" type="button" class="button full">✕ Убрать маски лиц</button>
   <p class="hint">Маска двигается за выбранным лицом благодаря локальному сопоставлению соседних кадров. Автоматический поиск лиц выполняется локальной моделью tracking.js, включённой в приложение. Если лицо не распознано, его можно выделить вручную. При быстрых поворотах и выходе из кадра отслеживание может ошибаться.</p>
@@ -522,8 +522,8 @@
 <script src="./help-ui.js?v=0.7.10" defer></script>
 <script src="./vendor/tracking-min.js?v=1.1.3" defer></script>
 <script src="./vendor/tracking-face-min.js?v=1.0.0" defer></script>
-<script src="./creative-engine.js?v=0.8.1" defer></script>
-<script src="./creative-ui.js?v=0.8.1" defer></script>
-<script src="./app.js?v=0.8.1" defer></script>
+<script src="./creative-engine.js?v=0.8.2" defer></script>
+<script src="./creative-ui.js?v=0.8.2" defer></script>
+<script src="./app.js?v=0.8.2" defer></script>
 </body>
 </html>
