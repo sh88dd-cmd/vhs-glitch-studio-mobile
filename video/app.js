@@ -11,7 +11,7 @@
  const defaults={vhsEnabled:true,filmEnabled:false,glitchEnabled:true,preset:'classic',master:65,
   mode:'vhs',modeStrength:75,tape:'used',signalWidth:'auto',eventDensity:48,glitchStrength:85,
   fxMode:'classic',music:{bassEffect:'vhold',highEffect:'dropouts',sensitivity:60,threshold:25,strength:85,release:35},timelineEvents:[],timelineStrength:85,
-  mix:{videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicLoop:true},
+  mix:{videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true},
   selectedTrack:null,
   speed:'SP',filmId:'builtin:Нейтральный / без плёнки',filmStrength:85,
   signal:{chromaBleed:52,composite:35,edgeWave:38,tracking:54,noise:38,chromaLoss:15,ringing:19},
@@ -36,7 +36,7 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
- let musicSearchResults=[],musicTrackInfo=null,musicRequest=0,musicLoading=false,musicSearchTimer=null,musicSearchToken=0,musicAbort=null;
+ let musicRequest=0,musicLoading=false,musicVideoURL='';
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
@@ -275,252 +275,164 @@
   }
   return null;
  }
- function musicLoadStatus(message){
-  // Network and decoder errors must be visible beside the input, not only
-  // after the mixer at the bottom of the screen.
-  $('musicLoadStatus').textContent=message;
-  $('musicDirectStatus').textContent=message;
+ function musicLoadStatus(message){$('musicLoadStatus').textContent=message;}
+ function musicDuration(){return audioEngine.getMusicDuration();}
+ function trimState(){
+  const duration=musicDuration();
+  if(!duration)return{duration:0,start:0,end:0};
+  const start=clamp(Number(state.mix.musicOffset)||0,0,Math.max(0,duration-.1));
+  const end=state.mix.musicTrimEnd>0?clamp(Number(state.mix.musicTrimEnd),start+.05,duration):duration;
+  return{duration,start,end};
  }
- function isSongPageAddress(u){
-  return /(?:^|\/)(?:song|songs|track|tracks|album|albums|artist|artists|playlist|wiki)\//i.test(u.pathname);
+ function refreshMusicTrim(){
+  const {duration,start,end}=trimState();
+  $('musicTrim').hidden=!duration;
+  if(!duration)return;
+  for(const id of ['musicTrimStartRange','musicTrimEndRange'])$(id).max=String(duration);
+  $('musicTrimStartRange').value=String(start);
+  $('musicTrimEndRange').value=String(end);
+  $('musicTrimStartInput').value=String(Number(start.toFixed(2)));
+  $('musicTrimEndInput').value=String(Number(end.toFixed(2)));
+  $('musicTrimStartLabel').textContent=timeString(start);
+  $('musicTrimEndLabel').textContent=timeString(end);
+  $('musicTrimDuration').textContent='Длительность выбранного отрывка: '+(end-start).toFixed(1)+' сек. из '+duration.toFixed(1)+' сек.';
+ }
+ function changeMusicTrim(edge,value){
+  const {duration,start,end}=trimState();
+  if(!duration||recording)return;
+  const requested=Number(value);
+  if(!Number.isFinite(requested))return;
+  if(edge==='start')state.mix.musicOffset=clamp(requested,0,Math.max(0,end-.1));
+  else state.mix.musicTrimEnd=clamp(requested,Math.min(duration,start+.1),duration);
+  audioEngine.setMix(state.mix);
+  syncAudio(!source.paused);persist();refreshMusicTrim();
  }
  function showMusicSelection(){
   const track=state.selectedTrack;
   $('musicSelection').hidden=!track;
-  if(!track)return;
-  $('musicTitle').textContent=track.title||'Без названия';
-  $('musicArtist').textContent=track.creator||'Автор неизвестен';
-  const catalog=window.VHSVideoMusicCatalog;
-  const credit=track.kind==='openverse'?catalog.attribution(track):
-   (track.kind==='direct'?'Добавлено по прямой ссылке. Убедись, что у тебя есть право использовать трек.':
-    'Выбран локальный аудиофайл. После перезапуска его нужно добавить заново.');
-  $('musicCredit').textContent=credit;
-  $('copyMusicCredit').disabled=track.kind!=='openverse';
-  $('reloadMusic').hidden=!!audioEngine.musicBuffer||track.kind==='file';
-  $('reloadMusic').disabled=musicLoading;
-  $('clearMusicMemory').disabled=musicLoading||!audioEngine.musicBuffer;
-  $('musicMemoryStatus').textContent=audioEngine.musicBuffer?
-   'Временная память музыки: около '+audioEngine.getMusicMemoryMB()+' МБ. После очистки трек можно восстановить по ссылке.':
-   'Аудиоданные не загружены в память. Сохранены только название и ссылка.';
+  if(track){
+   $('musicTitle').textContent=track.title||'Без названия';
+   $('musicArtist').textContent=track.kind==='video'?'Аудиодорожка из видео': 'Локальный аудиофайл';
+   $('musicMemoryStatus').textContent=musicDuration()?
+    'Длительность: '+timeString(musicDuration())+(track.kind==='video'?' · звук читается из видео локально.':' · загружен в память для обработки.') :
+    'Файл нужно выбрать заново после перезапуска приложения.';
+  }
+  refreshMusicTrim();
  }
- async function loadMusicTrack(track,inputFile=null){
-  if(recording)return musicLoadStatus('Останови экспорт перед заменой музыки.');
-  if(musicAbort){musicAbort.abort();musicAbort=null;}
-  const request=++musicRequest;
-  musicAbort=typeof AbortController==='function'?new AbortController():null;
-  musicLoading=true;
-  musicLoadStatus('Подключаю дорожку к общему VHS-аудиомикшеру…');
-  // Release the previous decoded song BEFORE loading another to avoid RAM spikes.
+ function clearMusicSource(){
   audioEngine.setMusicBuffer(null);
-  const audition=$('musicSample');
-  audition.pause();audition.removeAttribute('src');audition.load();audition.hidden=true;
-  showMusicSelection();
+  const media=$('musicVideoSource');
+  try{media.pause();media.removeAttribute('src');media.load();}catch{}
+  if(musicVideoURL){URL.revokeObjectURL(musicVideoURL);musicVideoURL='';}
+ }
+ async function prepareMusicVideo(inputFile,request){
+  const media=$('musicVideoSource');
+  musicVideoURL=URL.createObjectURL(inputFile);
+  media.src=musicVideoURL;
+  media.preload='auto';media.playsInline=true;media.loop=false;media.muted=false;
+  const duration=await new Promise((resolve,reject)=>{
+   let done=false;
+   function cleanup(){clearTimeout(timeout);media.removeEventListener('loadedmetadata',ok);media.removeEventListener('error',bad);}
+   function ok(){if(done)return;done=true;cleanup();resolve(media.duration);}
+   function bad(){if(done)return;done=true;cleanup();reject(Error('Safari не смог открыть звук из этого видео. Попробуй MP4 или MOV.'));}
+   const timeout=setTimeout(()=>{if(done)return;done=true;cleanup();reject(Error('Видео не удалось подготовить за 15 секунд.'));},15000);
+   media.addEventListener('loadedmetadata',ok);media.addEventListener('error',bad);
+   media.load();
+   if(media.readyState>=1)ok();
+  });
+  if(request!==musicRequest)return 0;
+  if(!Number.isFinite(duration)||duration<=0)throw Error('Неизвестная длительность видео. Попробуй другой файл.');
+  audioEngine.setMusicVideo(media);
+  return duration;
+ }
+ async function loadMusicTrack(inputFile,kind='file'){
+  if(recording){musicLoadStatus('Нельзя менять музыку во время экспорта.');return;}
+  if(!inputFile)return;
+  const request=++musicRequest;musicLoading=true;
+  clearMusicSource();state.selectedTrack=null;showMusicSelection();
+  musicLoadStatus(kind==='video'?'Открываю звуковую дорожку из видео…':'Открываю аудиофайл…');
   try{
-   // Called from an explicit button/file action: unlock iOS AudioContext first.
    await audioEngine.start();
-   let bytes;
-   if(inputFile){
-    if(inputFile.size>window.VHSVideoMusicCatalog.MAX_BYTES)throw Error('Аудиофайл больше 18 МБ. Выбери более короткий.');
-    bytes=await inputFile.arrayBuffer();
+   if(request!==musicRequest)return;
+   let duration;
+   if(kind==='video'){
+    duration=await prepareMusicVideo(inputFile,request);
    }else{
-    bytes=await window.VHSVideoMusicCatalog.readAudio(track.url,fetch,musicAbort?.signal);
+    if(inputFile.size>100*1024*1024)throw Error('Аудиофайл больше 100 МБ. Выбери файл поменьше.');
+    const bytes=await inputFile.arrayBuffer();
+    if(request!==musicRequest)return;
+    const buffer=await audioEngine.ctx.decodeAudioData(bytes);
+    if(request!==musicRequest)return;
+    if(!buffer||!Number.isFinite(buffer.duration)||buffer.duration<=0)throw Error('Safari не может прочитать это аудио.');
+    const pcmSize=buffer.length*buffer.numberOfChannels*4;
+    if(pcmSize>120*1024*1024)throw Error('Аудиодорожка слишком длинная для памяти iPhone (лимит 120 МБ распакованного звука).');
+    audioEngine.setMusicBuffer(buffer);
+    duration=buffer.duration;
    }
    if(request!==musicRequest)return;
-   const buffer=await audioEngine.ctx.decodeAudioData(bytes.slice(0));
-   if(request!==musicRequest)return;
-   if(!buffer||!Number.isFinite(buffer.duration)||buffer.duration<=0)throw Error('Браузер не смог декодировать эту музыку.');
-   const pcmSize=(Number(buffer.length)||0)*(Number(buffer.numberOfChannels)||2)*4;
-   if(pcmSize>120*1024*1024)throw Error('Трек слишком длинный для экономной обработки на iPhone (больше 120 МБ декодированного звука).');
-   audioEngine.setMusicBuffer(buffer);
-   const info={...track,duration:buffer.duration};
-   state.selectedTrack=info;
-   musicTrackInfo=info;
-   audioEngine.setMix(state.mix);
-   syncAudio(!source.paused);
-   persist();
-   musicLoadStatus('Музыка готова: '+timeString(buffer.duration)+'. Громкости ниже. Нажми ▶ на видео; при экспорте дорожки будут сведены вместе.');
+   state.selectedTrack={kind,title:inputFile.name,duration};
+   state.mix.musicOffset=0;
+   state.mix.musicTrimEnd=duration;
+   audioEngine.setMix(state.mix);syncAudio(!source.paused);
+   showMusicSelection();persist();
+   musicLoadStatus('Готово: '+timeString(duration)+'. Выбери нужный отрывок ниже. Дорожка будет звучать в просмотре и сохраняться вместе с обработанным видео.');
   }catch(e){
-   if(request===musicRequest)musicLoadStatus('Не удалось добавить музыку: '+e.message+' Другой трек или файл может сработать.');
-  }finally{
-   if(request===musicRequest){musicAbort=null;musicLoading=false;showMusicSelection();}
-  }
- }
- function clearMusicFromMemory(){
-  if(recording){musicLoadStatus('Во время экспорта нельзя выгружать аудиодорожку.');return;}
-  if(musicAbort){musicAbort.abort();musicAbort=null;}
-  musicRequest++;musicLoading=false;
-  audioEngine.setMusicBuffer(null);musicTrackInfo=null;
-  const previewAudio=$('musicSample');
-  previewAudio.pause();previewAudio.removeAttribute('src');previewAudio.load();previewAudio.hidden=true;
-  showMusicSelection();
-  if(state.selectedTrack){
-   musicLoadStatus(state.selectedTrack.kind==='file'?
-    'Музыка удалена из оперативной памяти. Для продолжения выбери этот файл заново.':
-    'Музыка удалена из оперативной памяти. Ссылка на трек сохранена — нажми «↻ Восстановить» при необходимости.');
-  }else musicLoadStatus('Музыкальный буфер очищен.');
- }
- function releaseOnLeave(event){
-  // Browser owns GC; drop our strong references when leaving this app.
-  if(musicAbort){musicAbort.abort();musicAbort=null;}
-  musicRequest++;musicLoading=false;musicSearchResults=[];musicTrackInfo=null;
-  audioEngine.setMusicBuffer(null);
-  const sample=$('musicSample');
-  sample.pause();sample.removeAttribute('src');sample.load();
-  if(!event?.persisted)audioEngine.release();
- }
- function mountRecommendedMusic(){
-  const categories=[
-   ['VHS / Lo-Fi','lofi ambient'],
-   ['Ночной город','dark ambient'],
-   ['Электронный бит','electronic dance'],
-   ['Ретро-синт','synthwave instrumental'],
-   ['Кино и плёнка','cinematic instrumental'],
-   ['Спокойный джаз','jazz instrumental']
-  ];
-  const parent=$('musicRecommendationChips');parent.replaceChildren();
-  for(const [name,query] of categories){
-   const button=document.createElement('button');button.type='button';
-   button.textContent=name;button.title='Найти '+name;
-   button.addEventListener('click',()=>{
-    if(musicSearchTimer){clearTimeout(musicSearchTimer);musicSearchTimer=null;}
-    $('onlineMusicSearch').value=query;
-    searchOnlineMusic();
-   });
-   parent.append(button);
-  }
+   if(request===musicRequest){
+    clearMusicSource();state.selectedTrack=null;showMusicSelection();persist();
+    musicLoadStatus('Не удалось добавить дорожку: '+e.message);
+   }
+  }finally{if(request===musicRequest)musicLoading=false;}
  }
  function removeMusicTrack(){
-  if(recording)return;
-  if(musicAbort){musicAbort.abort();musicAbort=null;}
+  if(recording){musicLoadStatus('Останови экспорт перед удалением музыки.');return;}
+  musicRequest++;musicLoading=false;clearMusicSource();
+  state.selectedTrack=null;state.mix.musicOffset=0;state.mix.musicTrimEnd=0;
+  audioEngine.setMix(state.mix);syncAudio(!source.paused);
+  showMusicSelection();persist();
+  musicLoadStatus('Дорожка удалена. Оригинальный звук видео сохранён.');
+ }
+ function releaseOnLeave(event){
   musicRequest++;musicLoading=false;
-  audioEngine.setMusicBuffer(null);
-  musicTrackInfo=null;state.selectedTrack=null;
-  const player=$('musicSample');player.pause();player.removeAttribute('src');player.load();
-  musicLoadStatus('Музыка убрана. Оригинальный звук видео остался без изменений.');
-  showMusicSelection();persist();syncAudio(!source.paused);
- }
- function renderMusicResults(){
-  const parent=$('onlineMusicResults');
-  parent.replaceChildren();
-  if(!musicSearchResults.length){
-   const hint=document.createElement('p');hint.className='emptyMusicSearch';
-   hint.textContent='Нет подходящих треков. Попробуй другое название или жанр.';
-   parent.append(hint);return;
-  }
-  for(const item of musicSearchResults){
-   const row=document.createElement('div');row.className='onlineMusicResult';
-   const title=document.createElement('strong');title.className='musicResultTitle';title.textContent=item.title;
-   const meta=document.createElement('div');meta.className='musicResultMeta';
-   meta.textContent=item.creator+' · '+item.license.toUpperCase()+' · '+(item.source||'Openverse')+(item.duration?' · '+timeString(item.duration/1000):'');
-   const actions=document.createElement('div');actions.className='musicResultActions';
-   const listen=document.createElement('button');listen.type='button';listen.className='button';
-   listen.textContent='▶ Прослушать';
-   listen.addEventListener('click',async()=>{
-    const audio=$('musicSample');
-    source.pause();
-    if(audio.src!==item.url){audio.pause();audio.src=item.url;}
-    audio.hidden=false;
-    try{if(audio.paused)await audio.play();else audio.pause();}
-    catch(e){$('onlineMusicStatus').textContent='Предпросмотр недоступен у этого источника: '+e.message;}
-   });
-   const add=document.createElement('button');add.type='button';add.className='button primary';
-   add.textContent='＋ Добавить';
-   add.addEventListener('click',()=>{
-    $('musicSample').pause();
-    loadMusicTrack({...item,kind:'openverse'});
-   });
-   actions.append(listen,add);row.append(title,meta,actions);parent.append(row);
-  }
- }
- async function searchOnlineMusic(){
-  const query=$('onlineMusicSearch').value.trim();
-  if(/^https?:\/\//i.test(query)){
-   try{
-    const u=new URL(query),isAudio=/\.(?:mp3|m4a|wav|ogg|oga|flac|opus|webm)$/i.test(u.pathname);
-    const isPage=isSongPageAddress(u);
-    if(!isAudio||isPage){
-     $('onlineMusicStatus').textContent='Это ссылка на страницу песни, а не на аудиофайл. Поиск: введи название песни или жанр. Для прямого добавления нужна HTTPS-ссылка на сам MP3/M4A/WAV/OGG; ссылки на страницы музыкальных сайтов Safari не может извлечь автоматически.';
-     return;
-    }
-    $('onlineMusicStatus').textContent='Обнаружен прямой аудиофайл. Подключаю его в микшер…';
-    const name=decodeURIComponent(u.pathname.split('/').pop()||'Музыка').slice(0,120);
-    loadMusicTrack({kind:'direct',title:name,creator:'По прямой ссылке',url:u.href,license:'user'});
-   }catch(e){$('onlineMusicStatus').textContent='Неверная ссылка: '+e.message;}
-   return;
-  }
-  if(query.length<2){$('onlineMusicStatus').textContent='Введи название, исполнителя или жанр (минимум 2 символа).';return;}
-  const token=++musicSearchToken;
-  $('searchOnlineMusic').disabled=true;
-  $('onlineMusicStatus').textContent='Ищу открыто лицензированные композиции…';
-  try{
-   const found=await window.VHSVideoMusicCatalog.search(query);
-   if(token!==musicSearchToken)return;
-   musicSearchResults=found;
-   renderMusicResults();
-   const fromCommons=found.some(x=>x.source==='Wikimedia Commons');
-   $('onlineMusicStatus').textContent='Найдено '+found.length+' треков. Источник: '+(fromCommons?'Wikimedia Commons (основной каталог)':'Openverse')+'. Лицензии CC0 / Public Domain / CC BY / CC BY-SA — проверь условия перед публикацией.';
-  }catch(e){if(token===musicSearchToken)$('onlineMusicStatus').textContent='Поиск недоступен: '+e.message+' Можно использовать прямую HTTPS-ссылку или файл.';}
-  finally{if(token===musicSearchToken)$('searchOnlineMusic').disabled=false;}
+  clearMusicSource();
+  if(!event?.persisted)audioEngine.release();
  }
  function mountMusicLibrary(){
   const mix=$('musicMixerControls');
   control(mix,'Громкость оригинального звука видео',state.mix.videoVolume,v=>{state.mix.videoVolume=v;syncAudio(!source.paused);});
   control(mix,'Громкость добавленной музыки',state.mix.musicVolume,v=>{state.mix.musicVolume=v;syncAudio(!source.paused);});
   $('musicVideoStart').value=String(state.mix.musicStart);
-  $('musicAudioOffset').value=String(state.mix.musicOffset);
-  $('musicLoop').checked=!!state.mix.musicLoop;
-  for(const [id,key] of [['musicVideoStart','musicStart'],['musicAudioOffset','musicOffset']]){
-   $(id).onchange=()=>{
-    const v=Number($(id).value);
-    state.mix[key]=Number.isFinite(v)?clamp(v,0,7200):0;
-    $(id).value=String(state.mix[key]);
-    persist();syncAudio(!source.paused);
-   };
-  }
-  $('musicLoop').onchange=()=>{state.mix.musicLoop=$('musicLoop').checked;persist();syncAudio(!source.paused);};
-  mountRecommendedMusic();
-  $('searchOnlineMusic').onclick=searchOnlineMusic;
-  $('onlineMusicSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(musicSearchTimer)clearTimeout(musicSearchTimer);searchOnlineMusic();}});
-  $('onlineMusicSearch').addEventListener('input',()=>{
-   if(musicSearchTimer)clearTimeout(musicSearchTimer);
-   if($('onlineMusicSearch').value.trim().length>=3)musicSearchTimer=setTimeout(searchOnlineMusic,700);
-  });
-  $('addMusicUrl').onclick=()=>{
-   const raw=$('musicDirectUrl').value.trim();
-   musicLoadStatus('Проверяю ссылку на аудиофайл…');
-   try{
-    const u=new URL(raw);
-    if(u.protocol!=='https:')throw Error('Нужна прямая HTTPS-ссылка.');
-    const isPage=isSongPageAddress(u);
-    if(isPage)throw Error('Ссылка ведёт на страницу песни. Для импорта нужен прямой адрес аудиофайла, а не адрес страницы. Можно найти трек по названию в каталоге выше.');
-    const title=decodeURIComponent(u.pathname.split('/').pop()||'Аудио по ссылке').slice(0,120);
-    loadMusicTrack({kind:'direct',title,creator:'По ссылке пользователя',url:u.href,license:'user'});
-   }catch(e){musicLoadStatus('Проверь ссылку: '+e.message);}
+  $('musicVideoStart').onchange=()=>{
+   const v=Number($('musicVideoStart').value);
+   state.mix.musicStart=Number.isFinite(v)?clamp(v,0,7200):0;
+   $('musicVideoStart').value=String(state.mix.musicStart);
+   persist();syncAudio(!source.paused);
   };
+  $('musicLoop').checked=!!state.mix.musicLoop;
+  $('musicLoop').onchange=()=>{state.mix.musicLoop=$('musicLoop').checked;persist();syncAudio(!source.paused);};
   $('musicFileInput').onchange=e=>{
    const selected=e.target.files?.[0];
-   if(selected)loadMusicTrack({kind:'file',title:selected.name,creator:'Аудио с iPhone',license:'user'},selected);
+   if(selected)loadMusicTrack(selected,'file');
    e.target.value='';
   };
-  $('removeMusic').onclick=removeMusicTrack;
-  $('clearMusicMemory').onclick=clearMusicFromMemory;
-  $('reloadMusic').onclick=()=>{
-   const track=state.selectedTrack;
-   if(track?.url&&track.kind!=='file')loadMusicTrack(track);
-   else musicLoadStatus('Этот аудиофайл нужно выбрать заново на телефоне.');
+  $('musicVideoInput').onchange=e=>{
+   const selected=e.target.files?.[0];
+   if(selected)loadMusicTrack(selected,'video');
+   e.target.value='';
   };
-  $('copyMusicCredit').onclick=async()=>{
-   const credit=window.VHSVideoMusicCatalog.attribution(state.selectedTrack);
-   if(!credit)return;
-   try{await navigator.clipboard.writeText(credit);musicLoadStatus('Авторство и ссылка на лицензию скопированы.');}
-   catch{musicLoadStatus('Скопируй данные из блока «Выбранная музыка» вручную.');}
-  };
-  showMusicSelection();
-  if(state.selectedTrack){
-   musicLoadStatus(state.selectedTrack.kind==='file'?
-    'Для восстановления музыки выбери локальный аудиофайл заново.':
-    'Ранее выбран '+state.selectedTrack.title+'. Нажми «↻ Восстановить», чтобы загрузить музыку из интернета в память.');
+  for(const [id,edge] of [['musicTrimStartRange','start'],['musicTrimEndRange','end']]){
+   $(id).oninput=()=>changeMusicTrim(edge,$(id).value);
   }
+  for(const [id,edge] of [['musicTrimStartInput','start'],['musicTrimEndInput','end']]){
+   $(id).onchange=()=>changeMusicTrim(edge,$(id).value);
+  }
+  $('musicTrimReset').onclick=()=>{
+   const duration=musicDuration();if(!duration||recording)return;
+   state.mix.musicOffset=0;state.mix.musicTrimEnd=duration;
+   audioEngine.setMix(state.mix);syncAudio(!source.paused);persist();refreshMusicTrim();
+  };
+  $('removeMusic').onclick=removeMusicTrack;
+  showMusicSelection();
+  if(state.selectedTrack)musicLoadStatus('После перезапуска выбери локальный файл или видео заново: '+state.selectedTrack.title);
  }
  function mountControls(){
   control($('vhsControls'),'Общая сила VHS',state.master,v=>{state.master=v;resetFrameHistory();});
@@ -954,8 +866,8 @@
   const mime=chooseMime();
   if(!mime){exportStatus('Этот браузер не поддерживает доступный видеокодек. Требуется альтернативный WebCodecs-экспорт.');return;}
   if(!Number.isFinite(source.duration)||source.duration<=0){exportStatus('Неизвестная длительность видео.');return;}
-  if(state.selectedTrack&&!audioEngine.musicBuffer){
-   exportStatus('Выбранная музыка ещё не загружена. Открой «♫ ТРЕКИ» и нажми «Восстановить», затем повтори экспорт.');return;
+  if(state.selectedTrack&&!musicDuration()){
+   exportStatus('Музыка после перезапуска не загружена. Добавь аудиофайл или видео заново в разделе «♫ ТРЕКИ».');return;
   }
   if(clips.length>1&&clips.some(c=>!Number.isFinite(c.duration)||c.duration<=0)){
    exportStatus('Не удалось определить длительность всех клипов. Проверь форматы каждого видео или попробуй по одному.');return;
@@ -1031,13 +943,7 @@
   }));
   $('videoInput').onchange=e=>{loadVideo(e.target.files).catch(err=>textStatus(err.message));e.target.value='';};
   window.addEventListener('pagehide',releaseOnLeave);
-  window.addEventListener('pageshow',e=>{
-   if(e?.persisted){
-    showMusicSelection();
-    if(state.selectedTrack&&!audioEngine.musicBuffer)
-     musicLoadStatus('Приложение восстановлено после закрытия страницы. Для музыки нажми «↻ Восстановить».');
-   }
-  });
+  window.addEventListener('pageshow',e=>{if(e?.persisted)showMusicSelection();});
   $('prevClip').onclick=()=>{if(recording)return;selectClip(clipIndex-1,false).catch(e=>textStatus(e.message));};
   $('nextClip').onclick=()=>{if(recording)return;selectClip(clipIndex+1,false).catch(e=>textStatus(e.message));};
   source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);
@@ -1064,7 +970,7 @@
    }
   });
   source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();audioEngine.stopMusic();});
-  source.addEventListener('play',()=>{try{$('musicSample').pause();syncAudio(true)}catch(e){textStatus('Музыка: '+e.message);}});
+  source.addEventListener('play',()=>{try{syncAudio(true)}catch(e){textStatus('Музыка: '+e.message);}});
   source.addEventListener('error',()=>{textStatus('Safari не открыл этот видеоформат. Попробуй MP4 H.264 или экспортируй из «Фото» в совместимом формате.');$('export').disabled=true;});
   $('seek').oninput=()=>{if(recording||!source.duration)return;source.currentTime=Number($('seek').value)/1000*source.duration;};
   $('play').onclick=togglePlay;
@@ -1091,7 +997,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoSpecialModes||!window.VHSVideoMusicCatalog)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
