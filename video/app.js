@@ -30,6 +30,12 @@
  state.masterBypass=false;
  const LAST_FX_KEY='vhs.video.last-effects.v1';
  let lastFxSnapshot=null;
+ const CASSETTE_BACKUP_KEY='vhs.video.cassette-before.v1';
+ let cassetteBefore=null;
+ try{
+  const record=JSON.parse(localStorage.getItem(CASSETTE_BACKUP_KEY)||'null');
+  if(record?.version===1&&record.settings&&typeof record.settings==='object')cassetteBefore=record.settings;
+ }catch{}
  try{
   const item=JSON.parse(localStorage.getItem(LAST_FX_KEY)||'null');
   if(item?.version===1&&item.settings&&typeof item.settings==='object')lastFxSnapshot=item;
@@ -217,12 +223,14 @@
   }
   const previous={
    version:1,created:Date.now(),settings:utility.snapshot(state),
+   cassetteBefore:cassetteBefore?JSON.parse(JSON.stringify(cassetteBefore)):null,
    tracks:audioStudio?.snapshotTracks()||[]
   };
   lastFxSnapshot=previous;
   try{localStorage.setItem(LAST_FX_KEY,JSON.stringify(previous));}
   catch(err){console.warn('Last effect settings could not be persisted',err);}
   utility.zero(state);
+  clearCassetteBefore();
   audioStudio?.resetTrackSettings();
   resyncAfterEffectReset();
   persist();
@@ -234,6 +242,7 @@
   const before=lastFxSnapshot;
   if(!window.VHSVideoEffectsReset.restore(state,before.settings))return;
   audioStudio?.restoreTrackSettings(before.tracks);
+  if(before.cassetteBefore)setCassetteBefore(before.cassetteBefore);else clearCassetteBefore();
   lastFxSnapshot=null;
   try{localStorage.removeItem(LAST_FX_KEY);}catch{}
   resyncAfterEffectReset();
@@ -833,6 +842,37 @@
   for(const key of CASSETTE_FIELDS)result[key]=JSON.parse(JSON.stringify(state[key]));
   return result;
  }
+ function setCassetteBefore(snapshot){
+  cassetteBefore=JSON.parse(JSON.stringify(snapshot));
+  try{localStorage.setItem(CASSETTE_BACKUP_KEY,JSON.stringify({version:1,settings:cassetteBefore}));}catch{}
+ }
+ function clearCassetteBefore(){
+  cassetteBefore=null;
+  try{localStorage.removeItem(CASSETTE_BACKUP_KEY);}catch{}
+ }
+ function cancelCassette(){
+  if(recording||!state.selectedCassetteId)return;
+  if(cassetteBefore){
+   applyCassetteSnapshot(cassetteBefore,null);
+  }else{
+   // Old 0.7.5 installs have no prior-cassette snapshot. In that one case
+   // disable the cassette's processing without wiping media or audio.
+   const neutral=JSON.parse(JSON.stringify(state));
+   window.VHSVideoEffectsReset.zero(neutral);
+   applyCassetteSnapshot(neutral,null);
+  }
+  clearCassetteBefore();
+  renderCassetteShelf();
+  $('cassetteStatus').textContent='Кассета снята. Настройки до её выбора восстановлены (для старой кассеты — эффекты обнулены).';
+ }
+ function selectCassette(cassette){
+  if(recording)return;
+  if(state.selectedCassetteId===cassette.id){cancelCassette();return;}
+  if(!state.selectedCassetteId||!cassetteBefore)setCassetteBefore(cassetteSnapshot());
+  applyCassetteSnapshot(cassette.settings,cassette.id);
+  renderCassetteShelf();
+  $('cassetteStatus').textContent='Применена кассета «'+cassette.name+'». Нажми на неё ещё раз или «✕ Снять кассету» для отмены.';
+ }
  function applyCassetteSnapshot(snapshot,id){
   if(recording)return;
   if(!snapshot||typeof snapshot!=='object')return;
@@ -909,34 +949,40 @@
    const card=document.createElement('div');card.className='cassetteCard';
    card.classList.toggle('selected',state.selectedCassetteId===cassette.id);
    const face=document.createElement('button');face.type='button';face.className='cassetteFace';
-   face.setAttribute('aria-label','Применить кассету '+cassette.name);
+   face.setAttribute('aria-label',(state.selectedCassetteId===cassette.id?'Снять кассету ':'Применить кассету ')+cassette.name);
+   face.setAttribute('aria-pressed',String(state.selectedCassetteId===cassette.id));
    const top=document.createElement('div');top.className='cassetteTop';
    top.textContent=cassette.builtin?'VHS VIDEO LAB  ·  FACTORY TAPE':'VHS VIDEO LAB  ·  MY TAPE';
    const reels=document.createElement('div');reels.className='cassetteReels';
    reels.innerHTML='<span class="cassetteReel"></span><span class="cassetteReel"></span>';
    const stripe=document.createElement('div');stripe.className='cassetteLabel';stripe.textContent=cassette.name;
    face.append(top,reels,stripe);
-   face.onclick=()=>{applyCassetteSnapshot(cassette.settings,cassette.id);renderCassetteShelf();$('cassetteStatus').textContent='Применена кассета «'+cassette.name+'». Настройки обновлены.';};
+   face.onclick=()=>selectCassette(cassette);
    const footer=document.createElement('div');footer.className='cassetteFooter';
    const name=document.createElement('span');name.textContent=cassette.builtin?'ВСТРОЕННАЯ':'МОЯ КАССЕТА';
    footer.append(name);
+   if(state.selectedCassetteId===cassette.id){const checked=document.createElement('span');checked.textContent='✓ ВЫБРАНА';checked.className='cassetteSelectedTag';footer.append(checked);}
    if(!cassette.builtin){
     const del=document.createElement('button');del.className='cassetteDelete';del.type='button';del.textContent='Удалить';
-    del.onclick=()=>{if(recording)return;state.cassettes=state.cassettes.filter(x=>x.id!==cassette.id);if(state.selectedCassetteId===cassette.id)state.selectedCassetteId=null;persist();renderCassetteShelf();};
+    del.onclick=()=>{if(recording)return;if(state.selectedCassetteId===cassette.id)cancelCassette();state.cassettes=state.cassettes.filter(x=>x.id!==cassette.id);persist();renderCassetteShelf();};
     footer.append(del);
    }
    card.append(face,footer);shelf.append(card);
   }
+  $('cassetteDeselect').disabled=recording||!state.selectedCassetteId;
   syncSectionLights();
  }
  function mountCassetteShelf(){
+  $('cassetteDeselect').onclick=cancelCassette;
   $('cassetteSave').onclick=()=>{
    if(recording)return;
    const name=$('cassetteName').value.trim().slice(0,44);
    if(!name){$('cassetteStatus').textContent='Введи название кассеты.';return;}
    if(state.cassettes.length>=40){$('cassetteStatus').textContent='Максимум 40 своих кассет.';return;}
    const item={id:'user-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*1000),name,settings:cassetteSnapshot()};
-   state.cassettes.push(item);state.selectedCassetteId=item.id;persist();renderCassetteShelf();
+   state.cassettes.push(item);
+   if(!state.selectedCassetteId||!cassetteBefore)setCassetteBefore(cassetteSnapshot());
+   state.selectedCassetteId=item.id;persist();renderCassetteShelf();
    $('cassetteName').value='';$('cassetteStatus').textContent='Кассета сохранена: '+name;
   };
   $('cassetteExport').onclick=()=>{
