@@ -19,6 +19,8 @@ function hasVisualEffects(settings,holdVideo=0){
 }
 function canCopyOriginal(s,opts={}){
  if(hasVisualEffects(s,opts.holdVideo))return false;
+ // One keyframe can be zero at the current playhead yet nonzero later.
+ if(s.keyframesEnabled!==false&&Array.isArray(s.keyframes)&&s.keyframes.some(x=>Number(x.value)>0))return false;
  if(num(opts.clipCount)!==1)return false;
  // A "first 30 seconds" export should not silently return the entire file.
  if(s.exportScope!=='full' && !(Number.isFinite(opts.duration)&&opts.duration>0&&opts.duration<=30.02))return false;
