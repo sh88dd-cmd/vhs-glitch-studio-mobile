@@ -673,10 +673,11 @@
   syncCompareButtons();
  }
  function frameTimestamp(seconds){
-  const sec=Math.max(0,Number(seconds)||0),total=Math.floor(sec);
+  const millis=Math.round(Math.max(0,Number(seconds)||0)*1000);
+  const total=Math.floor(millis/1000);
   return String(Math.floor(total/3600)).padStart(2,'0')+':'+
    String(Math.floor(total/60)%60).padStart(2,'0')+':'+
-   String(total%60).padStart(2,'0')+'.'+String(Math.floor((sec-total)*1000)).padStart(3,'0');
+   String(total%60).padStart(2,'0')+'.'+String(millis%1000).padStart(3,'0');
  }
  function syncFrameTools(){
   const ready=!!file&&!recording&&source.readyState>=2;
