@@ -10,7 +10,7 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.8.0">
+<link rel="stylesheet" href="./styles.css?v=0.8.1">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
@@ -216,11 +216,12 @@
   <h2>♫ ПОМЕХИ В ТАКТ МУЗЫКЕ</h2>
   <div class="creativeCard">
    <h3>АВТОМОНТАЖ ПО УДАРАМ</h3>
-   <p class="hint">Анализирует локальную музыкальную дорожку, находит акценты и создаёт редактируемые помехи на таймлайне. Анализ не отправляется в интернет.</p>
+   <p class="hint">Анализирует звук исходного видео или добавленную музыку, находит акценты и создаёт редактируемые помехи на таймлайне. Всё происходит на устройстве.</p>
+    <label>Источник ритма<select id="autoBeatSource"><option value="video">Звук из видео</option><option value="music">Добавленная музыка</option></select></label>
    <label>Чувствительность <strong id="autoBeatSensitivityText">55%</strong><input id="autoBeatSensitivity" type="range" min="0" max="100" value="55"></label>
    <label>Какой эффект на ударе<select id="autoBeatEffect"><option value="tapeChew">Зажёвывание</option><option value="vhold">Вертикальный срыв</option><option value="rf">Эфирные помехи</option><option value="mix">Чередовать разные</option></select></label>
    <button id="autoBeatGenerate" type="button" class="button primary full">♫ Расставить помехи под бит</button>
-   <p id="autoBeatStatus" class="hint">Сначала загрузи музыку во вкладке «ТРЕКИ».</p>
+   <p id="autoBeatStatus" class="hint">Выбери источник звука и нажми «Расставить помехи под бит».</p>
   </div>
   <button type="button" id="musicActivate" class="button primary full" aria-pressed="false">♫ Включить только музыкальные помехи</button>
   <p class="hint">Включи «♫ МУЗЫКА» выше: при наличии выбранной дорожки из раздела «АУДИО → ТРЕКИ» эффекты реагируют именно на неё. Без добавленной музыки используется звук исходного видео. Случайные глитчи из вкладки ГЛИТЧ не добавляются.</p>
@@ -363,20 +364,22 @@
  <p id="touchStatus" class="hint" role="status">Загрузи видео. Изображение не отправляется на сервер.</p>
 </section>
 <section id="panel-speed" class="panel">
- <h2>СКОРОСТЬ / РЕВЕРС / КРИВАЯ ВРЕМЕНИ</h2>
+ <h2>СКОРОСТЬ / КРИВАЯ / ОТДЕЛЬНЫЙ РЕВЕРС</h2>
  <div class="switch"><span>Включить изменение скорости</span><input id="speedEnabled" type="checkbox"></div>
- <div class="creativeSubnav"><button class="button active" id="speedForward" type="button">＋ ВПЕРЁД</button><button class="button" id="speedReverse" type="button">− НАЗАД</button></div>
+ <div class="creativeSubnav"><button class="button active" id="speedForward" type="button">＋ УСКОРИТЬ</button><button class="button" id="speedReverse" type="button">− ЗАМЕДЛИТЬ</button></div>
  <label>Скорость <strong id="speedRateText">+1.0×</strong><input id="speedRate" type="range" min="1" max="10" step=".1" value="1"></label>
- <p class="hint">Значение 1.0× — исходная скорость, 10.0× — в десять раз быстрее. Режим «−» воспроизводит кадры в обратном направлении методом временных переходов.</p>
+ <p class="hint">＋2.0 — вдвое быстрее, −2.0 — вдвое медленнее, −10.0 — в десять раз медленнее. Минус НЕ означает движение назад.</p>
+ <div class="switch"><span>↶ Обратное воспроизведение (реверс)</span><input id="speedReverseToggle" type="checkbox"></div>
  <div class="switch"><span>Кривая скорости на всём ролике</span><input id="speedCurveEnabled" type="checkbox"></div>
- <div id="speedCurveGraph" class="speedCurveGraph" role="img" aria-label="Ключевые точки кривой скорости"></div>
+ <p class="hint">Нажми на график, чтобы добавить точку. Перетаскивай точку пальцем: вверх — ускорение, вниз — замедление. Влево/вправо — время ролика.</p>
+ <div id="speedCurveGraph" class="speedCurveGraph" role="application" aria-label="Перемещаемые точки кривой скорости. По вертикали от 0.1 до 10 раз."></div>
  <div class="creativePair">
   <label>Время, сек<input id="speedPointTime" type="number" min="0" step=".1" value="0"></label>
-  <label>Скорость (−10…+10)<input id="speedPointRate" type="number" min="-10" max="10" step=".1" value="1"></label>
+  <label>Скорость: −10…−1 замедление / +1…+10 ускорение<input id="speedPointRate" type="number" min="-10" max="10" step=".1" value="1"></label>
  </div>
  <button id="speedAddPoint" type="button" class="button primary full">＋ Точка скорости</button>
  <div id="speedPointsList" class="creativeList"></div>
- <p id="speedStatus" class="hint" role="status">Обычное ускорение воспроизводится браузером. Для обратного хода и сложной кривой используются переходы между кадрами; обратное аудио пока не поддерживается. Проверка экспорта отдельно.</p>
+ <p id="speedStatus" class="hint" role="status">Изменяй кривую касанием; реверс работает отдельно. Возможности экспорта зависят от браузера.</p>
 </section>
 <section id="panel-live" class="panel">
  <h2>ЖИВЫЕ ПОМЕХИ / ПУЛЬТ</h2>
@@ -518,8 +521,8 @@
 <script src="./help-ui.js?v=0.7.10" defer></script>
 <script src="./vendor/tracking-min.js?v=1.1.3" defer></script>
 <script src="./vendor/tracking-face-min.js?v=1.0.0" defer></script>
-<script src="./creative-engine.js?v=0.8.0" defer></script>
-<script src="./creative-ui.js?v=0.8.0" defer></script>
-<script src="./app.js?v=0.8.0" defer></script>
+<script src="./creative-engine.js?v=0.8.1" defer></script>
+<script src="./creative-ui.js?v=0.8.1" defer></script>
+<script src="./app.js?v=0.8.1" defer></script>
 </body>
 </html>
