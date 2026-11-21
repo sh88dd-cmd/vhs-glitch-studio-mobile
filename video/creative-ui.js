@@ -116,14 +116,38 @@ function create(opts){
   prevGray=null;tracked=[];trackedClip=-1;lastTrackTime=-1;autoBoxes=[];
  }
  async function initFaceDetector(){
-  if(!('FaceDetector' in root))return false;
-  try{faceDetector=new root.FaceDetector({fastMode:true,maxDetectedFaces:6});return true;}
-  catch{return false;}
+  // Prefer the browser's optimized detector, but NEVER require it. Safari
+  // receives our bundled BSD-licensed Haar face cascade instead (zero network).
+  if('FaceDetector' in root){
+   try{faceDetector=new root.FaceDetector({fastMode:true,maxDetectedFaces:6});return true;}
+   catch{}
+  }
+  const vision=root.tracking?.ViolaJones;
+  if(!vision?.classifiers?.face)return false;
+  const work=document.createElement('canvas');
+  const context=work.getContext('2d',{willReadFrequently:true});
+  faceDetector={
+   async detect(video){
+    const scale=Math.min(1,200/Math.max(video.videoWidth||1,video.videoHeight||1));
+    const w=Math.max(64,Math.round(video.videoWidth*scale));
+    const h=Math.max(48,Math.round(video.videoHeight*scale));
+    work.width=w;work.height=h;
+    context.drawImage(video,0,0,w,h);
+    const pixels=context.getImageData(0,0,w,h).data;
+    // Downscaled 200px frame + conservative scanning to protect iPhone memory.
+    const found=vision.detect(pixels,w,h,1.1,1.28,2,.13,vision.classifiers.face);
+    const sx=video.videoWidth/w,sy=video.videoHeight/h;
+    return found.filter(rect=>rect.width>=16&&rect.height>=16).slice(0,6).map(rect=>({
+     boundingBox:{x:rect.x*sx,y:rect.y*sy,width:rect.width*sx,height:rect.height*sy}
+    }));
+   }
+  };
+  return true;
  }
  async function detectFace(){
   if(!faceDetector||faceBusy||!opts.hasVideo()||source.readyState<2)return;
   const t=Number(source.currentTime)||0;
-  if(t-faceLast<.32&&t>=faceLast)return;
+  if(t-faceLast<.48&&t>=faceLast)return;
   faceLast=t;faceBusy=true;
   try{
    const found=await faceDetector.detect(source);
@@ -143,8 +167,10 @@ function create(opts){
   const cfg=c.touch;
   if(!cfg.facesEnabled)return[];
   if(cfg.faceAutodetect&&faceDetector)detectFace();
-  const anchors=cfg.manualFaces.filter(face=>face.clip===clip&&time>=Number(face.start||0)).slice(-6);
-  const identity=anchors.map(f=>f.id).join(',');
+  const manual=cfg.manualFaces.filter(face=>face.clip===clip&&time>=Number(face.start||0));
+  const auto=cfg.faceAutodetect&&faceDetector&&Math.abs(time-faceLast)<1.3?
+   autoBoxes.map((f,i)=>({...f,id:'auto-'+i,clip,start:time})):[];
+  const anchors=[...manual,...auto].slice(-6);
   const clipChanged=trackedClip!==clip;
   if(clipChanged||time<lastTrackTime-.09||time-lastTrackTime>.8||tracked.length!==anchors.length||
     tracked.some((x,i)=>x.id!==anchors[i].id)){
@@ -161,8 +187,7 @@ function create(opts){
   }else if(anchors.length&&!prevGray){
    prevGray=E.gray(ctx,160);lastTrackTime=time;
   }
-  const auto=cfg.faceAutodetect&&faceDetector&&Math.abs(time-faceLast)<.85?autoBoxes:[];
-  return [...tracked,...auto].slice(0,6);
+  return tracked.slice(0,6);
  }
  function drawTouch(ctx,time,clip){
   if(c.touch.enabled)E.drawStrokes(ctx,c,clip,time);
@@ -426,7 +451,7 @@ function create(opts){
    pulse('Все маски лиц убраны.');
   };
   startOverlay();initFaceDetector().then(ok=>{
-   pulse(ok?'Доступен автоматический детектор и ручное выделение с трекингом.':
+   pulse(ok?'Автоматический поиск лиц работает локально; доступно и ручное выделение с трекингом.':
     'В Safari доступно ручное выделение лица с отслеживанием движения по кадрам.');
   });
  }
