@@ -41,6 +41,7 @@
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
  let musicRequest=0,musicLoading=false,audioStudio=null,holdActive=null;
+ let videoImportBusy=false,videoImportCommitted=false,videoImportSerial=0,videoPickerPending=false;
  const holdPreviewProcessor=window.VHSVideoGlitchFX.createProcessor(),holdExportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
@@ -1144,15 +1145,56 @@
   $('prevClip').disabled=recording||clipIndex<=0;
   $('nextClip').disabled=recording||!clipHasNext();
  }
- async function waitVideoReady(){
-  if(source.readyState>=2)return;
-  await new Promise((resolve,reject)=>{
-   const timer=setTimeout(()=>{cleanup();reject(Error('Видео не удалось подготовить к воспроизведению.'));},12000);
-   function cleanup(){clearTimeout(timer);source.removeEventListener('loadeddata',ok);source.removeEventListener('error',bad);}
-   function ok(){cleanup();resolve();}
-   function bad(){cleanup();reject(Error('Формат видеоклипа не поддерживается в Safari.'));}
-   source.addEventListener('loadeddata',ok,{once:true});source.addEventListener('error',bad,{once:true});
+ async function waitVideoReady(options={}){
+  const timeoutMs=Number(options.timeoutMs)||12000;
+  const subject=options.subject||'видео';
+  // Safari on iPhone may emit only loadedmetadata for a local blob URL until
+  // the user starts playback. Accept valid metadata, unlock Play, and decode
+  // the first actual frame when the user presses ▶.
+  const ready=()=>source.readyState>=1&&source.videoWidth>0&&source.videoHeight>0;
+  if(ready())return{hasFrame:source.readyState>=2};
+  return await new Promise((resolve,reject)=>{
+   let settled=false;
+   const remove=()=>{clearTimeout(timer);
+    for(const name of ['loadedmetadata','loadeddata','canplay','error','abort'])
+     source.removeEventListener(name,events[name]);
+   };
+   function done(err){
+    if(settled)return;settled=true;remove();
+    if(err)reject(err);else resolve({hasFrame:source.readyState>=2});
+   }
+   const mediaMessage=()=>{
+    const code=Number(source.error?.code)||0;
+    return code===4?'Safari не поддерживает формат или кодек этого видео.':
+     code===3?'Safari не смог декодировать видео (кодек, повреждение или память).':
+     code===2?'Не удалось прочитать видео. Проверь файл.':
+     'Safari не смог открыть файл видео.';
+   };
+   const events={
+    loadedmetadata:()=>{if(ready())done();},
+    loadeddata:()=>{if(ready())done();},
+    canplay:()=>{if(ready())done();},
+    error:()=>done(Error(mediaMessage())),
+    abort:()=>done(Error('Чтение видео было прервано.'))
+   };
+   for(const [name,callback] of Object.entries(events))source.addEventListener(name,callback);
+   const timer=setTimeout(()=>done(Error('Safari не получил данные файла «'+subject+
+    '» за '+Math.round(timeoutMs/1000)+
+    ' сек. Возможно, ролик из iCloud не был полностью передан или содержит неподдерживаемый кодек.')),timeoutMs);
+   if(ready())done();
   });
+ }
+ function importStatus(message,showHelp=false){
+  const node=$('videoImportStatus');
+  if(node)node.textContent=message;
+  if($('videoImportHelp'))$('videoImportHelp').hidden=!showHelp;
+ }
+ function resetVideoPickerState(){
+  videoPickerPending=false;
+ }
+ function pickerWithoutFile(){
+  resetVideoPickerState();
+  importStatus('Safari не передал видео из выбора. Если ты выбирал ролик (а не отменил выбор), попробуй «Через Файлы» ниже.',true);
  }
  async function selectClip(index,autoplay=false){
   if(index<0||index>=clips.length)return;
@@ -1188,30 +1230,95 @@
    video.src=clip.url;video.load();
   });
  }
- async function loadVideo(input){
+ async function loadVideo(input,origin='gallery'){
   const list=Array.from(input||[]).slice(0,10);
-  if(!list.length)return;
+  resetVideoPickerState();
+  if(!list.length){pickerWithoutFile();return;}
   if(recording)throw Error('Нельзя сменить ролик во время экспорта.');
-  source.pause();audioEngine.suspendNoise();resetFrameHistory();seedHistory=[];$('undoGlitch').disabled=true;
-  for(const entry of clips)URL.revokeObjectURL(entry.url);
-  clips=list.map(f=>({file:f,url:URL.createObjectURL(f),duration:0}));
-  source.loop=clips.length===1; // Native replay for one video without manual clicks.
-  clipIndex=0;file=clips[0].file;sourceUrl=clips[0].url;
-  source.src=sourceUrl;source.load();
-  $('videoName').textContent=file.name;
-  $('videoMeta').textContent=(file.size/1048576).toFixed(1)+' МБ';
-  $('empty').hidden=true;$('play').disabled=true;$('export').disabled=true;$('seek').disabled=true;
-  $('exportResult').hidden=true;updateClipNav();videoUI?.sync();renderTimeline();
-  textStatus('Подготавливаю '+clips.length+' клип(ов)…');
-  if(clips.length>1)for(let j=1;j<clips.length;j++){
-   clips[j].duration=await probeClipDuration(clips[j]);
+  if(videoImportBusy)throw Error('Другое видео ещё подготавливается. Дождись завершения.');
+  const first=list[0];
+  if(!first||!Number.isFinite(first.size)||first.size===0)
+   throw Error('Файл пустой или ещё не загрузился с iCloud. Сохрани его в «Файлы» и повтори выбор.');
+  if(list.some(f=>!f||f.size===0))
+   throw Error('В подборке есть пустой файл. Попробуй выбрать ролики по одному.');
+  if(list.some(f=>f.type&&f.type.startsWith('image/')))
+   throw Error('В списке обнаружена фотография, а не видео.');
+  if(typeof URL.createObjectURL!=='function')throw Error('Браузер не умеет открывать локальные файлы.');
+  const bytes=list.reduce((n,f)=>n+f.size,0);
+  const summary=(bytes/1048576).toFixed(1)+' МБ';
+  const request=++videoImportSerial;
+  const previous={clips,file,clipIndex,sourceUrl,position:Number(source.currentTime)||0,playing:!source.paused};
+  const candidate=[];
+  try{
+   for(const f of list)candidate.push({file:f,url:URL.createObjectURL(f),duration:0});
+  }catch(e){
+   candidate.forEach(clip=>URL.revokeObjectURL(clip.url));
+   throw Error('Не удалось получить доступ к видео из галереи: '+e.message);
   }
-  updateClipNav();
-  state.holdEvents=[];syncHoldControls();persist();
-  textStatus('Готово к просмотру: '+clips.length+' клип(ов). Выбери VHS, FILM или ГЛИТЧ.');
+  videoImportBusy=true;videoImportCommitted=false;
+  importStatus('Файл передан из '+(origin==='files'?'«Файлов»':'галереи')+
+   ': '+first.name+' · '+summary+'. Проверяю декодирование первого кадра…',false);
+  textStatus('Открываю видео '+first.name+'…');
+  try{
+   source.pause();audioEngine.suspendNoise();
+   source.preload='auto';
+   source.src=candidate[0].url;
+   source.load();
+   const videoReady=await waitVideoReady({timeoutMs:18000,subject:first.name});
+   if(request!==videoImportSerial)throw Error('Импорт был прерван новым выбором.');
+   // Commit only after real first-frame decode. Keep previous Object URLs
+   // until then: a failed Photos import must not destroy the old edit.
+   clips=candidate;clipIndex=0;file=first;sourceUrl=candidate[0].url;videoImportCommitted=true;
+   resetFrameHistory();seedHistory=[];$('undoGlitch').disabled=true;
+   state.holdEvents=[];persist();
+   source.loop=clips.length===1;
+   $('videoName').textContent=file.name;
+   $('videoMeta').textContent=summary;
+   $('empty').hidden=true;
+   $('exportResult').hidden=true;
+   selectedTimelineId='';$('addTimelineEvent').textContent='＋ Добавить повреждение';
+   updateClipNav();videoUI?.sync();renderTimeline();onLoaded(true);
+   // Revoke old resources after successful commit; never touch candidate URLs.
+   previous.clips.forEach(entry=>URL.revokeObjectURL(entry.url));
+   importStatus('Видео принято: '+first.name+' · '+summary+'. '+
+    (!videoReady.hasFrame?'Нажми ▶: Safari подготовит первый кадр при воспроизведении.':
+    list.length>1?'Проверяю остальные клипы…':'Готово к просмотру.'),false);
+   if(list.length>1){
+    for(let j=1;j<clips.length;j++){
+     clips[j].duration=await probeClipDuration(clips[j]);
+     importStatus('Видео загружено. Дополнительных клипов проверено: '+j+' / '+(clips.length-1)+'.',false);
+    }
+    updateClipNav();
+    if(clips.some(clip=>!Number.isFinite(clip.duration)||clip.duration<=0))
+     importStatus('Основной клип загружен, но один из остальных имеет неизвестную длительность. Он может быть несовместим с Safari.',true);
+   }
+  }catch(e){
+   candidate.forEach(entry=>{try{URL.revokeObjectURL(entry.url);}catch{}});
+   if(previous.sourceUrl){
+    // Recover the previously working video. No extra hidden video players.
+    clips=previous.clips;file=previous.file;clipIndex=previous.clipIndex;sourceUrl=previous.sourceUrl;
+    source.src=previous.sourceUrl;source.preload='metadata';
+    source.load();
+    const restore=()=>{try{source.currentTime=previous.position;}catch{}};
+    if(source.readyState>=1)restore();
+    else source.addEventListener('loadedmetadata',restore,{once:true});
+   }else{
+    clips=[];file=null;sourceUrl='';clipIndex=0;
+    source.removeAttribute('src');source.load();
+    $('videoName').textContent='Видеофайл не выбран';$('videoMeta').textContent='—';
+    $('empty').hidden=false;
+    for(const id of ['play','export','seek','regenerate','openViewer'])$(id).disabled=true;
+   }
+   importStatus('Видео не открылось: '+e.message+' Попробуй выбрать тот же ролик через «Файлы».',true);
+   textStatus('Импорт не выполнен. '+e.message);
+   updateClipNav();videoUI?.sync();
+  }finally{
+   source.preload='metadata';
+   videoImportBusy=false;videoImportCommitted=false;
+  }
  }
- function onLoaded(){
-  if(!source.videoWidth||!source.videoHeight)return;
+ function onLoaded(force=false){
+  if((videoImportBusy&&!videoImportCommitted&&force!==true)||!source.videoWidth||!source.videoHeight)return;
   const [w,h]=videoDimensions(520);
   source.loop=!recording&&clips.length===1;
   preview.width=w;preview.height=h;
@@ -1219,10 +1326,20 @@
   $('videoMeta').textContent=source.videoWidth+' × '+source.videoHeight+' · '+timeString(source.duration);
   updateClipNav();
   selectedTimelineId='';$('addTimelineEvent').textContent='＋ Добавить повреждение';renderTimeline();
-  $('play').disabled=!!recording;$('export').disabled=!!recording;$('regenerate').disabled=!!recording;$('seek').disabled=!!recording;
+  const frameReady=source.readyState>=2;
+  $('empty').hidden=frameReady;
+  if(!frameReady){
+   $('empty').querySelector('strong').textContent='ВИДЕО ПОЛУЧЕНО';
+   $('empty').querySelector('span').textContent='Нажми ▶ для загрузки первого кадра';
+  }
+  $('play').disabled=!!recording;$('export').disabled=!!recording||!frameReady;
+  $('regenerate').disabled=!!recording;$('seek').disabled=!!recording;
   $('timeTotal').textContent=timeString(source.duration);
   videoUI?.sync();syncHoldControls();
-  textStatus(clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
+  textStatus(!frameReady?'Файл распознан. Нажми ▶ для первого кадра (особенность Safari на iPhone).':
+   clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
+  if(frameReady&&!videoImportBusy&&file)
+   importStatus('Видео готово: '+file.name+' · первый кадр доступен. Можно смотреть и обрабатывать.',false);
   renderCurrentFrame();
  }
  async function togglePlay(){
@@ -1361,12 +1478,38 @@
   document.addEventListener('input',scheduleLights);
   document.addEventListener('change',scheduleLights);
   mountHoldControls();
-  $('videoInput').onchange=e=>{loadVideo(e.target.files).catch(err=>textStatus(err.message));e.target.value='';};
+  for(const [id,origin] of [['videoInput','gallery'],['videoFilesInput','files'],['videoClipsInput','clips']]){
+   const input=$(id);
+   input.addEventListener('click',()=>{
+    if(recording||videoImportBusy)return;
+    videoPickerPending=true;
+    importStatus(origin==='files'?'Ожидаю файл из приложения «Файлы»…':
+     'Ожидаю, пока iPhone передаст выбранное видео. Если оно в iCloud, подготовка может занять время…',false);
+   });
+   input.addEventListener('cancel',pickerWithoutFile);
+   input.addEventListener('change',e=>{
+    const files=Array.from(e.target.files||[]);
+    resetVideoPickerState();
+    input.value='';
+    if(!files.length){pickerWithoutFile();return;}
+    loadVideo(files,origin).catch(err=>{
+     importStatus('Не удалось начать импорт: '+err.message,true);
+     textStatus('Не удалось выбрать видео: '+err.message);
+    });
+   });
+  }
+  window.addEventListener('focus',()=>{
+   if(!videoPickerPending)return;
+   setTimeout(()=>{
+    if(!videoPickerPending||videoImportBusy)return;
+    importStatus('Ожидаю передачу видео из галереи. Если окно уже закрылось и файл не появился, попробуй «Через Файлы».',true);
+   },2000);
+  });
   window.addEventListener('pagehide',releaseOnLeave);
   window.addEventListener('pageshow',e=>{if(e?.persisted)showMusicSelection();});
   $('prevClip').onclick=()=>{if(recording)return;selectClip(clipIndex-1,false).catch(e=>textStatus(e.message));};
   $('nextClip').onclick=()=>{if(recording)return;selectClip(clipIndex+1,false).catch(e=>textStatus(e.message));};
-  source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);
+  source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);source.addEventListener('canplay',onLoaded);
   source.addEventListener('seeked',redrawAfterSeek);source.addEventListener('timeupdate',updateTime);
   source.addEventListener('ended',()=>{
    if(clipHasNext()){
@@ -1391,7 +1534,13 @@
   });
   source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();audioEngine.stopMusic();});
   source.addEventListener('play',()=>{try{syncAudio(true)}catch(e){textStatus('Музыка: '+e.message);}});
-  source.addEventListener('error',()=>{textStatus('Safari не открыл этот видеоформат. Попробуй MP4 H.264 или экспортируй из «Фото» в совместимом формате.');$('export').disabled=true;});
+  source.addEventListener('error',()=>{
+   if(!videoImportBusy){
+    textStatus('Safari не смог декодировать выбранный ролик. Попробуй совместимый MP4 H.264 или другой экспорт видео.');
+    importStatus('Ошибка декодирования: '+(file?.name||'видео')+'. Если через «Файлы» тоже не открывается, проблема может быть в кодеке или повреждении файла.',true);
+   }
+   $('export').disabled=true;
+  });
   $('seek').oninput=()=>{if(recording||!source.duration)return;source.currentTime=Number($('seek').value)/1000*source.duration;};
   $('play').onclick=togglePlay;
   $('regenerate').onclick=regenerateSeed;
