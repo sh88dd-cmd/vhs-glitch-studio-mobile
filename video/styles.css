@@ -476,3 +476,19 @@ body.effects-bypassed .audioSubtabs button.is-lit::after{content:none}
  .masterFxActions{width:100%;display:grid;grid-template-columns:1fr 1fr}
  .masterFxActions .allEffectsToggle,.masterFxActions .restoreEffects{width:100%;font-size:10px}
 }
+
+/* 0.7.6 — reversible cassette cards and viewfinder frame controls. */
+.cassetteDeselect{
+ display:flex;width:100%;min-height:42px;margin:11px 0 5px;
+ color:#ffc688;background:#281b12;border:1px solid #bd8145;
+}
+.cassetteDeselect:not(:disabled):active{background:#b26e35;color:#17100b}
+.cassetteDeselect:disabled{border-color:#414141;color:#777;background:#181818}
+.cassetteSelectedTag{color:#f4bb79;font-weight:850;font-size:9px;white-space:nowrap}
+.cassetteCard.selected .cassetteFace{border-color:#ffc781}
+.cassetteCard .cassetteFace[aria-pressed="true"]{box-shadow:inset 0 0 0 4px #252525,0 0 15px rgba(255,179,78,.3)}
+.cameraFrameCard{border:1px solid #96724e;background:linear-gradient(130deg,#2a211a,#141414);padding:13px}
+.cameraFrameCard .cameraCardTitle strong{color:#ffe0af}
+.cameraFrameCard select{width:100%}
+.cameraFrameCard .cameraCardOptions .hint{margin:0 0 7px}
+@media(max-width:360px){.cassetteSelectedTag{font-size:8px}}

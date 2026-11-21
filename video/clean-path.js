@@ -3,7 +3,7 @@
  */
 (function(root){
 'use strict';
-const CAMERA=['rec','play','date','battery','counter','zoom','modeInfo','focus'];
+const CAMERA=['rec','play','date','battery','counter','zoom','modeInfo','focus','frame'];
 const num=value=>Number.isFinite(Number(value))?Number(value):0;
 function hasVisualEffects(settings,holdVideo=0){
  const s=settings||{};
