@@ -51,9 +51,6 @@ function decorateButton(node){
  if(!node.isConnected||node.classList.contains('helpIcon')||node.closest('#videoHelpModal'))return;
  if(node.dataset.helpDecorated==='yes'||node.closest('.helpButtonSlot'))return;
  if(node.closest('.cassetteFace')&&node!==node.closest('.cassetteFace'))return;
- // Skip tiny in-video transport buttons: provide help for the entire player bar
- // while keeping fixed controls full-size for touch use.
- if(node.closest('#monitorDock')||node.closest('#videoViewer .viewerButtons'))return;
  const parent=node.parentNode;
  if(!parent||parent.nodeType!==1)return;
  const title=cleanTitle(node),key=findKey(node);
@@ -98,7 +95,7 @@ function decorateHeading(node){
  const parent=node.parentNode;
  if(!parent||parent.nodeType!==1)return;
  const title=cleanTitle(node);
- const id=node.closest('section[id^="panel-"]')?.id||node.closest('.audioArea[id]')?.id;
+ const id=node.closest('.audioArea[id]')?.id||node.closest('section[id^="panel-"]')?.id;
  const key=id?.startsWith('panel-')?'tab-'+id.substring(6):
   id?.startsWith('audioArea-')?'audio-'+id.substring(10):'name:'+title;
  const wrap=document.createElement('div');wrap.className='helpHeading';
@@ -133,7 +130,10 @@ function scan(){
   'main #framePngDownload,main #musicTrimReset,'+
   'main #allEffectsToggle,main #restoreEffects,main #holdClear,'+
   'main #cassetteSave,main #cassetteExport,main #cassetteDeselect,'+
-  'main #frameBack,main #frameForward,main #frameSavePng'
+  'main #frameBack,main #frameForward,main #frameSavePng,'+
+  '#monitorDock .dockBottom button,#monitorDock .dockExpand,'+
+  '#videoViewer .viewerButtons button,#videoViewer .viewerHead button,'+
+  '#videoViewer .viewerHold button'
  ).forEach(decorateButton);
  document.querySelectorAll('main .panel h2,main .audioArea h2,main .additionalTrackSection h2')
   .forEach(decorateHeading);
@@ -172,7 +172,26 @@ function scan(){
   const node=$(id)||document.querySelector('.'+id);
   if(node&&node.dataset.helpDecorated!=='yes')decorateBlock(node,'visualization');
  }
- // Global helpers for controls deliberately too narrow for individual badges.
+ // Catch any controls added by future editor versions: every slider, checkbox,
+ // select, input, file picker, native button and details should still get ?.
+ document.querySelectorAll('main button:not(.helpIcon),main a.button:not(.helpIcon),'+
+  '#videoViewer button:not(.helpIcon),#monitorDock button:not(.helpIcon)')
+  .forEach(node=>{
+   if(node.dataset.helpDecorated==='yes'||node.closest('.helpButtonSlot,.helpField,.helpBlock'))return;
+   decorateButton(node);
+  });
+ document.querySelectorAll('main input:not([type=hidden]),main select,main textarea,'+
+  '#videoViewer input:not([type=hidden]),#videoViewer select,'+
+  '#monitorDock input:not([type=hidden])').forEach(node=>{
+   if(node.dataset.helpDecorated==='yes'||node.closest('.helpBlock,.helpField,.helpButtonSlot,.helpStandalone'))return;
+   const label=node.closest('label');
+   if(label){decorateLabel(label);return;}
+   decorateStandalone(node);
+  });
+ document.querySelectorAll('main details').forEach(node=>{
+  if(node.dataset.helpDecorated!=='yes')decorateBlock(node,'group');
+ });
+ // Enclosing player badges summarize the whole playback workflow.
  for(const [selector,key,title] of [
   ['#monitorDock .dockScreen','dockPlayer','ЗАКРЕПЛЁННЫЙ МОНИТОР'],
   ['#videoViewer .viewerHead','viewerPlayer','УВЕЛИЧЕННЫЙ ПРОСМОТР']
@@ -226,7 +245,14 @@ function open(key,title,type,trigger){
   'Локальная зацикленная схема последовательности действий.':
   'Схематическое сравнение; если загружено видео — пример на текущем кадре.';
  $('helpImageError').hidden=true;
- const src=animated?art.gifSource(info.variant):restoreActualFrames()||art.compareSvg(info.variant);
+ let src='';
+ try{src=animated?art.gifSource(info.variant):restoreActualFrames()||art.compareSvg(info.variant);}
+ catch(err){src=art.compareSvg(info.variant);$('helpMediaCaption').textContent='Пример в виде схемы. GIF не удалось сформировать на этом устройстве.';}
+ image.onerror=()=>{
+  image.onerror=null;
+  $('helpImageError').hidden=false;
+  image.src=art.compareSvg(info.variant);
+ };
  image.src=src;
  image.alt=animated?'Анимированная GIF-схема: '+info.title:'Сравнение исходного и обработанного кадра: '+info.title;
  document.body.classList.add('helpDialogOpen');
