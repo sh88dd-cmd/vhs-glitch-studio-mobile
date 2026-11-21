@@ -10,11 +10,21 @@ const fmt=s=>{if(!Number.isFinite(s)||s<0)return'00:00';const n=Math.floor(s);re
 function create(config){
  const {source,preview,getState,onPlay,onReroll,onUndo,onPrev,onNext,onSeek}=config;
  const dock=$('monitorDock'),viewer=$('videoViewer'),body=document.body;
- let previousReady=false;
+ const stage=$('videoStage');
+ let previousReady=false,stageObserver=null,layoutObserver=null,visibilityQueued=false;
  function state(){return getState()||{}}
+ function hasLoadedVideo(s=state()){
+  // iPhone Safari can temporarily drop from HAVE_CURRENT_DATA (2) to
+  // HAVE_METADATA (1) on EVERY frame seek. The dock must not vanish then.
+  return !!s.file&&source.readyState>=1&&source.videoWidth>0;
+ }
  function updateVisibility(){
-  const s=state(),rect=$('videoStage').getBoundingClientRect();
-  const visible=!!s.file&&source.readyState>=2&&rect.bottom<=0&&!viewer.open;
+  const s=state(),rect=stage.getBoundingClientRect();
+  const viewport=Math.max(1,window.visualViewport?.height||window.innerHeight||1);
+  // Display the monitor as the editor starts approaching the top of view,
+  // rather than only once the entire large source player has scrolled out.
+  const threshold=Math.min(viewport*.78,620);
+  const visible=hasLoadedVideo(s)&&rect.bottom<=threshold&&!viewer.open;
   const wasHidden=dock.hidden;
   dock.hidden=!visible;
   body.classList.toggle('dock-visible',visible);
@@ -23,6 +33,14 @@ function create(config){
    if(height>0&&body.style?.setProperty)body.style.setProperty('--dock-height',height+'px');
    if(wasHidden)mirror();
   }
+ }
+ function queueVisibility(){
+  if(visibilityQueued)return;
+  visibilityQueued=true;
+  window.requestAnimationFrame(()=>{
+   visibilityQueued=false;
+   updateVisibility();
+  });
  }
  function mirror(){
   if(!state().file)return;
@@ -37,7 +55,7 @@ function create(config){
   }
  }
  function sync(){
-  const s=state(),hasVideo=!!s.file&&source.readyState>=2,usable=hasVideo&&!s.recording;
+  const s=state(),hasVideo=hasLoadedVideo(s),usable=hasVideo&&!s.recording;
   const duration=source.duration||0,position=source.currentTime||0;
   const fraction=Number.isFinite(duration)&&duration>0?clamp(position/duration,0,1):0;
   const playText=!source.paused&&!source.ended?'Ⅱ':'▶';
@@ -65,7 +83,7 @@ function create(config){
   }
  }
  function open(){
-  if(!state().file||source.readyState<2||viewer.open)return;
+  if(!hasLoadedVideo()||viewer.open)return;
   viewer.showModal();
   body.classList.add('viewer-open');
   updateVisibility();sync();mirror();
@@ -94,8 +112,23 @@ function create(config){
  $('viewerSeek').addEventListener('input',()=>scrub('viewerSeek'));
  viewer.addEventListener('close',()=>{body.classList.remove('viewer-open');updateVisibility()});
  for(const event of ['play','pause','timeupdate','seeked','loadedmetadata','loadeddata','ended'])source.addEventListener(event,sync);
- window.addEventListener('scroll',updateVisibility,{passive:true});
- window.addEventListener('resize',updateVisibility);
+ // Scroll events are not reliable at the end of iOS Safari rubber-band
+ // scrolling. Observe the source stage AND recheck after visual viewport
+ // changes and decoded-frame transitions, even if the player is paused.
+ window.addEventListener('scroll',queueVisibility,{passive:true});
+ window.addEventListener('resize',queueVisibility,{passive:true});
+ window.addEventListener('touchend',queueVisibility,{passive:true});
+ window.addEventListener('pageshow',queueVisibility);
+ window.visualViewport?.addEventListener('resize',queueVisibility,{passive:true});
+ window.visualViewport?.addEventListener('scroll',queueVisibility,{passive:true});
+ if(typeof IntersectionObserver!=='undefined'){
+  stageObserver=new IntersectionObserver(queueVisibility,{threshold:[0,.1,.25,.5,1]});
+  stageObserver.observe(stage);
+ }
+ if(typeof ResizeObserver!=='undefined'){
+  layoutObserver=new ResizeObserver(queueVisibility);
+  layoutObserver.observe(stage);
+ }
  sync();updateVisibility();
  return Object.freeze({render:mirror,sync,updateVisibility,open,close});
 }
