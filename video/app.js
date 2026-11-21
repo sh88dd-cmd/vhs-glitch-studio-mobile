@@ -111,6 +111,16 @@
   $('glitchControls')?.querySelectorAll('details').forEach(group=>{
    setIndicator(group,actualGlitch&&!!group.querySelector('.control.is-lit'));
   });
+  $('vhsControls')?.querySelectorAll('label').forEach(label=>{
+   setIndicator(label,actualVhs&&!!label.querySelector('select'));
+  });
+  $('panel-timeline')?.querySelectorAll('.timelinePair label').forEach(label=>setIndicator(label,actualTimeline));
+  setIndicator($('timelineEffect')?.closest('label'),actualTimeline);
+  const trimStartChanged=engaged&&hasMusic&&Number(state.mix.musicOffset)>0.001;
+  const trimEndChanged=engaged&&hasMusic&&Number(state.mix.musicTrimEnd)>0&&Number(state.mix.musicTrimEnd)<duration-.01;
+  setIndicator($('musicTrimStartLabel')?.closest('.musicTrimHead'),trimStartChanged);
+  setIndicator($('musicTrimEndLabel')?.closest('.musicTrimHead'),trimEndChanged);
+
   const switches={
    vhsEnabled:actualVhs,glitchEnabled:actualGlitch,filmEnabled:actualFilm,
    filmDamageEnabled:actualDamage,audioEnabled:actualTape,
@@ -156,7 +166,7 @@
    });
    setIndicator(card.querySelector('.extraAudioLoop'),enabled&&!!card.querySelector('input[type=checkbox]')?.checked);
   });
-  $('masterFxStatus').textContent=engaged?'Эффекты активны':'Все эффекты временно отключены';
+  $('masterFxStatus').textContent=engaged?'Обработка включена':'Эффекты отключены · оригинал без обработки';
   $('allEffectsLabel').textContent=engaged?'ВЫКЛЮЧИТЬ ВСЁ':'ВЕРНУТЬ ЭФФЕКТЫ';
   $('allEffectsToggle').disabled=!!recording;
   $('allEffectsToggle').setAttribute('aria-pressed',String(!engaged));
@@ -768,6 +778,7 @@
    }
    card.append(face,footer);shelf.append(card);
   }
+  syncSectionLights();
  }
  function mountCassetteShelf(){
   $('cassetteSave').onclick=()=>{
