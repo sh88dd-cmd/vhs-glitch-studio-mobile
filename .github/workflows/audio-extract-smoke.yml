@@ -9,6 +9,8 @@ on:
       - 'video/app.js'
       - 'video/tests/studio-core-smoke.mjs'
       - 'video/tests/status-lights-smoke.mjs'
+      - 'video/clean-path.js'
+      - 'video/tests/clean-source-smoke.mjs'
       - 'video/effects-reset.js'
       - 'video/tests/video-import-smoke.mjs'
       - 'video/tests/hold-audio-offline-smoke.mjs'
@@ -23,6 +25,8 @@ on:
       - 'video/app.js'
       - 'video/tests/studio-core-smoke.mjs'
       - 'video/tests/status-lights-smoke.mjs'
+      - 'video/clean-path.js'
+      - 'video/tests/clean-source-smoke.mjs'
       - 'video/effects-reset.js'
       - 'video/tests/video-import-smoke.mjs'
       - 'video/tests/hold-audio-offline-smoke.mjs'
@@ -45,8 +49,11 @@ jobs:
           node --check video/audio-engine.js
           node --check video/app.js
           node --check video/effects-reset.js
+          node --check video/clean-path.js
           node --check video/film-damage.js
           node --check video/audio-studio.js
+      - name: Test raw original video after reset and lossless export safeguards
+        run: node video/tests/clean-source-smoke.mjs
       - name: Check zero-reset, restore-last settings and indicator LEDs
         run: node video/tests/status-lights-smoke.mjs
       - name: Test Safari local video picker and metadata-only fallback
