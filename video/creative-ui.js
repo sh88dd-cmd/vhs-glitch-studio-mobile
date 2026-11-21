@@ -196,68 +196,113 @@ function create(opts){
    E.drawFaces(ctx,boxes,c);
   }
  }
+ const speedFactor=v=>E.forwardFactor(v);
+ function speedLabel(v){return v<0?'−'+Math.abs(v).toFixed(1)+' (×'+speedFactor(v).toFixed(2)+')':'+'+v.toFixed(1)+' (×'+speedFactor(v).toFixed(1)+')';}
+ function speedGraphY(v){return clamp(50-Math.log10(speedFactor(v))*43,7,93);}
+ function speedValueForY(y){const f=10**((50-clamp(y,7,93))/43),r=f<1?-1/f:f;return Math.sign(r)*Math.round(clamp(Math.abs(r),1,10)*10)/10;}
+ let draggingSpeedId=null;
  function renderSpeedPoints(){
   const list=$('speedPointsList'),graph=$('speedCurveGraph');
   list.replaceChildren();graph.replaceChildren();
-  const duration=Math.max(1,Number(source.duration)||1);
-  const points=(c.speed.points||[]).slice().sort((a,b)=>a.time-b.time);
-  for(const point of points){
-   const marker=document.createElement('button');marker.className='speedPointMarker';
-   marker.type='button';marker.style.left=(clamp(point.time/duration,0,1)*100)+'%';
-   marker.style.top=(50-clamp(point.rate,-10,10)*4.5)+'%';
-   marker.title=point.time.toFixed(2)+' сек · '+point.rate.toFixed(1)+'×';
-   marker.onclick=()=>{$('speedPointTime').value=String(point.time);$('speedPointRate').value=String(point.rate);
-    if(opts.hasVideo())source.currentTime=point.time;};
+  const duration=Math.max(.01,Number(source.duration)||1);
+  const pts=(c.speed.points||[]).slice().sort((a,b)=>a.time-b.time);
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.classList.add('speedCurveLines');svg.setAttribute('viewBox','0 0 1000 200');
+  svg.setAttribute('preserveAspectRatio','none');
+  const interpolated=pts.length?[{time:0,rate:pts[0].rate},...pts,{time:duration,rate:pts.at(-1).rate}]:
+   [{time:0,rate:c.speed.rate},{time:duration,rate:c.speed.rate}];
+  const path=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  path.setAttribute('points',interpolated.map(p=>clamp(p.time/duration,0,1)*1000+','+speedGraphY(p.rate)*2).join(' '));
+  path.setAttribute('fill','none');path.setAttribute('stroke','#ffc18e');path.setAttribute('stroke-width','5');
+  svg.append(path);graph.append(svg);
+  for(const [label,y] of [['10×',7],['1×',50],['0.1×',93]]){
+   const span=document.createElement('span');span.className='speedGraphLabel';span.style.top=y+'%';span.textContent=label;graph.append(span);
+  }
+  for(const point of pts){
+   const marker=document.createElement('button');marker.className='speedPointMarker';marker.type='button';
+   marker.dataset.pointId=point.id;marker.style.left=(clamp(point.time/duration,0,1)*100)+'%';
+   marker.style.top=speedGraphY(point.rate)+'%';marker.title=point.time.toFixed(2)+' с · '+speedLabel(point.rate);
    graph.append(marker);
    const row=document.createElement('div');row.className='creativePointRow';
-   row.textContent=point.time.toFixed(2)+' с · '+(point.rate>0?'+':'')+point.rate.toFixed(1)+'×';
+   row.textContent=point.time.toFixed(2)+' с · '+speedLabel(point.rate);
    const del=document.createElement('button');del.className='button';del.textContent='✕';del.type='button';
-   del.onclick=()=>{if(opts.isRecording())return;
-    c.speed.points=c.speed.points.filter(x=>x.id!==point.id);save();renderSpeedPoints();callbacks.speed();
-   };
+   del.onclick=()=>{if(opts.isRecording())return;c.speed.points=c.speed.points.filter(x=>x.id!==point.id);
+    save();renderSpeedPoints();callbacks.speed();};
    row.append(del);list.append(row);
   }
-  if(!points.length)list.textContent='Точек пока нет. Добавь первую и последнюю.';
+  if(!pts.length)list.textContent='Коснись графика, чтобы создать точку. Перетаскивай её пальцем.';
  }
  function mountSpeed(){
-  const speed=c.speed;
-  $('speedEnabled').checked=!!speed.enabled;
+  const speed=c.speed,graph=$('speedCurveGraph');
   $('speedEnabled').onchange=()=>{speed.enabled=$('speedEnabled').checked;save();callbacks.speed();};
-  $('speedRate').value=speed.rate;
-  function setRate(){speed.rate=clamp($('speedRate').value,1,10);
-   $('speedRateText').textContent=(speed.reverse?'−':'+')+speed.rate.toFixed(1)+'×';save();callbacks.speed();}
-  $('speedRate').oninput=setRate;
-  for(const [id,value] of [['speedForward',false],['speedReverse',true]]){
-   $(id).onclick=()=>{speed.reverse=value;speed.enabled=true;
-    $('speedEnabled').checked=true;refreshSpeed();save();callbacks.speed();};
+  $('speedRate').oninput=()=>{
+   speed.rate=(speed.rate<0?-1:1)*clamp($('speedRate').value,1,10);speed.enabled=true;
+   refreshSpeed();save();callbacks.speed();
+  };
+  for(const [id,sign] of [['speedForward',1],['speedReverse',-1]]){
+   $(id).onclick=()=>{speed.rate=sign*Math.abs(speed.rate||1);speed.enabled=true;refreshSpeed();save();callbacks.speed();};
   }
-  $('speedCurveEnabled').checked=!!speed.curveEnabled;
+  $('speedReverseToggle').onchange=()=>{speed.reverse=$('speedReverseToggle').checked;
+   speed.enabled=true;refreshSpeed();save();callbacks.speed();};
   $('speedCurveEnabled').onchange=()=>{speed.curveEnabled=$('speedCurveEnabled').checked;
-   speed.enabled=true;$('speedEnabled').checked=true;save();callbacks.speed();};
+   speed.enabled=true;refreshSpeed();save();callbacks.speed();};
   $('speedAddPoint').onclick=()=>{
    if(!opts.hasVideo()||opts.isRecording())return;
    const time=Number($('speedPointTime').value),rate=Number($('speedPointRate').value);
-   if(!Number.isFinite(time)||time<0||time>source.duration||
-    !Number.isFinite(rate)||rate<-10||rate>10)return;
-   const points=c.speed.points;
-   const existing=points.findIndex(x=>Math.abs(x.time-time)<.01);
-   if(existing>=0)points.splice(existing,1);
-   else if(points.length>=70)return;
-   points.push({id:'speed-'+Date.now().toString(36),time,rate});
-   points.sort((a,b)=>a.time-b.time);
-   speed.curveEnabled=true;speed.enabled=true;
-   $('speedEnabled').checked=true;$('speedCurveEnabled').checked=true;
-   renderSpeedPoints();save();callbacks.speed();
+   if(!Number.isFinite(time)||time<0||time>source.duration||!Number.isFinite(rate)||Math.abs(rate)<1||Math.abs(rate)>10)return;
+   speed.points=speed.points.filter(x=>Math.abs(x.time-time)>=.01);
+   if(speed.points.length>=70)return;
+   speed.points.push({id:'speed-'+Date.now().toString(36),time,rate});
+   speed.curveEnabled=true;speed.enabled=true;refreshSpeed();save();callbacks.speed();
   };
+  function xy(e){const r=graph.getBoundingClientRect();
+   return {x:clamp((e.clientX-r.left)/Math.max(1,r.width),0,1),
+    y:clamp((e.clientY-r.top)/Math.max(1,r.height),0,1)};}
+  graph.addEventListener('pointerdown',e=>{
+   if(!opts.hasVideo()||opts.isRecording()||e.button>0)return;
+   e.preventDefault();
+   const pos=xy(e),dur=Math.max(.01,Number(source.duration)||1);
+   const id=e.target.closest?.('.speedPointMarker')?.dataset.pointId;
+   let point=speed.points.find(p=>p.id===id)||
+    speed.points.find(p=>Math.hypot(p.time/dur-pos.x,speedGraphY(p.rate)/100-pos.y)<.055);
+   if(!point){if(speed.points.length>=70)return;
+    point={id:'speed-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6),
+     time:Math.round(pos.x*dur*100)/100,rate:speedValueForY(pos.y*100)};
+    speed.points.push(point);
+   }
+   draggingSpeedId=point.id;speed.enabled=true;speed.curveEnabled=true;
+   $('speedPointTime').value=String(point.time);$('speedPointRate').value=String(point.rate);
+   graph.setPointerCapture(e.pointerId);refreshSpeed();
+  });
+  graph.addEventListener('pointermove',e=>{
+   if(!draggingSpeedId||!graph.hasPointerCapture(e.pointerId))return;
+   const point=speed.points.find(p=>p.id===draggingSpeedId);if(!point)return;
+   const pos=xy(e),dur=Math.max(.01,Number(source.duration)||1);
+   point.time=Math.round(pos.x*dur*100)/100;point.rate=speedValueForY(pos.y*100);
+   $('speedPointTime').value=String(point.time);$('speedPointRate').value=String(point.rate);
+   renderSpeedPoints();
+  });
+  const finish=e=>{
+   if(!draggingSpeedId)return;
+   if(graph.hasPointerCapture(e.pointerId))graph.releasePointerCapture(e.pointerId);
+   draggingSpeedId=null;
+   speed.points.sort((a,b)=>a.time-b.time);
+   for(let i=speed.points.length-1;i>0;i--)if(Math.abs(speed.points[i].time-speed.points[i-1].time)<.01)speed.points.splice(i-1,1);
+   refreshSpeed();save();callbacks.speed();
+  };
+  graph.addEventListener('pointerup',finish);graph.addEventListener('pointercancel',finish);
   refreshSpeed();
  }
  function refreshSpeed(){
-  $('speedRateText').textContent=(c.speed.reverse?'−':'+')+Number(c.speed.rate).toFixed(1)+'×';
-  $('speedForward').classList.toggle('active',!c.speed.reverse);
-  $('speedReverse').classList.toggle('active',!!c.speed.reverse);
-  $('speedRate').value=String(c.speed.rate);
+  $('speedRateText').textContent=speedLabel(c.speed.rate);
+  $('speedForward').classList.toggle('active',c.speed.rate>=0);
+  $('speedReverse').classList.toggle('active',c.speed.rate<0);
+  $('speedReverseToggle').checked=!!c.speed.reverse;
+  $('speedRate').value=String(Math.abs(c.speed.rate));
   $('speedEnabled').checked=!!c.speed.enabled;
   $('speedCurveEnabled').checked=!!c.speed.curveEnabled;
+  $('speedStatus').textContent=c.speed.reverse?'Реверс работает как отдельный просмотр назад без звука; экспорт реверса пока недоступен.':
+   'Минус = замедление, плюс = ускорение. Нажми на график и перетаскивай точки. Верх = быстрее, низ = медленнее.';
   renderSpeedPoints();
  }
  function speedRate(time){
