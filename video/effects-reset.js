@@ -8,7 +8,7 @@ const FIELDS=[
  'vhsEnabled','filmEnabled','glitchEnabled','master','preset','mode',
  'modeStrength','eventDensity','glitchStrength','fxMode',
  'music','timelineEvents','timelineStrength','holdEvents','holdBalance',
- 'filmStrength','signal','glitches','audio','camera','filmDamage',
+ 'filmStrength','signal','glitches','audio','camera','filmDamage','keyframesEnabled','keyframes',
  'selectedCassetteId','mix'
 ];
 const CAMERA_FLAGS=['rec','play','battery','date','counter','zoom','modeInfo','focus','frame'];
@@ -24,6 +24,7 @@ function zero(state){
  state.master=0;state.preset='classic';state.mode='vhs';state.modeStrength=0;
  state.eventDensity=0;state.glitchStrength=0;state.fxMode='classic';
  state.timelineStrength=0;state.timelineEvents=[];state.holdEvents=[];state.holdBalance=50;
+ state.keyframesEnabled=false;state.keyframes=[];
  state.filmStrength=0;state.selectedCassetteId=null;
  for(const key of Object.keys(state.signal||{}))if(typeof state.signal[key]==='number')state.signal[key]=0;
  for(const key of Object.keys(state.glitches||{}))if(typeof state.glitches[key]==='number')state.glitches[key]=0;
