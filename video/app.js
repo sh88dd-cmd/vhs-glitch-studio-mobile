@@ -41,7 +41,7 @@
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
  let musicRequest=0,musicLoading=false,audioStudio=null,holdActive=null;
- let videoImportBusy=false,videoImportSerial=0,videoPickerPending=false,videoImportMode='gallery';
+ let videoImportBusy=false,videoImportCommitted=false,videoImportSerial=0,videoPickerPending=false;
  const holdPreviewProcessor=window.VHSVideoGlitchFX.createProcessor(),holdExportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
@@ -1255,7 +1255,7 @@
    candidate.forEach(clip=>URL.revokeObjectURL(clip.url));
    throw Error('Не удалось получить доступ к видео из галереи: '+e.message);
   }
-  videoImportBusy=true;
+  videoImportBusy=true;videoImportCommitted=false;
   importStatus('Файл передан из '+(origin==='files'?'«Файлов»':'галереи')+
    ': '+first.name+' · '+summary+'. Проверяю декодирование первого кадра…',false);
   textStatus('Открываю видео '+first.name+'…');
@@ -1268,7 +1268,7 @@
    if(request!==videoImportSerial)throw Error('Импорт был прерван новым выбором.');
    // Commit only after real first-frame decode. Keep previous Object URLs
    // until then: a failed Photos import must not destroy the old edit.
-   clips=candidate;clipIndex=0;file=first;sourceUrl=candidate[0].url;
+   clips=candidate;clipIndex=0;file=first;sourceUrl=candidate[0].url;videoImportCommitted=true;
    resetFrameHistory();seedHistory=[];$('undoGlitch').disabled=true;
    state.holdEvents=[];persist();
    source.loop=clips.length===1;
@@ -1314,11 +1314,11 @@
    updateClipNav();videoUI?.sync();
   }finally{
    source.preload='metadata';
-   videoImportBusy=false;
+   videoImportBusy=false;videoImportCommitted=false;
   }
  }
  function onLoaded(force=false){
-  if((videoImportBusy&&force!==true)||!source.videoWidth||!source.videoHeight)return;
+  if((videoImportBusy&&!videoImportCommitted&&force!==true)||!source.videoWidth||!source.videoHeight)return;
   const [w,h]=videoDimensions(520);
   source.loop=!recording&&clips.length===1;
   preview.width=w;preview.height=h;
@@ -1480,7 +1480,7 @@
    const input=$(id);
    input.addEventListener('click',()=>{
     if(recording||videoImportBusy)return;
-    videoPickerPending=true;videoImportMode=origin;
+    videoPickerPending=true;
     importStatus(origin==='files'?'Ожидаю файл из приложения «Файлы»…':
      'Ожидаю, пока iPhone передаст выбранное видео. Если оно в iCloud, подготовка может занять время…',false);
    });
