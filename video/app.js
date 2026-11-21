@@ -786,7 +786,7 @@
   $('filmLeakType').value=state.filmDamage.type;
   $('filmLeakType').onchange=()=>{
    state.filmDamage.type=$('filmLeakType').value;
-   if(!state.filmDamage.enabled&&Object.values(state.filmDamage).some(x=>typeof x==='number')===false){
+   if(!state.filmDamage.enabled&&['leak','dust','grain','scratches','flicker','halation'].every(k=>Number(state.filmDamage[k])===0)){
     state.filmDamage.leak=70;
     setControlByTitle($('filmDamageControls'),'Сила засветов',70);
    }
