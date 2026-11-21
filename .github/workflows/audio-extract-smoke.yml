@@ -3,11 +3,21 @@ on:
   push:
     paths:
       - 'video/audio-extract.js'
+      - 'video/film-damage.js'
+      - 'video/audio-engine.js'
+      - 'video/audio-studio.js'
+      - 'video/app.js'
+      - 'video/tests/studio-core-smoke.mjs'
       - 'video/tests/audio-extract-smoke.mjs'
       - '.github/workflows/audio-extract-smoke.yml'
   pull_request:
     paths:
       - 'video/audio-extract.js'
+      - 'video/film-damage.js'
+      - 'video/audio-engine.js'
+      - 'video/audio-studio.js'
+      - 'video/app.js'
+      - 'video/tests/studio-core-smoke.mjs'
       - 'video/tests/audio-extract-smoke.mjs'
   workflow_dispatch:
 permissions:
@@ -26,5 +36,9 @@ jobs:
           node --check video/audio-extract.js
           node --check video/audio-engine.js
           node --check video/app.js
+          node --check video/film-damage.js
+          node --check video/audio-studio.js
+      - name: Check studio audio mixing and analog film effects
+        run: node video/tests/studio-core-smoke.mjs
       - name: Test AAC extraction from real MP4 and MOV files
         run: node video/tests/audio-extract-smoke.mjs
