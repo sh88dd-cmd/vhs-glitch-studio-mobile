@@ -1,0 +1,30 @@
+name: iOS soundtrack extraction regression
+on:
+  push:
+    paths:
+      - 'video/audio-extract.js'
+      - 'video/tests/audio-extract-smoke.mjs'
+      - '.github/workflows/audio-extract-smoke.yml'
+  pull_request:
+    paths:
+      - 'video/audio-extract.js'
+      - 'video/tests/audio-extract-smoke.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-aac:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate syntax
+        run: |
+          node --check video/audio-extract.js
+          node --check video/audio-engine.js
+          node --check video/app.js
+      - name: Test AAC extraction from real MP4 and MOV files
+        run: node video/tests/audio-extract-smoke.mjs
