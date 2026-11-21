@@ -1531,7 +1531,7 @@
    const preset=state.preset==='damaged'?1.25:state.preset==='camcorder'?.75:1;
    window.VHSPhotoEngine.apply(signal.data,iw,ih,{
     master:clamp(frameState.master/100*preset*tape.level,0,1.4),seed,
-    signal:{...state.signal,noise:Math.min(100,state.signal.noise*tape.noise),tracking:Math.min(100,state.signal.tracking*tape.head),tapeSpeed:state.speed}
+    signal:{...frameState.signal,noise:Math.min(100,frameState.signal.noise*tape.noise),tracking:Math.min(100,frameState.signal.tracking*tape.head),tapeSpeed:state.speed}
    });
    ctx.putImageData(signal,0,0);
   }
@@ -1559,6 +1559,13 @@
    });
    ctx.putImageData(signal,0,0);
   }
+  // Independent aging overlay: visible in every mode and in saved video.
+  const age=window.VHSVideoCreative.agingAt(frameState.creative?.aging,time,source.duration||0);
+  if(!state.masterBypass&&age>.002){
+   const agedImage=ctx.getImageData(0,0,iw,ih);
+   window.VHSVideoCreative.damageTape(agedImage.data,iw,ih,age,time,clipSeed());
+   ctx.putImageData(agedImage,0,0);
+  }
   const output=canvas.getContext('2d');
   output.imageSmoothingEnabled=true;
   output.clearRect(0,0,canvas.width,canvas.height);
@@ -1573,7 +1580,7 @@
  function tick(now){
   creativeUI?.updateSpeed(now);
   loopId=requestAnimationFrame(tick);
-  if(!file||source.paused||source.ended)return;
+  if(!file||(source.paused&&!creativeUI?.isReverse())||source.ended)return;
   const fps=recording?Number(state.fps):12;
   if(now-lastDraw<1000/fps)return;
   lastDraw=now;
@@ -1870,11 +1877,30 @@
    try{source.currentTime=0;}catch(e){cleanup();reject(e);}
   });
  }
+ let beatAudioCache={file:null,buffer:null};
+ async function getVideoBeatAudio(){
+  const selected=file;
+  if(!selected)throw Error('Сначала выбери видео.');
+  if(beatAudioCache.file===selected&&beatAudioCache.buffer)return beatAudioCache.buffer;
+  await audioEngine.start();
+  let bytes;
+  if(/\\.(mp4|mov|m4v)$/i.test(selected.name||'')){
+   bytes=await window.VHSVideoAudioExtract.extract(selected);
+  }else{
+   if(selected.size>100*1024*1024)throw Error('Анализ этого формата ограничен 100 МБ; для больших роликов нужен MP4/MOV с AAC.');
+   bytes=await selected.arrayBuffer();
+  }
+  let buffer;
+  try{buffer=await audioEngine.ctx.decodeAudioData(bytes.slice(0));}
+  catch(e){throw Error('Не удалось декодировать звук видео. Поддерживается MP4/MOV с AAC; для других кодеков добавь отдельную дорожку.');}
+  if(buffer.length*buffer.numberOfChannels*4>250*1024*1024)throw Error('Звуковая дорожка слишком длинная для памяти устройства.');
+  if(file!==selected)throw Error('За время анализа видео сменилось — запусти снова.');
+  beatAudioCache={file:selected,buffer};return buffer;
+ }
  async function beginExport(){
   if(!file||recording)return;
-  if(state.creative.speed.enabled&&(
-     state.creative.speed.reverse||state.creative.speed.curveEnabled&&state.creative.speed.points.some(p=>Number(p.rate)<=0))){
-    exportStatus('Обратная скорость и переход через ноль пока доступны только в предпросмотре. Для экспорта реверса нужен отдельный покадровый кодировщик; исходный файл не изменён.');
+  if(state.creative.speed.enabled&&state.creative.speed.reverse){
+    exportStatus('Реверс пока доступен только в предпросмотре. Для экспорта назад необходим отдельный покадровый кодировщик.');
     return;
   }
   // If a single, entire clip has not been changed, return its real bytes.
@@ -2087,6 +2113,7 @@
    isRecording:()=>!!recording,
    getClip:()=>clipIndex,
    getAudioBuffer:()=>audioEngine.musicBuffer,
+   getOriginalAudioBuffer:()=>getVideoBeatAudio(),
    getCassettes:()=>[...builtInCassettes(),...state.cassettes],
    callbacks:{
     save:()=>persist(),
