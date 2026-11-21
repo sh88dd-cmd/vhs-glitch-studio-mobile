@@ -7,6 +7,27 @@
 const content=root.VHSVideoHelpContent,art=root.VHSVideoHelpIllustrations;
 const $=id=>document.getElementById(id);
 let mounted=false,scheduled=false,lastTrigger=null,frameImageUrl=null;
+const HELP_VISIBILITY_KEY='vhs.video.help-visible.v1';
+function setVisible(visible,save=true){
+ const enabled=!!visible;
+ document.body.classList.toggle('help-visible',enabled);
+ const toggle=$('toggleHelpIcons'),label=$('helpToggleText');
+ if(toggle){
+  toggle.setAttribute('aria-pressed',String(enabled));
+  toggle.setAttribute('aria-label',enabled?'Скрыть подсказки для всех функций':'Показать подсказки для всех функций');
+ }
+ if(label)label.textContent=enabled?'Скрыть подсказки':'Показать подсказки';
+ if(save)try{localStorage.setItem(HELP_VISIBILITY_KEY,enabled?'1':'0');}catch{}
+ // Keep the original interactive controls intact; just conceal their small ?
+ // companions. The help window itself never changes the editor settings.
+ if(!enabled&&$('videoHelpModal')?.open)close();
+}
+function loadVisibility(){
+ let saved='0';
+ try{saved=localStorage.getItem(HELP_VISIBILITY_KEY)||'0';}catch{}
+ setVisible(saved==='1',false);
+}
+
 const hide=id=>$(id).hidden=id==='helpAnimated';
 function iconFor(key,title,type){
  const btn=document.createElement('button');
@@ -179,7 +200,7 @@ function scan(){
  }
  // Catch any controls added by future editor versions: every slider, checkbox,
  // select, input, file picker, native button and details should still get ?.
- document.querySelectorAll('main button:not(.helpIcon),main a.button:not(.helpIcon),'+
+ document.querySelectorAll('main button:not(.helpIcon):not(#toggleHelpIcons),main a.button:not(.helpIcon),'+
   '#videoViewer button:not(.helpIcon),#monitorDock button:not(.helpIcon)')
   .forEach(node=>{
    if(node.dataset.helpDecorated==='yes'||node.closest('.helpButtonSlot,.helpField,.helpBlock'))return;
@@ -274,6 +295,10 @@ function mount(){
  if(mounted)return;mounted=true;
  const modal=$('videoHelpModal');
  if(!modal)throw Error('Help dialog missing from page.');
+ loadVisibility(); // New installs start with a clean, question-mark-free UI.
+ const switcher=$('toggleHelpIcons');
+ if(!switcher)throw Error('Footer help visibility toggle is missing.');
+ switcher.addEventListener('click',()=>setVisible(!document.body.classList.contains('help-visible')));
  $('helpClose').addEventListener('click',close);
  modal.addEventListener('click',e=>{if(e.target===modal)close();});
  modal.addEventListener('close',()=>{
@@ -290,5 +315,5 @@ function mount(){
  observer.observe(document.body,{childList:true,subtree:true});
  root.addEventListener('pageshow',schedule);
 }
-root.VHSVideoHelpUI=Object.freeze({mount,open,close,scan,resolve:content.resolve});
+root.VHSVideoHelpUI=Object.freeze({mount,open,close,scan,setVisible,resolve:content.resolve});
 })(window);
