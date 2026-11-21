@@ -1148,39 +1148,40 @@
  async function waitVideoReady(options={}){
   const timeoutMs=Number(options.timeoutMs)||12000;
   const subject=options.subject||'видео';
-  // Apple Photos sometimes provides metadata before the actual decoded frame.
-  // Do not claim success until the player has frame data (readyState >= 2).
-  if(source.readyState>=2&&source.videoWidth>0&&source.videoHeight>0)return;
-  await new Promise((resolve,reject)=>{
+  // Safari on iPhone may emit only loadedmetadata for a local blob URL until
+  // the user starts playback. Accept valid metadata, unlock Play, and decode
+  // the first actual frame when the user presses ▶.
+  const ready=()=>source.readyState>=1&&source.videoWidth>0&&source.videoHeight>0;
+  if(ready())return{hasFrame:source.readyState>=2};
+  return await new Promise((resolve,reject)=>{
    let settled=false;
    const remove=()=>{clearTimeout(timer);
-    for(const name of ['loadeddata','canplay','error','abort','emptied'])
+    for(const name of ['loadedmetadata','loadeddata','canplay','error','abort'])
      source.removeEventListener(name,events[name]);
    };
    function done(err){
     if(settled)return;settled=true;remove();
-    if(err)reject(err);else resolve();
+    if(err)reject(err);else resolve({hasFrame:source.readyState>=2});
    }
    const mediaMessage=()=>{
     const code=Number(source.error?.code)||0;
-    return code===4?'Формат или кодек видео не поддерживается Safari.':
-     code===3?'Safari не смог декодировать видео (кодек, повреждение файла или нехватка памяти).':
-     code===2?'Ошибка чтения видео. Проверь доступность файла.':
-     'Safari не смог прочитать видео.';
+    return code===4?'Safari не поддерживает формат или кодек этого видео.':
+     code===3?'Safari не смог декодировать видео (кодек, повреждение или память).':
+     code===2?'Не удалось прочитать видео. Проверь файл.':
+     'Safari не смог открыть файл видео.';
    };
    const events={
-    loadeddata:()=>{if(source.readyState>=2&&source.videoWidth>0)done();},
-    canplay:()=>{if(source.readyState>=2&&source.videoWidth>0)done();},
+    loadedmetadata:()=>{if(ready())done();},
+    loadeddata:()=>{if(ready())done();},
+    canplay:()=>{if(ready())done();},
     error:()=>done(Error(mediaMessage())),
-    abort:()=>done(Error('Чтение видео было прервано.')),
-    emptied:()=>{} // Expected while the media element switches to a candidate URL.
+    abort:()=>done(Error('Чтение видео было прервано.'))
    };
    for(const [name,callback] of Object.entries(events))source.addEventListener(name,callback);
-   const timer=setTimeout(()=>done(Error(
-    'Safari не получил первый кадр файла «'+subject+'» за '+Math.round(timeoutMs/1000)+
-    ' сек. Возможно, видео ещё загружается из iCloud, слишком тяжёлое или имеет неподдерживаемый кодек.'
-   )),timeoutMs);
-   if(source.readyState>=2&&source.videoWidth>0&&source.videoHeight>0)done();
+   const timer=setTimeout(()=>done(Error('Safari не получил данные файла «'+subject+
+    '» за '+Math.round(timeoutMs/1000)+
+    ' сек. Возможно, ролик из iCloud не был полностью передан или содержит неподдерживаемый кодек.')),timeoutMs);
+   if(ready())done();
   });
  }
  function importStatus(message,showHelp=false){
@@ -1263,7 +1264,7 @@
    source.preload='auto';
    source.src=candidate[0].url;
    source.load();
-   await waitVideoReady({timeoutMs:30000,subject:first.name});
+   const videoReady=await waitVideoReady({timeoutMs:18000,subject:first.name});
    if(request!==videoImportSerial)throw Error('Импорт был прерван новым выбором.');
    // Commit only after real first-frame decode. Keep previous Object URLs
    // until then: a failed Photos import must not destroy the old edit.
@@ -1279,7 +1280,9 @@
    updateClipNav();videoUI?.sync();renderTimeline();onLoaded(true);
    // Revoke old resources after successful commit; never touch candidate URLs.
    previous.clips.forEach(entry=>URL.revokeObjectURL(entry.url));
-   importStatus('Видео открыто: '+first.name+' · '+summary+'. '+(list.length>1?'Проверяю остальные клипы…':'Готово к просмотру.'),false);
+   importStatus('Видео принято: '+first.name+' · '+summary+'. '+
+    (!videoReady.hasFrame?'Нажми ▶: Safari подготовит первый кадр при воспроизведении.':
+    list.length>1?'Проверяю остальные клипы…':'Готово к просмотру.'),false);
    if(list.length>1){
     for(let j=1;j<clips.length;j++){
      clips[j].duration=await probeClipDuration(clips[j]);
@@ -1323,10 +1326,18 @@
   $('videoMeta').textContent=source.videoWidth+' × '+source.videoHeight+' · '+timeString(source.duration);
   updateClipNav();
   selectedTimelineId='';$('addTimelineEvent').textContent='＋ Добавить повреждение';renderTimeline();
-  $('play').disabled=!!recording;$('export').disabled=!!recording;$('regenerate').disabled=!!recording;$('seek').disabled=!!recording;
+  const frameReady=source.readyState>=2;
+  $('empty').hidden=frameReady;
+  if(!frameReady){
+   $('empty').querySelector('strong').textContent='ВИДЕО ПОЛУЧЕНО';
+   $('empty').querySelector('span').textContent='Нажми ▶ для загрузки первого кадра';
+  }
+  $('play').disabled=!!recording;$('export').disabled=!!recording||!frameReady;
+  $('regenerate').disabled=!!recording;$('seek').disabled=!!recording;
   $('timeTotal').textContent=timeString(source.duration);
   videoUI?.sync();syncHoldControls();
-  textStatus(clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
+  textStatus(!frameReady?'Файл распознан. Нажми ▶ для первого кадра (особенность Safari на iPhone).':
+   clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
   renderCurrentFrame();
  }
  async function togglePlay(){
@@ -1496,7 +1507,7 @@
   window.addEventListener('pageshow',e=>{if(e?.persisted)showMusicSelection();});
   $('prevClip').onclick=()=>{if(recording)return;selectClip(clipIndex-1,false).catch(e=>textStatus(e.message));};
   $('nextClip').onclick=()=>{if(recording)return;selectClip(clipIndex+1,false).catch(e=>textStatus(e.message));};
-  source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);
+  source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);source.addEventListener('canplay',onLoaded);
   source.addEventListener('seeked',redrawAfterSeek);source.addEventListener('timeupdate',updateTime);
   source.addEventListener('ended',()=>{
    if(clipHasNext()){
