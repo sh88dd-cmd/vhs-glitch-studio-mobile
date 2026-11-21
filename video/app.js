@@ -1268,8 +1268,10 @@
   if(!file||source.readyState<2||!source.videoWidth)return;
   // A zero-effects frame must never pass through the 192–240px VHS signal
   // buffer: that downsample was blurring the original even after "Reset all".
-  const holdVideo=holdStrengthsAt(source.currentTime||0,clipIndex).video;
-  const clean=!window.VHSVideoCleanPath.hasVisualEffects(state,holdVideo);
+  const atTime=source.currentTime||0;
+  const frameState=window.VHSVideoKeyframes.effective(state,clipIndex,atTime);
+  const holdVideo=holdStrengthsAt(atTime,clipIndex).video;
+  const clean=comparisonHeld&&canvas===preview||!window.VHSVideoCleanPath.hasVisualEffects(frameState,holdVideo);
   if(canvas===preview){
    const [width,height]=videoDimensions(clean?1920:520);
    if(canvas.width!==width)canvas.width=width;
@@ -1292,12 +1294,12 @@
   ctx.drawImage(source,(iw-tw)/2,(ih-th)/2,tw,th);
   const time=source.currentTime||0;
   const image=ctx.getImageData(0,0,iw,ih);
-  if(!state.masterBypass&&state.filmEnabled){
-   const f=selectedFilm(),strength=state.filmStrength/100;
+  if(!state.masterBypass&&frameState.filmEnabled){
+   const f=selectedFilm(),strength=frameState.filmStrength/100;
    if(f?.type==='builtin')window.VideoFilmCore.filmBuiltin(image.data,builtin[f.name],strength);
    else if(f?.fields)window.VideoFilmCore.filmXMP(image.data,f,strength);
   }
-  if(!state.masterBypass&&state.filmDamage.enabled)window.VHSVideoFilmDamage.apply(image.data,iw,ih,{...state.filmDamage,time:globalVideoTime(),seed:clipSeed()});
+  if(!state.masterBypass&&frameState.filmDamage.enabled)window.VHSVideoFilmDamage.apply(image.data,iw,ih,{...frameState.filmDamage,time:globalVideoTime(),seed:clipSeed()});
   ctx.putImageData(image,0,0);
   if(!state.masterBypass)drawOsd(ctx,iw,ih);
   const frameIndex=Math.floor(time*(Number(state.fps)||15));
@@ -1307,17 +1309,17 @@
    clipHasNext()&&Number.isFinite(source.duration)?clamp(1-(source.duration-time)/.30,0,1):0
   );
   const seed=(clipSeed()^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
-  if(!state.masterBypass&&state.fxMode==='classic'&&state.vhsEnabled&&state.master>0){
+  if(!state.masterBypass&&frameState.fxMode==='classic'&&frameState.vhsEnabled&&frameState.master>0){
    const signal=ctx.getImageData(0,0,iw,ih);
    const tape=window.VHSVideoGlitchFX.TAPES.find(t=>t.id===state.tape)||window.VHSVideoGlitchFX.TAPES[1];
    const preset=state.preset==='damaged'?1.25:state.preset==='camcorder'?.75:1;
    window.VHSPhotoEngine.apply(signal.data,iw,ih,{
-    master:clamp(state.master/100*preset*tape.level,0,1.4),seed,
+    master:clamp(frameState.master/100*preset*tape.level,0,1.4),seed,
     signal:{...state.signal,noise:Math.min(100,state.signal.noise*tape.noise),tracking:Math.min(100,state.signal.tracking*tape.head),tapeSpeed:state.speed}
    });
    ctx.putImageData(signal,0,0);
   }
-  if(!state.masterBypass&&(state.fxMode!=='classic'||state.glitchEnabled||state.mode!=='vhs')){
+  if(!state.masterBypass&&(frameState.fxMode!=='classic'||frameState.glitchEnabled||frameState.mode!=='vhs')){
    const signal=ctx.getImageData(0,0,iw,ih);
    const engine=forExport||recording?exportProcessor:previewProcessor;
    engine.apply(signal.data,iw,ih,{
@@ -1325,8 +1327,8 @@
     modeStrength:state.modeStrength,splicePulse:state.fxMode==='classic'?splicePulse:0,
     tape:state.tape,density:state.eventDensity,
     manualEffects:state.fxMode==='classic'?null:specialEffectsAt(time),
-    strength:state.fxMode==='classic'?(state.glitchEnabled?state.glitchStrength/100:0):1,
-    effects:state.fxMode==='classic'&&state.glitchEnabled?state.glitches:{}
+    strength:state.fxMode==='classic'?(frameState.glitchEnabled?frameState.glitchStrength/100:0):1,
+    effects:state.fxMode==='classic'&&frameState.glitchEnabled?state.glitches:{}
    });
    ctx.putImageData(signal,0,0);
   }
