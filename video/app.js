@@ -11,19 +11,21 @@
  const defaults={vhsEnabled:true,filmEnabled:false,glitchEnabled:true,preset:'classic',master:65,
   mode:'vhs',modeStrength:75,tape:'used',signalWidth:'auto',eventDensity:48,glitchStrength:85,
   fxMode:'classic',music:{bassEffect:'vhold',highEffect:'dropouts',sensitivity:60,threshold:25,strength:85,release:35},timelineEvents:[],timelineStrength:85,
-  mix:{videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true},
-  selectedTrack:null,
+  mix:{videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true,fadeIn:0,fadeOut:0},
+  selectedTrack:null,holdEvents:[],cassettes:[],selectedCassetteId:null,
+  filmDamage:{enabled:false,type:'edge-left',leak:70,dust:23,grain:30,scratches:22,flicker:23,halation:30},
   speed:'SP',filmId:'builtin:Нейтральный / без плёнки',filmStrength:85,
   signal:{chromaBleed:52,composite:35,edgeWave:38,tracking:54,noise:38,chromaLoss:15,ringing:19},
   glitches:glitchDefaults,
   audio:{enabled:false,mode:'linear',strength:65,hiss:48,wow:42,flutter:32,drop:32,saturation:28},
-  camera:{rec:false,play:false,battery:false,date:false,text:'PM 10:28 | JUN 16 1995',
-   positions:{rec:'left-top',play:'left-top',battery:'right-top',date:'right-bottom'},
-   sizes:{rec:125,play:125,battery:125,date:125},batteryLevel:'LOW'},
+  camera:{rec:false,play:false,battery:false,date:false,counter:false,zoom:false,modeInfo:false,focus:false,
+   text:'PM 10:28 | JUN 16 1995',clockStart:'1995-06-16T22:28:00',zoomValue:3,
+   positions:{rec:'left-top',play:'left-top',battery:'right-top',date:'right-bottom',counter:'left-bottom',zoom:'right-bottom',modeInfo:'right-top',focus:'left-bottom'},
+   sizes:{rec:125,play:125,battery:125,date:125,counter:105,zoom:105,modeInfo:105,focus:105},batteryLevel:'LOW'},
   size:'480',fps:15,exportScope:'30',keepAudio:true,seed:91823710};
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem('vhs.video.settings')||'null')}catch{}
- const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},mix:{...defaults.mix,...(saved?.mix||{})},selectedTrack:saved?.selectedTrack||null,timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
+ const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},mix:{...defaults.mix,...(saved?.mix||{})},selectedTrack:saved?.selectedTrack||null,holdEvents:(Array.isArray(saved?.holdEvents)?saved.holdEvents.slice(0,150):[]).filter(e=>e&&Number.isFinite(e.start)&&Number.isFinite(e.end)&&Number.isInteger(e.clip)),cassettes:(Array.isArray(saved?.cassettes)?saved.cassettes.slice(0,80):[]),filmDamage:{...defaults.filmDamage,...(saved?.filmDamage||{})},timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
  // Old network tracks cannot be restored: v0.6 supports only local files.
  if(state.selectedTrack&&!['file','video'].includes(state.selectedTrack.kind))state.selectedTrack=null;
  let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
@@ -38,7 +40,8 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
- let musicRequest=0,musicLoading=false;
+ let musicRequest=0,musicLoading=false,extraTracks=[],extraRequest=0,holdActive=null;
+ const holdPreviewProcessor=window.VHSVideoGlitchFX.createProcessor(),holdExportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
@@ -55,7 +58,7 @@
   input.addEventListener('input',()=>{count.textContent=input.value+'%';onInput(Number(input.value));persist();renderCurrentFrame();});
   wrap.append(head,input);parent.append(wrap);return input;}
  function CFinite(x,a,b){return Number.isFinite(x)?clamp(x,a,b):b;}
- function resetFrameHistory(){previewProcessor.reset();exportProcessor.reset();lastMusicState={bass:0,high:0};lastMusicTime=0;}
+ function resetFrameHistory(){previewProcessor.reset();exportProcessor.reset();holdPreviewProcessor.reset();holdExportProcessor.reset();lastMusicState={bass:0,high:0};lastMusicTime=0;}
  function tuneAdaptiveResolution(cost,exporting){
   if(state.signalWidth!=='auto')return;
   if(cost>110){slowFrames++;fastFrames=0;}
@@ -93,8 +96,8 @@
  function mountCameraControls(){
   const parent=$('cameraControls');parent.replaceChildren();
   const corners=[['left-top','Слева сверху'],['right-top','Справа сверху'],['left-bottom','Слева снизу'],['right-bottom','Справа снизу']];
-  const descriptions={rec:'REC / Запись',play:'PLAY / Воспроизведение',date:'Дата и время',battery:'Батарея'};
-  for(const key of ['rec','play','date','battery']){
+  const descriptions={rec:'REC / Запись',play:'PLAY / Воспроизведение',date:'Дата и время (секунды идут)',battery:'Батарея',counter:'Счётчик кассеты',zoom:'Индикатор ZOOM',modeInfo:'Режим SP / LP / EP',focus:'Индикатор автофокуса'};
+  for(const key of ['rec','play','date','battery','counter','zoom','modeInfo','focus']){
    const card=document.createElement('section');card.className='cameraCard';
    const header=document.createElement('div');header.className='cameraCardTitle';
    const title=document.createElement('strong');title.textContent=descriptions[key];
@@ -118,11 +121,24 @@
    size.addEventListener('change',()=>{state.camera.sizes[key]=Number(size.value);persist();renderCurrentFrame();});
    sizeLabel.append(size);options.append(sizeLabel);
    if(key==='date'){
-    const textLabel=document.createElement('label');textLabel.className='fullRow';textLabel.textContent='Надпись';
-    const input=document.createElement('input');input.type='text';input.id='dateText';input.maxLength=64;
-    input.value=state.camera.text;input.placeholder='PM 10:28 | JUN 16 1995';
-    input.addEventListener('input',()=>{state.camera.text=input.value;persist();renderCurrentFrame();});
-    textLabel.append(input);options.append(textLabel);
+    const clockLabel=document.createElement('label');clockLabel.className='fullRow';
+    clockLabel.textContent='Стартовые дата и время (с секундами)';
+    const input=document.createElement('input');input.type='datetime-local';input.step='1';input.id='cameraClockStart';
+    input.value=state.camera.clockStart||'1995-06-16T22:28:00';
+    input.addEventListener('change',()=>{
+     if(!Number.isFinite(new Date(input.value).getTime()))return;
+     state.camera.clockStart=input.value;persist();renderCurrentFrame();
+    });
+    clockLabel.append(input);options.append(clockLabel);
+    const hint=document.createElement('p');hint.className='hint fullRow';
+    hint.textContent='Часы идут от установленного времени по таймкоду видео и при экспорте сохраняют тот же отсчёт.';
+    options.append(hint);
+   }
+   if(key==='zoom'){
+    const z=document.createElement('label');z.className='fullRow';z.textContent='Число на индикаторе ZOOM (без цифрового увеличения)';
+    const input=document.createElement('input');input.type='number';input.min='1';input.max='20';input.step='.5';input.value=state.camera.zoomValue||3;
+    input.addEventListener('change',()=>{state.camera.zoomValue=clamp(Number(input.value)||1,1,20);persist();renderCurrentFrame();});
+    z.append(input);options.append(z);
    }
    if(key==='battery'){
     const levelLabel=document.createElement('label');levelLabel.className='fullRow';levelLabel.textContent='Уровень заряда';
@@ -606,9 +622,21 @@
    }
   }
   ctx.save();ctx.shadowColor='rgba(0,0,0,.7)';ctx.shadowBlur=Math.max(1,base*.004);
-  if(c.date)drawText('date',c.text,'#f5f5f5',.078);
+  const elapsed=Math.max(0,globalVideoTime());
+  const startClock=new Date(c.clockStart||'1995-06-16T22:28:00');
+  const now=new Date((Number.isFinite(startClock.getTime())?startClock.getTime():Date.UTC(1995,5,16,22,28))+Math.floor(elapsed)*1000);
+  const pad=n=>String(n).padStart(2,'0');
+  const dateText=pad(now.getDate())+'.'+pad(now.getMonth()+1)+'.'+now.getFullYear()+' '+pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds());
+  if(c.date)drawText('date',dateText,'#f5f5f5',.068);
+  if(c.counter){
+   const seconds=Math.floor(elapsed);
+   drawText('counter','TAPE '+pad(Math.floor(seconds/3600))+':'+pad(Math.floor(seconds/60)%60)+':'+pad(seconds%60),'#f5f5f5',.058);
+  }
+  if(c.zoom)drawText('zoom','ZOOM '+Number(c.zoomValue||3).toFixed(1)+'x','#f3f3f3',.067);
+  if(c.modeInfo)drawText('modeInfo',state.speed+' / TAPE','#f3f3f3',.064);
+  if(c.focus)drawText('focus',Math.floor(elapsed*1.2)%9===0?'AF ●':'AF','#d8e9d8',.065);
   if(c.play)drawText('play','PLAY','#f7f7f7',.07);
-  if(c.rec){
+  if(c.rec&&Math.floor(elapsed*2)%2===0){
    const sz=sizeOf('rec',.07);ctx.font='700 '+sz+'px ui-monospace, Menlo, monospace';
    const ww=ctx.measureText('REC').width+sz*.85,hh=sz*1.2,[x,y]=positionOf('rec',ww,hh);
    ctx.textBaseline='top';ctx.fillStyle='#ef5555';ctx.beginPath();
