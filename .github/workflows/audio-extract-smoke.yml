@@ -9,6 +9,7 @@ on:
       - 'video/app.js'
       - 'video/tests/studio-core-smoke.mjs'
       - 'video/tests/status-lights-smoke.mjs'
+      - 'video/tests/video-import-smoke.mjs'
       - 'video/tests/audio-extract-smoke.mjs'
       - '.github/workflows/audio-extract-smoke.yml'
   pull_request:
@@ -20,6 +21,7 @@ on:
       - 'video/app.js'
       - 'video/tests/studio-core-smoke.mjs'
       - 'video/tests/status-lights-smoke.mjs'
+      - 'video/tests/video-import-smoke.mjs'
       - 'video/tests/audio-extract-smoke.mjs'
   workflow_dispatch:
 permissions:
@@ -42,6 +44,8 @@ jobs:
           node --check video/audio-studio.js
       - name: Check active indicator LEDs and all-effects bypass
         run: node video/tests/status-lights-smoke.mjs
+      - name: Test Safari local video picker and metadata-only fallback
+        run: node video/tests/video-import-smoke.mjs
       - name: Check studio audio mixing and analog film effects
         run: node video/tests/studio-core-smoke.mjs
       - name: Test AAC extraction from real MP4 and MOV files
