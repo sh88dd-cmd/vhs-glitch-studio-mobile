@@ -600,7 +600,7 @@
   const sp=$('vhsControls').querySelector('select');if(sp)sp.value=state.speed;
  }
  function builtInCassettes(){
-  const base=cassetteSnapshot();
+  const base=Object.fromEntries(CASSETTE_FIELDS.map(k=>[k,JSON.parse(JSON.stringify(defaults[k]))]));
   const make=(id,name,patch)=>({id,name,builtin:true,settings:{...JSON.parse(JSON.stringify(base)),...patch}});
   return [
    make('builtin-home','ДОМАШНЯЯ VHS · 1997',{vhsEnabled:true,tape:'used',preset:'classic',master:57,
