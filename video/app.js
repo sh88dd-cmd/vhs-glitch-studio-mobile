@@ -8,7 +8,7 @@
  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
  const glitchMeta=window.VHSVideoGlitchFX.EFFECTS;
  const glitchDefaults=Object.fromEntries(glitchMeta.map(d=>[d.id,d.default]));
- const defaults={vhsEnabled:true,filmEnabled:false,glitchEnabled:true,preset:'classic',master:65,
+ const defaults={masterBypass:false,vhsEnabled:true,filmEnabled:false,glitchEnabled:true,preset:'classic',master:65,
   mode:'vhs',modeStrength:75,tape:'used',signalWidth:'auto',eventDensity:48,glitchStrength:85,
   fxMode:'classic',music:{bassEffect:'vhold',highEffect:'dropouts',sensitivity:60,threshold:25,strength:85,release:35},timelineEvents:[],timelineStrength:85,
   mix:{videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true,fadeIn:0,fadeOut:0},
@@ -45,23 +45,144 @@
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}syncSectionLights();}
+ function setIndicator(el,on){
+  if(!el)return;
+  const enabled=!!on;
+  el.classList.toggle('is-lit',enabled);
+  el.dataset.indicator=enabled?'on':'off';
+ }
  function syncSectionLights(){
+  const engaged=!state.masterBypass;
+  const hasMusic=!!audioEngine.musicBuffer,extras=audioStudio?.count()||0;
+  const hasTracks=hasMusic||extras>0;
+  const actualVhs=engaged&&state.fxMode==='classic'&&state.vhsEnabled&&state.master>0;
+  const actualMode=engaged&&state.fxMode==='classic'&&state.mode!=='vhs'&&state.modeStrength>0;
+  const actualGlitch=engaged&&state.fxMode==='classic'&&state.glitchEnabled&&state.glitchStrength>0;
+  const actualFilm=engaged&&state.filmEnabled&&state.filmStrength>0;
+  const actualDamage=engaged&&state.filmDamage.enabled&&
+   ['leak','dust','grain','scratches','flicker','halation'].some(k=>Number(state.filmDamage[k])>0);
+  const actualCamera=engaged&&['rec','play','battery','date','counter','zoom','modeInfo','focus'].some(k=>state.camera[k]);
+  const actualTape=engaged&&state.audio.enabled&&state.audio.strength>0;
+  const actualBeat=engaged&&state.fxMode==='music'&&state.music.strength>0;
+  const actualTimeline=engaged&&state.fxMode==='timeline';
+  const duration=audioEngine.getMusicDuration();
+  const actualTrim=engaged&&hasMusic&&(
+   Number(state.mix.musicOffset)>0.001||
+   (Number(state.mix.musicTrimEnd)>0&&Number(state.mix.musicTrimEnd)<duration-.01)||
+   Number(state.mix.musicStart)>0||Number(state.mix.fadeIn)>0||Number(state.mix.fadeOut)>0||
+   !state.mix.musicLoop
+  );
   const active={
-   vhs:!!state.vhsEnabled,glitch:!!state.glitchEnabled&&state.fxMode==='classic',
-   audio:!!(audioEngine.musicBuffer||(audioStudio?.count()||0)||state.audio.enabled||state.fxMode==='music'),
-   timeline:state.fxMode==='timeline',film:!!state.filmEnabled,
-   filmDamage:!!state.filmDamage.enabled,camera:['rec','play','battery','date','counter','zoom','modeInfo','focus'].some(k=>state.camera[k]),
-   cassettes:!!state.selectedCassetteId
+   vhs:actualVhs||actualMode,glitch:actualGlitch,
+   audio:(engaged&&(hasTracks||actualTape||actualBeat)),timeline:actualTimeline,
+   film:actualFilm,filmDamage:actualDamage,camera:actualCamera,
+   cassettes:engaged&&!!state.selectedCassetteId
   };
-  document.querySelectorAll('.tabs [data-tab]').forEach(b=>{
-   const lit=!!active[b.dataset.tab];b.classList.toggle('is-lit',lit);
-   b.setAttribute('data-lit',lit?'true':'false');
+  document.querySelectorAll('.tabs [data-tab]').forEach(el=>setIndicator(el,active[el.dataset.tab]));
+  const audioFlags={tracks:engaged&&hasTracks,trim:actualTrim,beat:actualBeat,tape:actualTape};
+  document.querySelectorAll('[data-audio-section]').forEach(el=>setIndicator(el,audioFlags[el.dataset.audioSection]));
+  for(const [id,on] of [['fxClassic',actualVhs||actualMode||actualGlitch],
+    ['fxMusic',actualBeat],['fxTimeline',actualTimeline],
+    ['musicActivate',actualBeat],['timelineActivate',actualTimeline],
+    ['holdGlitch',engaged&&!!holdActive],['holdClear',engaged&&state.holdEvents.length>0],
+    ['viewerHoldGlitch',engaged&&!!holdActive],['dockHoldGlitch',engaged&&!!holdActive],
+    ['cassetteSave',engaged&&!!$('cassetteName')?.value.trim()]])setIndicator($(id),on);
+  for(const group of ['vhsControls','modeStrengthControl','glitchControls','eventControls',
+    'filmControls','filmDamageControls','musicControls','timelineControls','audioControls','musicMixerControls']){
+   let gate=false;
+   if(group==='vhsControls')gate=actualVhs;
+   else if(group==='modeStrengthControl')gate=actualMode;
+   else if(group==='glitchControls'||group==='eventControls')gate=actualGlitch;
+   else if(group==='filmControls')gate=actualFilm;
+   else if(group==='filmDamageControls')gate=actualDamage;
+   else if(group==='musicControls')gate=actualBeat;
+   else if(group==='timelineControls')gate=actualTimeline;
+   else if(group==='audioControls')gate=actualTape;
+   const rows=$(group)?.querySelectorAll('.control')||[];
+   rows.forEach((row,index)=>{
+    const val=Number(row.querySelector('input[type=range]')?.value);
+    let rowEnabled=gate&&Number.isFinite(val)&&val>0;
+    if(group==='musicMixerControls'){
+     rowEnabled=engaged&&val>0&&(index===0||hasMusic);
+    }
+    setIndicator(row,rowEnabled);
+   });
+  }
+  $('glitchControls')?.querySelectorAll('details').forEach(group=>{
+   setIndicator(group,actualGlitch&&!!group.querySelector('.control.is-lit'));
   });
-  document.querySelectorAll('[data-audio-section]').forEach(b=>{
-   const key=b.dataset.audioSection,lit=key==='tracks'?!!(audioEngine.musicBuffer||extraTracks.length):
-    key==='beat'?state.fxMode==='music':key==='tape'?state.audio.enabled:false;
-   b.classList.toggle('is-lit',lit);
+  $('vhsControls')?.querySelectorAll('label').forEach(label=>{
+   setIndicator(label,actualVhs&&!!label.querySelector('select'));
   });
+  $('panel-timeline')?.querySelectorAll('.timelinePair label').forEach(label=>setIndicator(label,actualTimeline));
+  setIndicator($('timelineEffect')?.closest('label'),actualTimeline);
+  const trimStartChanged=engaged&&hasMusic&&Number(state.mix.musicOffset)>0.001;
+  const trimEndChanged=engaged&&hasMusic&&Number(state.mix.musicTrimEnd)>0&&Number(state.mix.musicTrimEnd)<duration-.01;
+  setIndicator($('musicTrimStartLabel')?.closest('.musicTrimHead'),trimStartChanged);
+  setIndicator($('musicTrimEndLabel')?.closest('.musicTrimHead'),trimEndChanged);
+
+  const switches={
+   vhsEnabled:actualVhs,glitchEnabled:actualGlitch,filmEnabled:actualFilm,
+   filmDamageEnabled:actualDamage,audioEnabled:actualTape,
+   musicLoop:engaged&&hasMusic&&state.mix.musicLoop,
+   keepAudio:engaged&&!!state.keepAudio
+  };
+  document.querySelectorAll('.switch').forEach(row=>{
+   const input=row.querySelector('input[type=checkbox]');
+   if(input)setIndicator(row,switches[input.id]??(engaged&&input.checked));
+  });
+  $('cameraControls')?.querySelectorAll('.cameraCard').forEach(card=>{
+   const on=engaged&&!!card.querySelector('.cameraCardTitle input[type=checkbox]')?.checked;
+   setIndicator(card,on);
+   card.querySelectorAll('.cameraCardOptions label').forEach(label=>setIndicator(label,on));
+  });
+  const selectors={
+   modeSelect:actualMode,vhsPreset:actualVhs,tapeKind:actualVhs,signalWidth:actualVhs,
+   filmSelect:actualFilm,filmLeakType:actualDamage,
+   bassEffect:actualBeat,highEffect:actualBeat,
+   audioMode:actualTape,outputSize:false,fps:false,exportScope:false,
+   musicVideoStart:engaged&&hasMusic&&state.mix.musicStart>0,
+   musicFadeIn:engaged&&hasMusic&&state.mix.fadeIn>0,
+   musicFadeOut:engaged&&hasMusic&&state.mix.fadeOut>0,
+   musicTrimStartInput:engaged&&hasMusic&&Number(state.mix.musicOffset)>0,
+   musicTrimEndInput:engaged&&hasMusic&&Number(state.mix.musicTrimEnd)<duration-.01
+  };
+  for(const [id,on] of Object.entries(selectors))setIndicator($(id)?.closest('label'),on);
+  setIndicator($('musicTrim'),actualTrim);
+  setIndicator($('musicSelection'),engaged&&hasMusic);
+  setIndicator($('musicWaveform'),engaged&&hasMusic);
+  setIndicator($('musicMixerControls'),engaged&&hasTracks);
+  setIndicator($('timelineTrack'),actualTimeline&&state.timelineEvents.some(e=>e.clip===clipIndex));
+  $('timelineEvents')?.querySelectorAll('.timelineEvent').forEach(e=>setIndicator(e,actualTimeline));
+  $('cassetteShelf')?.querySelectorAll('.cassetteCard').forEach(card=>setIndicator(card,engaged&&card.classList.contains('selected')));
+  $('extraTrackList')?.querySelectorAll('.extraAudioCard').forEach((card,i)=>{
+   const track=audioEngine.extraAudio[i],enabled=engaged&&!!track&&Number(track.volume)>0;
+   setIndicator(card,enabled);
+   card.querySelectorAll('.extraAudioFields label').forEach((label,index)=>{
+    const value=Number(label.querySelector('input')?.value);
+    let on=enabled&&value>0;
+    if(index===2)on=enabled&&!!track&&Number(track.trimEnd)<track.buffer.duration-.01;
+    setIndicator(label,on);
+   });
+   setIndicator(card.querySelector('.extraAudioLoop'),enabled&&!!card.querySelector('input[type=checkbox]')?.checked);
+  });
+  $('masterFxStatus').textContent=engaged?'Обработка включена':'Эффекты отключены · оригинал без обработки';
+  $('allEffectsLabel').textContent=engaged?'ВЫКЛЮЧИТЬ ВСЁ':'ВЕРНУТЬ ЭФФЕКТЫ';
+  $('allEffectsToggle').disabled=!!recording;
+  $('allEffectsToggle').setAttribute('aria-pressed',String(!engaged));
+  $('allEffectsToggle').classList.toggle('is-bypassed',!engaged);
+  document.body.classList.toggle('effects-bypassed',!engaged);
+ }
+ function toggleAllEffects(){
+  if(recording)return;
+  if(holdActive)finishHold();
+  state.masterBypass=!state.masterBypass;
+  resetFrameHistory();
+  syncModeUI();
+  syncAudio(!source.paused);
+  syncHoldControls();
+  persist();
+  renderCurrentFrame();
  }
  function showAudioSection(key='tracks'){
   document.querySelectorAll('[data-audio-section]').forEach(b=>b.classList.toggle('active',b.dataset.audioSection===key));
@@ -103,9 +224,9 @@
  function clipSeed(){return (state.seed^Math.imul(clipIndex+1,0x6c8e9cf5))>>>0;}
  function syncAudio(playing=!source.paused){
   const active=playing&&!!file&&!source.paused;
-  audioEngine.setMix(state.mix);
-  audioEngine.update({...state.audio,seed:clipSeed()},source.currentTime||0,active);
-  audioEngine.syncMusic(globalVideoTime(),active);
+  audioEngine.setMix(state.masterBypass?{...state.mix,videoVolume:100,musicVolume:0}:state.mix);
+  audioEngine.update({...state.audio,enabled:!state.masterBypass&&state.audio.enabled,seed:clipSeed()},source.currentTime||0,active);
+  audioEngine.syncMusic(globalVideoTime(),active&&!state.masterBypass);
 }
  function setSeed(value){state.seed=value>>>0;resetFrameHistory();$('undoGlitch').disabled=!seedHistory.length;persist();renderCurrentFrame();videoUI?.sync();}
  function regenerateSeed(){if(!file||recording)return;seedHistory.push(state.seed>>>0);if(seedHistory.length>50)seedHistory.shift();let next=randomSeed();if(next===state.seed)next=(next+1)>>>0;setSeed(next);}
@@ -118,7 +239,7 @@
   return 0;
  }
  function syncHoldControls(){
-  const usable=!!file&&!recording&&source.readyState>=2;
+  const usable=!!file&&!recording&&!state.masterBypass&&source.readyState>=2;
   for(const b of document.querySelectorAll('.holdGlitch')){
    b.disabled=!usable;b.classList.toggle('is-holding',!!holdActive);
    b.setAttribute('aria-pressed',holdActive?'true':'false');
@@ -127,7 +248,7 @@
   $('holdStatus').textContent=state.holdEvents.length+' записей';
  }
  function beginHold(){
-  if(!file||recording||holdActive||source.readyState<2)return;
+  if(!file||recording||state.masterBypass||holdActive||source.readyState<2)return;
   const time=Number(source.currentTime)||0;
   holdActive={clip:clipIndex,start:time,end:time};
   resetFrameHistory();syncHoldControls();renderCurrentFrame();
@@ -247,7 +368,7 @@
  function syncModeUI(){
   const labels={classic:'ОБЫЧНЫЙ VHS',music:'♫ В ТАКТ МУЗЫКЕ',timeline:'▤ РУЧНОЙ ТАЙМЛАЙН'};
   if(!(state.fxMode in labels))state.fxMode='classic';
-  $('activeFxMode').textContent=labels[state.fxMode];
+  $('activeFxMode').textContent=state.masterBypass?'ВСЁ ВЫКЛЮЧЕНО':labels[state.fxMode];
   for(const [id,mode,label] of [
    ['musicActivate','music','♫'],['timelineActivate','timeline','▤']
   ]){
@@ -657,6 +778,7 @@
    }
    card.append(face,footer);shelf.append(card);
   }
+  syncSectionLights();
  }
  function mountCassetteShelf(){
   $('cassetteSave').onclick=()=>{
@@ -922,14 +1044,14 @@
   ctx.drawImage(source,(iw-tw)/2,(ih-th)/2,tw,th);
   const time=source.currentTime||0;
   const image=ctx.getImageData(0,0,iw,ih);
-  if(state.filmEnabled){
+  if(!state.masterBypass&&state.filmEnabled){
    const f=selectedFilm(),strength=state.filmStrength/100;
    if(f?.type==='builtin')window.VideoFilmCore.filmBuiltin(image.data,builtin[f.name],strength);
    else if(f?.fields)window.VideoFilmCore.filmXMP(image.data,f,strength);
   }
-  if(state.filmDamage.enabled)window.VHSVideoFilmDamage.apply(image.data,iw,ih,{...state.filmDamage,time:globalVideoTime(),seed:clipSeed()});
+  if(!state.masterBypass&&state.filmDamage.enabled)window.VHSVideoFilmDamage.apply(image.data,iw,ih,{...state.filmDamage,time:globalVideoTime(),seed:clipSeed()});
   ctx.putImageData(image,0,0);
-  drawOsd(ctx,iw,ih);
+  if(!state.masterBypass)drawOsd(ctx,iw,ih);
   const frameIndex=Math.floor(time*(Number(state.fps)||15));
   // A mechanical tape splice is strongest at real clip joins.
   const splicePulse=Math.max(
@@ -937,7 +1059,7 @@
    clipHasNext()&&Number.isFinite(source.duration)?clamp(1-(source.duration-time)/.30,0,1):0
   );
   const seed=(clipSeed()^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
-  if(state.fxMode==='classic'&&state.vhsEnabled&&state.master>0){
+  if(!state.masterBypass&&state.fxMode==='classic'&&state.vhsEnabled&&state.master>0){
    const signal=ctx.getImageData(0,0,iw,ih);
    const tape=window.VHSVideoGlitchFX.TAPES.find(t=>t.id===state.tape)||window.VHSVideoGlitchFX.TAPES[1];
    const preset=state.preset==='damaged'?1.25:state.preset==='camcorder'?.75:1;
@@ -947,7 +1069,7 @@
    });
    ctx.putImageData(signal,0,0);
   }
-  if(state.fxMode!=='classic'||state.glitchEnabled||state.mode!=='vhs'){
+  if(!state.masterBypass&&(state.fxMode!=='classic'||state.glitchEnabled||state.mode!=='vhs')){
    const signal=ctx.getImageData(0,0,iw,ih);
    const engine=forExport||recording?exportProcessor:previewProcessor;
    engine.apply(signal.data,iw,ih,{
@@ -961,7 +1083,7 @@
    ctx.putImageData(signal,0,0);
   }
   const intensity=holdIntensityAt(time,clipIndex);
-  if(intensity>0){
+  if(!state.masterBypass&&intensity>0){
    const signal=ctx.getImageData(0,0,iw,ih);
    const engine=forExport||recording?holdExportProcessor:holdPreviewProcessor;
    engine.apply(signal.data,iw,ih,{
@@ -1192,7 +1314,7 @@
    const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:3_000_000});
    recording=rec;exportStopRequested=false;
    $('exportResult').hidden=true;$('export').disabled=true;$('cancel').hidden=false;$('progress').hidden=false;$('progress').value=0;
-   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();
+   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();syncSectionLights();
    rec.ondataavailable=e=>{if(e.data?.size)blobs.push(e.data)};
    rec.onerror=e=>{exportStatus('Ошибка записи: '+(e.error?.message||'неизвестная ошибка'));};
    rec.onstop=()=>{
@@ -1202,7 +1324,7 @@
     for(const tr of recordStream?.getVideoTracks()||[])tr.stop();
     recordStream=null;
     $('cancel').hidden=true;$('progress').hidden=true;$('export').disabled=false;
-    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();syncHoldControls();
+    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();syncHoldControls();syncSectionLights();
     finishExport(blobs,contentType);
     renderCurrentFrame();
    };
@@ -1228,6 +1350,16 @@
  function initEvents(){
   document.querySelectorAll('.tabs button').forEach(button=>button.addEventListener('click',()=>showMainTab(button.dataset.tab)));
   document.querySelectorAll('[data-audio-section]').forEach(button=>button.addEventListener('click',()=>showAudioSection(button.dataset.audioSection)));
+  $('allEffectsToggle').onclick=toggleAllEffects;
+  // Capturing delegates cover controls generated later (camera, imported audio, presets).
+  // Defer indicator repaint until the native input/change listeners have saved their state.
+  let lightFrame=0;
+  const scheduleLights=()=>{
+   if(lightFrame)return;
+   lightFrame=requestAnimationFrame(()=>{lightFrame=0;syncSectionLights();});
+  };
+  document.addEventListener('input',scheduleLights);
+  document.addEventListener('change',scheduleLights);
   mountHoldControls();
   $('videoInput').onchange=e=>{loadVideo(e.target.files).catch(err=>textStatus(err.message));e.target.value='';};
   window.addEventListener('pagehide',releaseOnLeave);
