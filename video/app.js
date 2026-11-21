@@ -26,6 +26,14 @@
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem('vhs.video.settings')||'null')}catch{}
  const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},mix:{...defaults.mix,...(saved?.mix||{})},selectedTrack:saved?.selectedTrack||null,holdEvents:(Array.isArray(saved?.holdEvents)?saved.holdEvents.slice(0,150):[]).filter(e=>e&&Number.isFinite(e.start)&&Number.isFinite(e.end)&&Number.isInteger(e.clip)).map(e=>({...e,blend:Number.isFinite(Number(e.blend))?clamp(Number(e.blend),0,100):0})),holdBalance:clamp(Number(saved?.holdBalance??50)||0,0,100),cassettes:(Array.isArray(saved?.cassettes)?saved.cassettes.slice(0,80):[]),filmDamage:{...defaults.filmDamage,...(saved?.filmDamage||{})},timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
+ // Remove the obsolete persistent bypass: new effects must remain usable.
+ state.masterBypass=false;
+ const LAST_FX_KEY='vhs.video.last-effects.v1';
+ let lastFxSnapshot=null;
+ try{
+  const item=JSON.parse(localStorage.getItem(LAST_FX_KEY)||'null');
+  if(item?.version===1&&item.settings&&typeof item.settings==='object')lastFxSnapshot=item;
+ }catch{}
  // Old network tracks cannot be restored: v0.6 supports only local files.
  if(state.selectedTrack&&!['file','video'].includes(state.selectedTrack.kind))state.selectedTrack=null;
  let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
@@ -167,23 +175,70 @@
    });
    setIndicator(card.querySelector('.extraAudioLoop'),enabled&&!!card.querySelector('input[type=checkbox]')?.checked);
   });
-  $('masterFxStatus').textContent=engaged?'Обработка включена':'Эффекты отключены · оригинал без обработки';
-  $('allEffectsLabel').textContent=engaged?'ВЫКЛЮЧИТЬ ВСЁ':'ВЕРНУТЬ ЭФФЕКТЫ';
+  $('masterFxStatus').textContent=lastFxSnapshot?
+   'Последние настройки сохранены · новые эффекты доступны':
+   'Все эффекты можно настраивать';
+  $('allEffectsLabel').textContent='ВЫКЛЮЧИТЬ ВСЁ';
   $('allEffectsToggle').disabled=!!recording;
-  $('allEffectsToggle').setAttribute('aria-pressed',String(!engaged));
-  $('allEffectsToggle').classList.toggle('is-bypassed',!engaged);
-  document.body.classList.toggle('effects-bypassed',!engaged);
+  $('allEffectsToggle').setAttribute('aria-pressed','false');
+  $('allEffectsToggle').classList.remove('is-bypassed');
+  $('restoreEffects').disabled=!!recording||!lastFxSnapshot;
+  document.body.classList.remove('effects-bypassed');
  }
- function toggleAllEffects(){
-  if(recording)return;
-  if(holdActive)finishHold();
-  state.masterBypass=!state.masterBypass;
+ function resyncAfterEffectReset(){
+  state.masterBypass=false;
+  selectedTimelineId='';
+  $('addTimelineEvent').textContent='＋ Добавить повреждение';
+  syncCassetteUI(); // Refreshes VHS, GLITCH, FILM, CAMERA, FILM DAMAGE and AUDIO.
+  setControlByTitle($('timelineControls'),'Сила выбранного события',state.timelineStrength);
+  setControlByTitle($('musicMixerControls'),'Громкость оригинального звука видео',state.mix.videoVolume);
+  setControlByTitle($('musicMixerControls'),'Громкость добавленной музыки',state.mix.musicVolume);
+  $('musicVideoStart').value=String(state.mix.musicStart);
+  $('musicFadeIn').value=String(state.mix.fadeIn);
+  $('musicFadeOut').value=String(state.mix.fadeOut);
+  $('musicLoop').checked=!!state.mix.musicLoop;
+  refreshMusicTrim();
+  renderTimeline();
+  renderCassetteShelf();
   resetFrameHistory();
-  syncModeUI();
+  audioEngine.setMix(state.mix);
   syncAudio(!source.paused);
   syncHoldControls();
-  persist();
+  syncSectionLights();
   renderCurrentFrame();
+ }
+ function resetAllEffects(){
+  if(recording)return;
+  if(holdActive)finishHold();
+  const utility=window.VHSVideoEffectsReset;
+  if(utility.isZero(state)&&(!audioStudio||audioStudio.isMuted())){
+   textStatus('Все эффекты уже равны 0%. Теперь настрой новые.');
+   return; // Never overwrite a useful backup with a second empty reset.
+  }
+  const previous={
+   version:1,created:Date.now(),settings:utility.snapshot(state),
+   tracks:audioStudio?.snapshotTracks()||[]
+  };
+  lastFxSnapshot=previous;
+  try{localStorage.setItem(LAST_FX_KEY,JSON.stringify(previous));}
+  catch(err){console.warn('Last effect settings could not be persisted',err);}
+  utility.zero(state);
+  audioStudio?.resetTrackSettings();
+  resyncAfterEffectReset();
+  persist();
+  textStatus('Эффекты обнулены. Можно создавать новую обработку. «Вернуть последние» восстановит прежние значения.');
+ }
+ function restoreLastEffects(){
+  if(recording||!lastFxSnapshot)return;
+  if(holdActive)finishHold();
+  const before=lastFxSnapshot;
+  if(!window.VHSVideoEffectsReset.restore(state,before.settings))return;
+  audioStudio?.restoreTrackSettings(before.tracks);
+  lastFxSnapshot=null;
+  try{localStorage.removeItem(LAST_FX_KEY);}catch{}
+  resyncAfterEffectReset();
+  persist();
+  textStatus('Последние настройки возвращены. Исходные видео, звуковые дорожки и кассеты сохранены.');
  }
  function showAudioSection(key='tracks'){
   document.querySelectorAll('[data-audio-section]').forEach(b=>b.classList.toggle('active',b.dataset.audioSection===key));
@@ -1503,7 +1558,8 @@
  function initEvents(){
   document.querySelectorAll('.tabs button').forEach(button=>button.addEventListener('click',()=>showMainTab(button.dataset.tab)));
   document.querySelectorAll('[data-audio-section]').forEach(button=>button.addEventListener('click',()=>showAudioSection(button.dataset.audioSection)));
-  $('allEffectsToggle').onclick=toggleAllEffects;
+  $('allEffectsToggle').onclick=resetAllEffects;
+  $('restoreEffects').onclick=restoreLastEffects;
   // Capturing delegates cover controls generated later (camera, imported audio, presets).
   // Defer indicator repaint until the native input/change listeners have saved their state.
   let lightFrame=0;
@@ -1602,7 +1658,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
