@@ -9,7 +9,7 @@ function create(opts){
  const {state,source,preview,callbacks}=opts;
  const c=state.creative;
  let tool='',drawing=null,tracked=[],trackedClip=-1,lastTrackTime=-1,prevGray=null;
- let faceDetector=null,faceBusy=false,faceLast=-1,autoBoxes=[];
+ let faceDetector=null,faceBusy=false,faceLast=-1,autoBoxes=[],autoClip=-1;
  let lastReverseFrame=0,reversePlaying=false;
  const overlay=$('touchOverlay');
  function save(){callbacks.save();callbacks.render();}
@@ -36,11 +36,20 @@ function create(opts){
   const active=!!tool&&!!opts.hasVideo()&&!opts.isRecording();
   overlay.hidden=!active;
   overlay.classList.toggle('is-drawing',active);
-  const w=preview.width||480,h=preview.height||270;
+  // The overlay is hidden during normal playback: never allocate/clear a
+  // full-resolution transparent canvas 12 times a second when unused.
+  if(!active)return;
+  const frame=preview.getBoundingClientRect(),host=overlay.parentElement.getBoundingClientRect();
+  overlay.style.left=Math.max(0,frame.left-host.left)+'px';
+  overlay.style.top=Math.max(0,frame.top-host.top)+'px';
+  overlay.style.width=frame.width+'px';
+  overlay.style.height=frame.height+'px';
+  // Coordinates track the visible video, including correct letterboxing.
+  const w=Math.max(2,Math.min(960,preview.width||480));
+  const h=Math.max(2,Math.round(w*(preview.height||270)/Math.max(1,preview.width||480)));
   if(overlay.width!==w)overlay.width=w;
   if(overlay.height!==h)overlay.height=h;
   const ctx=overlay.getContext('2d');ctx.clearRect(0,0,w,h);
-  if(!active)return;
   ctx.save();ctx.lineWidth=Math.max(1,w/260);ctx.strokeStyle='#f5b365';
   ctx.setLineDash([5,4]);
   if(drawing&&tool==='face'){
@@ -113,7 +122,7 @@ function create(opts){
   overlay.addEventListener('lostpointercapture',()=>{if(drawing)finishDrawing();});
  }
  function resetTracking(){
-  prevGray=null;tracked=[];trackedClip=-1;lastTrackTime=-1;autoBoxes=[];
+  prevGray=null;tracked=[];trackedClip=-1;lastTrackTime=-1;
  }
  async function initFaceDetector(){
   // Prefer the browser's optimized detector, but NEVER require it. Safari
@@ -128,7 +137,8 @@ function create(opts){
   const context=work.getContext('2d',{willReadFrequently:true});
   faceDetector={
    async detect(video){
-    const scale=Math.min(1,200/Math.max(video.videoWidth||1,video.videoHeight||1));
+    // Keep the blocking offline Haar scan small enough for mobile Safari.
+    const scale=Math.min(1,140/Math.max(video.videoWidth||1,video.videoHeight||1));
     const w=Math.max(64,Math.round(video.videoWidth*scale));
     const h=Math.max(48,Math.round(video.videoHeight*scale));
     work.width=w;work.height=h;
@@ -145,31 +155,38 @@ function create(opts){
   return true;
  }
  async function detectFace(){
-  if(!faceDetector||faceBusy||!opts.hasVideo()||source.readyState<2)return;
+  if(!faceDetector||faceBusy||!opts.hasVideo()||source.readyState<2)return 0;
   const t=Number(source.currentTime)||0;
-  if(t-faceLast<.48&&t>=faceLast)return;
+  if(t-faceLast<.48&&t>=faceLast)return autoBoxes.length;
   faceLast=t;faceBusy=true;
   try{
+   // Yield one paint so the button responds before synchronous Haar scanning.
+   await new Promise(resolve=>setTimeout(resolve,0));
    const found=await faceDetector.detect(source);
-   if(Math.abs(t-(Number(source.currentTime)||0))>.5)return;
+   if(Math.abs(t-(Number(source.currentTime)||0))>.5)return 0;
    const w=source.videoWidth,h=source.videoHeight;
    autoBoxes=(found||[]).slice(0,6).map(item=>{
     const r=item.boundingBox||item;
     return{x:clamp(r.x/w,0,1),y:clamp(r.y/h,0,1),
      w:clamp(r.width/w,.03,1),h:clamp(r.height/h,.03,1),start:t};
    });
+   autoClip=opts.getClip();
+   resetTracking();
    callbacks.render();
+   return autoBoxes.length;
   }catch(err){
    $('touchStatus').textContent='Автообнаружение лица недоступно для этого кадра: '+err.message+'; выдели лицо пальцем.';
+   return 0;
   }finally{faceBusy=false;}
  }
  function faceBoxes(ctx,time,clip){
   const cfg=c.touch;
   if(!cfg.facesEnabled)return[];
-  if(cfg.faceAutodetect&&faceDetector)detectFace();
+  // Detection is requested once by the user; repeated main-thread Haar scans
+  // while decoding video caused severe frame stalls on iPhone Safari.
   const manual=cfg.manualFaces.filter(face=>face.clip===clip&&time>=Number(face.start||0));
-  const auto=cfg.faceAutodetect&&faceDetector&&Math.abs(time-faceLast)<1.3?
-   autoBoxes.map((f,i)=>({...f,id:'auto-'+i,clip,start:time})):[];
+  const auto=cfg.faceAutodetect&&faceDetector&&autoClip===clip?
+   autoBoxes.map((f,i)=>({...f,id:'auto-'+i,clip,start:faceLast})):[];
   const anchors=[...manual,...auto].slice(-6);
   const clipChanged=trackedClip!==clip;
   if(clipChanged||time<lastTrackTime-.09||time-lastTrackTime>.8||tracked.length!==anchors.length||
@@ -498,11 +515,17 @@ function create(opts){
   $('faceEnabled').onchange=()=>{c.touch.facesEnabled=$('faceEnabled').checked;save();};
   $('faceStyle').value=c.touch.faceStyle;
   $('faceStyle').onchange=()=>{c.touch.faceStyle=$('faceStyle').value;save();};
-  $('faceAuto').onclick=()=>{
-   if(!faceDetector){pulse('Автоматический детектор недоступен в этом Safari. Нажми «Выделить лицо пальцем» — перемещение будет отслеживаться локально.');return;}
+  $('faceAuto').onclick=async()=>{
+   if(!faceDetector){pulse('Детектор недоступен. Выдели лицо пальцем — дальше маска будет отслеживаться локально.');return;}
+   if(faceBusy)return;
    c.touch.facesEnabled=true;c.touch.faceAutodetect=true;
-   $('faceEnabled').checked=true;faceLast=-1;detectFace();save();
-   pulse('Автоматическое обнаружение включено. Если лицо потеряется, выдели его пальцем.');
+   $('faceEnabled').checked=true;
+   autoBoxes=[];autoClip=-1;faceLast=-1;resetTracking();
+   pulse('Ищу лица на текущем кадре…');
+   const count=await detectFace();
+   save();
+   pulse(count?'Найдено лиц: '+count+'. Маски движутся вслед за лицами. Для другой сцены повтори поиск.':
+    'На текущем кадре лица не распознаны. Останови видео на чётком лице и повтори поиск или выдели лицо пальцем.');
   };
   $('faceMark').onclick=()=>{
    tool=tool==='face'?'':'face';$('faceMark').textContent=tool?'✓ Закончить выделение':'＋ Выделить лицо пальцем';
@@ -510,7 +533,7 @@ function create(opts){
    if(tool)window.scrollTo({top:0,behavior:'smooth'});
   };
   $('faceClear').onclick=()=>{
-   c.touch.manualFaces=[];c.touch.faceAutodetect=false;resetTracking();save();
+   c.touch.manualFaces=[];c.touch.faceAutodetect=false;autoBoxes=[];autoClip=-1;faceLast=-1;resetTracking();save();
    pulse('Все маски лиц убраны.');
   };
   startOverlay();initFaceDetector().then(ok=>{
@@ -522,7 +545,7 @@ function create(opts){
   const can=!!opts.hasVideo()&&!opts.isRecording();
   for(const id of ['touchStartDrawing','faceAuto','faceMark'])$(id).disabled=!can;
   if(!can&&tool){tool='';drawing=null;}
-  updateOverlay();
+  if(tool||!overlay.hidden)updateOverlay();
  }
  function refresh(){
   refreshSpeed();refreshAging();refreshCassettes();
