@@ -1338,6 +1338,8 @@
   videoUI?.sync();syncHoldControls();
   textStatus(!frameReady?'Файл распознан. Нажми ▶ для первого кадра (особенность Safari на iPhone).':
    clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
+  if(frameReady&&!videoImportBusy&&file)
+   importStatus('Видео готово: '+file.name+' · первый кадр доступен. Можно смотреть и обрабатывать.',false);
   renderCurrentFrame();
  }
  async function togglePlay(){
@@ -1532,7 +1534,13 @@
   });
   source.addEventListener('pause',()=>{$('play').textContent='▶ Просмотр';audioEngine.suspendNoise();audioEngine.stopMusic();});
   source.addEventListener('play',()=>{try{syncAudio(true)}catch(e){textStatus('Музыка: '+e.message);}});
-  source.addEventListener('error',()=>{textStatus('Safari не открыл этот видеоформат. Попробуй MP4 H.264 или экспортируй из «Фото» в совместимом формате.');$('export').disabled=true;});
+  source.addEventListener('error',()=>{
+   if(!videoImportBusy){
+    textStatus('Safari не смог декодировать выбранный ролик. Попробуй совместимый MP4 H.264 или другой экспорт видео.');
+    importStatus('Ошибка декодирования: '+(file?.name||'видео')+'. Если через «Файлы» тоже не открывается, проблема может быть в кодеке или повреждении файла.',true);
+   }
+   $('export').disabled=true;
+  });
   $('seek').oninput=()=>{if(recording||!source.duration)return;source.currentTime=Number($('seek').value)/1000*source.duration;};
   $('play').onclick=togglePlay;
   $('regenerate').onclick=regenerateSeed;
