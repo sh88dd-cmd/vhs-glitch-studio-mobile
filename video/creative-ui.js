@@ -388,22 +388,31 @@ function create(opts){
   $('autoBeatSensitivity').oninput=()=>{
    $('autoBeatSensitivityText').textContent=$('autoBeatSensitivity').value+'%';
   };
-  $('autoBeatGenerate').onclick=()=>{
+  $('autoBeatGenerate').onclick=async()=>{
    if(!opts.hasVideo()||opts.isRecording()){
     $('autoBeatStatus').textContent='Сначала загрузи видео и останови экспорт.';return;
    }
-   const buffer=opts.getAudioBuffer();
-   if(!buffer){
-    $('autoBeatStatus').textContent='Сначала добавь аудиофайл во вкладке «ТРЕКИ». Скрытых серверов и каталогов нет.';return;
-   }
-   const sensitivity=Number($('autoBeatSensitivity').value);
-   const effect=$('autoBeatEffect').value;
-   const events=E.beatEvents(buffer,{sensitivity,duration:Math.min(buffer.duration,source.duration||buffer.duration),clip:opts.getClip(),
-    limit:85,effect:effect==='mix'?'tapeChew':effect});
-   if(effect==='mix')events.forEach((ev,i)=>{ev.effect=['tapeChew','vhold','rf','colorBurst'][i%4];});
-   if(!events.length){$('autoBeatStatus').textContent='Чёткие удары не найдены. Попробуй другой фрагмент или чувствительность.';return;}
-   opts.onBeat(events);
-   $('autoBeatStatus').textContent='Найдено '+events.length+' ударов. События добавлены в «СЦЕНЫ», их можно редактировать или удалять.';
+   const btn=$('autoBeatGenerate');btn.disabled=true;
+   try{
+    const selected=$('autoBeatSource').value;
+    $('autoBeatStatus').textContent=selected==='video'?'Читаю звуковую дорожку исходного видео…':'Анализирую добавленную дорожку…';
+    const buffer=selected==='video'?await opts.getOriginalAudioBuffer():opts.getAudioBuffer();
+    if(!buffer){
+     $('autoBeatStatus').textContent='Добавь локальное аудио во вкладке «ТРЕКИ» или выбери «Звук из видео».';return;
+    }
+    if(opts.isRecording())return;
+    const sensitivity=Number($('autoBeatSensitivity').value),effect=$('autoBeatEffect').value;
+    const events=E.beatEvents(buffer,{
+     sensitivity,duration:Math.min(buffer.duration,source.duration||buffer.duration),
+     clip:opts.getClip(),limit:85,effect:effect==='mix'?'tapeChew':effect
+    });
+    if(effect==='mix')events.forEach((ev,i)=>{ev.effect=['tapeChew','vhold','rf','colorBurst'][i%4];});
+    if(!events.length){$('autoBeatStatus').textContent='Не найдены отчётливые удары. Попробуй другую чувствительность или фрагмент.';return;}
+    opts.onBeat(events);
+    $('autoBeatStatus').textContent='Найдено '+events.length+' ударов из '+(selected==='video'?'звука самого видео':'добавленной музыки')+'. События появились во вкладке «СЦЕНЫ».';
+   }catch(error){
+    $('autoBeatStatus').textContent='Не удалось проанализировать дорожку: '+(error?.message||String(error));
+   }finally{btn.disabled=false;}
   };
  }
  function mountLive(){
