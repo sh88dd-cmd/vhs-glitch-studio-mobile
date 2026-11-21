@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.6.1">
+<link rel="stylesheet" href="./styles.css?v=0.7.0">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.6.1 · ИСПРАВЛЕН ИМПОРТ ЗВУКА</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.7.0 · КАССЕТЫ И АУДИО</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -33,6 +33,7 @@
     <button id="play" class="button" disabled>▶ Просмотр</button>
     <div class="seedActions"><button id="undoGlitch" type="button" class="button seedUndo" disabled title="Предыдущий рисунок помех" aria-label="Вернуть предыдущие помехи">↶</button><button id="regenerate" class="button" disabled title="Новый рисунок помех">↻ Помехи</button></div>
   </div>
+  <div class="holdActionRow"><button id="holdGlitch" type="button" class="holdGlitch button" disabled>⚡ ЗАЖМИ — ИСПОРТИТЬ ЛЕНТУ</button><button id="holdClear" type="button" class="button" disabled>Очистить</button><span id="holdStatus" class="hint">0 записей</span></div>
   <div class="playlistRow"><span id="clipLabel" class="hint">Один видеоклип</span><button class="button mini" type="button" id="prevClip" disabled>← Клипы</button><button class="button mini" type="button" id="nextClip" disabled>След. →</button></div>
   <div class="seekRow"><span id="timeCurrent">00:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Позиция видео" disabled><span id="timeTotal">00:00</span></div>
   <p id="status" class="hint" role="status" aria-live="polite">Всё обрабатывается на устройстве. Выбирай одно видео или до 10 клипов подряд. Первую проверку лучше проводить на коротких роликах.</p>
@@ -66,12 +67,12 @@
 <nav class="tabs" aria-label="Разделы обработки">
   <button class="active" data-tab="vhs">VHS</button>
   <button data-tab="glitch">ГЛИТЧ</button>
-  <button data-tab="music">♫ БИТ</button>
-  <button data-tab="library">♫ ТРЕКИ</button>
   <button data-tab="timeline">▤ СЦЕНЫ</button>
   <button data-tab="film">FILM</button>
-  <button data-tab="audio">ЗВУК</button>
+  <button data-tab="filmDamage">ПЛЁНКА FX</button>
+  <button data-tab="audio">♫ АУДИО</button>
   <button data-tab="camera">КАМЕРА</button>
+  <button data-tab="cassettes">КАССЕТЫ</button>
   <button data-tab="export">ЭКСПОРТ</button>
 </nav>
 <section id="panel-vhs" class="panel active">
@@ -95,24 +96,23 @@
   <div id="glitchControls"></div>
   <p class="hint">Frame Echo, Pause и Datamosh используют историю кадров. Это браузерные имитации, а не прямое повреждение битового потока кодека. После перемотки история начинается заново.</p>
 </section>
-<section id="panel-music" class="panel">
-  <h2>♫ ПОМЕХИ В ТАКТ МУЗЫКЕ</h2>
-  <button type="button" id="musicActivate" class="button primary full" aria-pressed="false">♫ Включить только музыкальные помехи</button>
-  <p class="hint">Включи «♫ МУЗЫКА» выше: при наличии выбранной дорожки из раздела «♫ ТРЕКИ» эффекты реагируют именно на неё. Без добавленной музыки используется звук исходного видео. Случайные глитчи из вкладки ГЛИТЧ не добавляются.</p>
-  <div class="musicMeter"><span>БАС <strong id="bassLevel">0%</strong></span><progress id="bassMeter" max="100" value="0"></progress><span>ВЫСОКИЕ <strong id="highLevel">0%</strong></span><progress id="highMeter" max="100" value="0"></progress></div>
-  <label>На басах включать<select id="bassEffect"></select></label>
-  <label>На резких звуках включать<select id="highEffect"></select></label>
-  <div id="musicControls"></div>
-  <p class="hint" id="musicStatus">Нажми ▶, чтобы начать анализ музыки из видео. Звуковая дорожка не загружается на сервер.</p>
-</section>
-<section id="panel-library" class="panel">
-  <h2>♫ МУЗЫКА ИЗ ФАЙЛОВ</h2>
+<section id="panel-audio" class="panel">
+  <h2>АУДИО / МУЗЫКА И ЗВУК</h2>
+  <p class="hint">В одном месте — все аудиодорожки, обрезка, глитчи в ритм и VHS AUDIO. Внешнего музыкального каталога нет.</p>
+  <div class="audioSubtabs" role="group" aria-label="Инструменты аудио">
+    <button type="button" class="active" data-audio-section="tracks">♫ ТРЕКИ</button>
+    <button type="button" data-audio-section="trim">✂ ОБРЕЗКА</button>
+    <button type="button" data-audio-section="beat">♫ БИТ</button>
+    <button type="button" data-audio-section="tape">VHS ЗВУК</button>
+  </div>
+  <div id="audioArea-tracks" class="audioArea active">
+  <h2>ИМПОРТ АУДИО</h2>
   <p class="hint">Добавляй свою музыку или звук из видео на iPhone. Всё остаётся на устройстве: без поиска, ссылок, серверов и загрузки файлов в интернет.</p>
   <label class="button primary full">＋ Добавить аудиофайл<input id="musicFileInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac" hidden></label>
   <label class="button full">♫ Извлечь звук из видео<input id="musicVideoInput" type="file" accept="video/mp4,video/quicktime,.mp4,.mov,.m4v" hidden></label>
   <p class="hint">Из отдельного MP4/MOV со звуком AAC извлекается только аудиодорожка, без воспроизведения второго видео. Видеоряд в монтаж не добавляется. Максимальная длина около 5 минут для защиты памяти iPhone.</p>
   <div id="musicSelection" class="musicSelection" hidden>
-    <div class="musicSelectedTitle">ВЫБРАННАЯ ДОРОЖКА</div>
+    <div class="musicSelectedTitle">ОСНОВНАЯ ДОРОЖКА</div>
     <strong id="musicTitle">—</strong>
     <span id="musicArtist" class="hint">—</span>
     <p id="musicMemoryStatus" class="hint"></p>
@@ -120,7 +120,25 @@
       <button id="removeMusic" type="button" class="button">✕ Удалить дорожку</button>
     </div>
   </div>
-  <div id="musicTrim" class="musicTrim" hidden>
+
+    <div class="additionalTrackSection">
+      <h2>ДОПОЛНИТЕЛЬНЫЕ ДОРОЖКИ</h2>
+      <p class="hint">Добавь ещё две независимые дорожки — звук, музыку или запись из другого видео. Каждая регулируется отдельно; максимум три одновременно.</p>
+      <label class="button full">＋ Ещё аудиодорожка<input type="file" id="extraMusicFile" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg" hidden></label>
+      <label class="button full">＋ Звук из второго видео<input type="file" id="extraMusicVideo" accept=".mp4,.mov,.m4v,video/mp4,video/quicktime" hidden></label>
+      <div id="extraTrackList"></div>
+    </div>
+      <h2>ЗВУКОВОЙ МИКШЕР</h2>
+  <p class="hint">Громкость оригинального видео и добавленной дорожки настраиваются отдельно. VHS AUDIO обрабатывает их общую сумму и сохраняется при поддерживаемом экспорте.</p>
+  <div id="musicMixerControls"></div>
+
+      <p id="musicLoadStatus" class="hint" role="status" aria-live="polite">Дорожка не выбрана. Нажми «Добавить аудиофайл» или «Извлечь звук из видео».</p>
+
+  </div>
+  <div id="audioArea-trim" class="audioArea">
+    <div class="waveformHead"><h2>ОБРЕЗКА ОСНОВНОЙ ДОРОЖКИ</h2><span id="waveformInfo">—</span></div>
+    <canvas id="musicWaveform" width="500" height="98" aria-label="Волновая форма выбранной аудиодорожки"></canvas>
+      <div id="musicTrim" class="musicTrim" hidden>
     <h2>✂ ОБРЕЗКА АУДИО</h2>
     <p class="hint">Выбери начало и конец нужного отрывка. Обрезка не изменяет оригинальный файл; выбранный фрагмент используется при воспроизведении и экспорте видео.</p>
     <div class="musicTrimHead"><span>Начало фрагмента</span><strong id="musicTrimStartLabel">00:00</strong></div>
@@ -134,14 +152,38 @@
     <p id="musicTrimDuration" class="hint">Длительность выбранного отрывка: —</p>
     <button type="button" id="musicTrimReset" class="button full">↻ Восстановить полную длину</button>
   </div>
-  <h2>ЗВУКОВОЙ МИКШЕР</h2>
-  <p class="hint">Громкость оригинального видео и добавленной дорожки настраиваются отдельно. VHS AUDIO обрабатывает их общую сумму и сохраняется при поддерживаемом экспорте.</p>
-  <div id="musicMixerControls"></div>
-  <div class="musicTimes">
+
+    <div class="musicTrim">
+     <h2>ПЛАВНОСТЬ И ПОЛОЖЕНИЕ</h2>
+     <div class="musicTrimNumbers">
+       <label>Плавное появление, сек<input id="musicFadeIn" type="number" min="0" max="30" step=".1" value="0"></label>
+       <label>Плавное затухание, сек<input id="musicFadeOut" type="number" min="0" max="30" step=".1" value="0"></label>
+     </div>
+       <div class="musicTimes">
     <label>Начало музыки в видео, сек<input id="musicVideoStart" type="number" min="0" max="7200" step="0.1" value="0"></label>
   </div>
   <div class="switch"><span>Повторять выбранный отрывок</span><input id="musicLoop" type="checkbox" checked></div>
-  <p id="musicLoadStatus" class="hint" role="status" aria-live="polite">Дорожка не выбрана. Нажми «Добавить аудиофайл» или «Извлечь звук из видео».</p>
+
+    </div>
+    <p class="hint">Для дополнительных дорожек начало, конец, громкость и плавность настраиваются в «ТРЕКИ» у каждой отдельной карточки.</p>
+  </div>
+  <div id="audioArea-beat" class="audioArea">
+  <h2>♫ ПОМЕХИ В ТАКТ МУЗЫКЕ</h2>
+  <button type="button" id="musicActivate" class="button primary full" aria-pressed="false">♫ Включить только музыкальные помехи</button>
+  <p class="hint">Включи «♫ МУЗЫКА» выше: при наличии выбранной дорожки из раздела «АУДИО → ТРЕКИ» эффекты реагируют именно на неё. Без добавленной музыки используется звук исходного видео. Случайные глитчи из вкладки ГЛИТЧ не добавляются.</p>
+  <div class="musicMeter"><span>БАС <strong id="bassLevel">0%</strong></span><progress id="bassMeter" max="100" value="0"></progress><span>ВЫСОКИЕ <strong id="highLevel">0%</strong></span><progress id="highMeter" max="100" value="0"></progress></div>
+  <label>На басах включать<select id="bassEffect"></select></label>
+  <label>На резких звуках включать<select id="highEffect"></select></label>
+  <div id="musicControls"></div>
+  <p class="hint" id="musicStatus">Нажми ▶, чтобы начать анализ музыки из видео. Звуковая дорожка не загружается на сервер.</p>
+</div>
+  <div id="audioArea-tape" class="audioArea">
+  <h2>ЗВУК ВИДЕОКАССЕТЫ / VHS AUDIO DAMAGE</h2>
+  <div class="switch"><span>Повреждать звук</span><input type="checkbox" id="audioEnabled"></div>
+  <label>Тип звуковой дорожки<select id="audioMode"><option value="linear">VHS Linear / SP-LP-EP</option><option value="hifi">VHS Hi-Fi AFM</option></select></label>
+  <div id="audioControls"></div>
+  <p class="hint">Шипение, низкочастотная фильтрация, wow/flutter, провалы громкости и насыщение применяются к общей сумме звука видео и добавленной музыки. Громкость каждой дорожки регулируется в разделе «АУДИО → ТРЕКИ».</p>
+</div>
 </section>
 <section id="panel-timeline" class="panel">
   <h2>▤ ТАЙМЛАЙН ПОВРЕЖДЕНИЙ</h2>
@@ -174,12 +216,32 @@
     <p id="filmImportStatus" class="hint"></p>
   </details>
 </section>
-<section id="panel-audio" class="panel">
-  <h2>ЗВУК ВИДЕОКАССЕТЫ / VHS AUDIO DAMAGE</h2>
-  <div class="switch"><span>Повреждать звук</span><input type="checkbox" id="audioEnabled"></div>
-  <label>Тип звуковой дорожки<select id="audioMode"><option value="linear">VHS Linear / SP-LP-EP</option><option value="hifi">VHS Hi-Fi AFM</option></select></label>
-  <div id="audioControls"></div>
-  <p class="hint">Шипение, низкочастотная фильтрация, wow/flutter, провалы громкости и насыщение применяются к общей сумме звука видео и добавленной музыки. Громкость каждой дорожки регулируется в разделе «♫ ТРЕКИ».</p>
+<section id="panel-filmDamage" class="panel">
+  <h2>АНИМИРОВАННЫЕ ПОВРЕЖДЕНИЯ КИНОПЛЁНКИ</h2>
+  <div class="switch"><span>Включить FILM DAMAGE</span><input id="filmDamageEnabled" type="checkbox"></div>
+  <label>Характер засвета<select id="filmLeakType">
+    <option value="edge-left">Засвет у левого края</option>
+    <option value="edge-right">Засвет у правого края</option>
+    <option value="both">Засвет с двух краёв</option>
+    <option value="first">Засвет первого кадра</option>
+    <option value="random">Меняющиеся засветы</option>
+  </select></label>
+  <div id="filmDamageControls"></div>
+  <p class="hint">Засветы, пыль, царапины, мерцание экспозиции, зерно и гало — живые эффекты, привязанные ко времени видео. Оригинал не меняется.</p>
+</section>
+<section id="panel-cassettes" class="panel">
+  <h2>МОИ ВИДЕОКАССЕТЫ</h2>
+  <p class="hint">Каждая кассета сохраняет VHS, FILM, помехи, FILM DAMAGE, настройки камеры, VHS-звук и аудиореактивный режим. Музыкальные файлы в пресет не входят.</p>
+  <div class="cassetteSaveRow">
+    <input id="cassetteName" type="text" maxlength="44" placeholder="Название кассеты">
+    <button id="cassetteSave" type="button" class="button primary">＋ Сохранить</button>
+  </div>
+  <div class="cassetteTools">
+    <button id="cassetteExport" type="button" class="button">↓ Экспорт пресетов</button>
+    <label class="button">＋ Импорт JSON<input id="cassetteImport" type="file" accept=".json,application/json" hidden></label>
+  </div>
+  <p class="hint" id="cassetteStatus" role="status"></p>
+  <div id="cassetteShelf" class="cassetteShelf"></div>
 </section>
 <section id="panel-camera" class="panel">
   <h2>КАМЕРА / ПОЛОЖЕНИЕ ИНДИКАТОРОВ</h2>
@@ -204,7 +266,7 @@
     <button id="share" class="button full">Поделиться / Сохранить в «Фото»</button>
   </div>
 </section>
-<footer><span>VHS Video Lab · 0.5.3</span></footer>
+<footer><span>VHS Video Lab · 0.7.0</span></footer>
 </main>
 <dialog id="videoViewer" class="videoViewer" aria-label="Увеличенный видеопросмотр">
   <div class="viewerHead">
@@ -212,6 +274,7 @@
     <button id="closeViewer" type="button" aria-label="Закрыть увеличенный просмотр">✕</button>
   </div>
   <div class="viewerCanvasBox"><canvas id="viewerCanvas" width="480" height="270"></canvas></div>
+  <div class="viewerHold"><button id="viewerHoldGlitch" type="button" class="holdGlitch button" disabled>⚡ ЗАЖМИ — ПОМЕХИ</button></div>
   <div class="viewerControls">
     <div class="viewerSeekRow"><span id="viewerCurrent">00:00</span><input id="viewerSeek" type="range" min="0" max="1000" value="0" aria-label="Перемотка полноэкранного видео" disabled><span id="viewerTotal">00:00</span></div>
     <div class="viewerButtons">
@@ -227,10 +290,11 @@
 <script src="../ntsc-photo.js?v=1.1.3" defer></script>
 <script src="./film-core.js?v=0.1.0" defer></script>
 <script src="./glitch-engine.js?v=0.4.0" defer></script>
-<script src="./audio-engine.js?v=0.6.1" defer></script>
+<script src="./audio-engine.js?v=0.7.0" defer></script>
 <script src="./audio-extract.js?v=0.6.1" defer></script>
+<script src="./film-damage.js?v=0.7.0" defer></script>
 <script src="./special-modes.js?v=0.4.0" defer></script>
-<script src="./player-ui.js?v=0.3.1" defer></script>
-<script src="./app.js?v=0.6.1" defer></script>
+<script src="./player-ui.js?v=0.7.0" defer></script>
+<script src="./app.js?v=0.7.0" defer></script>
 </body>
 </html>
