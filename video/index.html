@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.7.10">
+<link rel="stylesheet" href="./styles.css?v=0.8.0">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.7.10 · ПЕРЕКЛЮЧАТЕЛЬ ПОДСКАЗОК</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.8.0 · ТВОРЧЕСКАЯ ЛАБОРАТОРИЯ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -32,6 +32,7 @@
   <div class="stageMeta"><strong id="videoName">Видеофайл не выбран</strong><span id="videoMeta">—</span></div>
   <div class="stageCanvas">
     <canvas id="preview" width="480" height="270"></canvas>
+    <canvas id="touchOverlay" width="480" height="270" aria-label="Рисование повреждений на видео" hidden></canvas>
     <button type="button" id="openViewer" class="stageExpand" aria-label="Увеличить видео на весь экран" title="Полный экран" disabled>⛶</button>
     <button type="button" id="compareMain" class="compareButton" disabled aria-label="Зажми для сравнения с исходным видео">◉ ДО / ПОСЛЕ</button>
     <div id="empty" class="empty"><strong>VHS / VIDEO</strong><span>Открой видео с iPhone</span></div>
@@ -102,6 +103,9 @@
   <button data-tab="audio">♫ АУДИО</button>
   <button data-tab="camera">КАМЕРА</button>
   <button data-tab="cassettes">КАССЕТЫ</button>
+  <button data-tab="touch">КОСАНИЯ</button>
+  <button data-tab="speed">СКОРОСТЬ</button>
+  <button data-tab="live">ЖИВЫЕ ПОМЕХИ</button>
   <button data-tab="export">ЭКСПОРТ</button>
 </nav>
 <section id="panel-vhs" class="panel active">
@@ -133,8 +137,20 @@
     <button type="button" data-audio-section="trim">✂ ОБРЕЗКА</button>
     <button type="button" data-audio-section="beat">♫ БИТ</button>
     <button type="button" data-audio-section="tape">VHS ЗВУК</button>
+    <button type="button" data-audio-section="devices">УСТРОЙСТВА</button>
   </div>
-  <div id="audioArea-tracks" class="audioArea active">
+  <div id="audioArea-devices" class="audioArea">
+ <h2>ЗВУК СТАРОЙ ТЕХНИКИ</h2>
+ <p class="hint">Пресеты реальных типов записи: не просто шум, а разные полосы частот, насыщение, задержки и выпадения. Действуют на звук видео и музыки.</p>
+ <label>Тип устройства<select id="audioDevice">
+  <option value="off">Чистый звук</option><option value="camcorder">Видеокамера 1995</option>
+  <option value="walkman">Кассетный плеер</option><option value="radio">AM-радио</option>
+  <option value="phone">Телефон 2000-х</option><option value="cctv">Камера наблюдения</option>
+  <option value="broken">Неисправный магнитофон</option>
+ </select></label>
+ <p id="audioDeviceStatus" class="hint">Выбери устройство для имитации его звукового характера.</p>
+ </div>
+ <div id="audioArea-tracks" class="audioArea active">
   <h2>ИМПОРТ АУДИО</h2>
   <p class="hint">Добавляй свою музыку или звук из видео на iPhone. Всё остаётся на устройстве: без поиска, ссылок, серверов и загрузки файлов в интернет.</p>
   <label class="button primary full">＋ Добавить аудиофайл<input id="musicFileInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac" hidden></label>
@@ -198,6 +214,14 @@
   </div>
   <div id="audioArea-beat" class="audioArea">
   <h2>♫ ПОМЕХИ В ТАКТ МУЗЫКЕ</h2>
+  <div class="creativeCard">
+   <h3>АВТОМОНТАЖ ПО УДАРАМ</h3>
+   <p class="hint">Анализирует локальную музыкальную дорожку, находит акценты и создаёт редактируемые помехи на таймлайне. Анализ не отправляется в интернет.</p>
+   <label>Чувствительность <strong id="autoBeatSensitivityText">55%</strong><input id="autoBeatSensitivity" type="range" min="0" max="100" value="55"></label>
+   <label>Какой эффект на ударе<select id="autoBeatEffect"><option value="tapeChew">Зажёвывание</option><option value="vhold">Вертикальный срыв</option><option value="rf">Эфирные помехи</option><option value="mix">Чередовать разные</option></select></label>
+   <button id="autoBeatGenerate" type="button" class="button primary full">♫ Расставить помехи под бит</button>
+   <p id="autoBeatStatus" class="hint">Сначала загрузи музыку во вкладке «ТРЕКИ».</p>
+  </div>
   <button type="button" id="musicActivate" class="button primary full" aria-pressed="false">♫ Включить только музыкальные помехи</button>
   <p class="hint">Включи «♫ МУЗЫКА» выше: при наличии выбранной дорожки из раздела «АУДИО → ТРЕКИ» эффекты реагируют именно на неё. Без добавленной музыки используется звук исходного видео. Случайные глитчи из вкладки ГЛИТЧ не добавляются.</p>
   <div class="musicMeter"><span>БАС <strong id="bassLevel">0%</strong></span><progress id="bassMeter" max="100" value="0"></progress><span>ВЫСОКИЕ <strong id="highLevel">0%</strong></span><progress id="highMeter" max="100" value="0"></progress></div>
@@ -281,6 +305,14 @@
   <label>Выбрать плёнку<select id="filmSelect"></select></label>
   <span id="filmCount" class="hint">Загружаю каталог…</span>
   <div id="filmControls"></div>
+  <div class="creativeCard">
+   <h3>КОПИРОВАТЬ ЦВЕТ С ФОТО</h3>
+   <p class="hint">Выбери локальное изображение как цветовой референс. Видео получит похожие оттенки и контраст, без интернет-сервисов и замены лиц.</p>
+   <label class="button full">▣ Выбрать фото-референс<input id="lookFile" type="file" accept="image/*" hidden></label>
+   <div class="switch"><span>Включить скопированную палитру</span><input id="lookEnabled" type="checkbox"></div>
+   <label>Сила цветового переноса <strong id="lookStrengthText">70%</strong><input id="lookStrength" type="range" min="0" max="100" value="70"></label>
+   <p id="lookStatus" class="hint">Референс не загружен.</p>
+  </div>
   <details class="importBox">
     <summary>＋ Подключить мои плёнки XMP</summary>
     <p class="hint">Попробую прочитать библиотеку фото-версии из этого же браузера. Если она недоступна — загрузи свою резервную копию .json или архив Lightroom .zip / .xmp. Импорт в видео не удаляет профили из фоторедактора.</p>
@@ -301,8 +333,73 @@
   <div id="filmDamageControls"></div>
   <p class="hint">Засветы, пыль, царапины, мерцание экспозиции, зерно и гало — живые эффекты, привязанные ко времени видео. Оригинал не меняется.</p>
 </section>
+<section id="panel-touch" class="panel">
+ <h2>КОСАНИЯ / ПОМЕХИ ПАЛЬЦЕМ И ЛИЦА</h2>
+ <p class="hint">Выбери режим, затем проводи пальцем прямо по основному видеокадру сверху. Эффект сохраняется по времени и попадает в экспорт.</p>
+ <div class="switch"><span>Включить нарисованные помехи</span><input id="touchEnabled" type="checkbox"></div>
+ <div class="creativeSubnav">
+  <button type="button" id="touchBrushTab" class="button active">РИСОВАНИЕ</button>
+  <button type="button" id="touchFaceTab" class="button">ЛИЦА</button>
+ </div>
+ <div id="touchBrushPage">
+  <label>Кисть<select id="touchBrush"><option value="pixel">Крупные пиксели</option><option value="blur">Размытие</option></select></label>
+  <label>Размер кисти <strong id="touchRadiusText">24</strong><input type="range" id="touchRadius" min="4" max="90" value="24"></label>
+  <label>Сила эффекта <strong id="touchStrengthText">85%</strong><input type="range" id="touchStrength" min="5" max="100" value="85"></label>
+  <label>Сколько секунд держится рисунок<input type="number" id="touchDuration" min=".2" max="120" value="3" step=".2"></label>
+  <button id="touchStartDrawing" type="button" class="button primary full" disabled>✎ Рисовать на видеокадре</button>
+  <button id="touchUndo" type="button" class="button full">↶ Убрать последнее касание</button>
+  <button id="touchClear" type="button" class="button full">✕ Очистить рисунки</button>
+ </div>
+ <div id="touchFacePage" hidden>
+  <div class="switch"><span>Обрабатывать лица</span><input id="faceEnabled" type="checkbox"></div>
+  <label>Стиль<select id="faceStyle"><option value="pixel">Пиксельное лицо</option><option value="blur">Мыльное лицо (размытие)</option></select></label>
+  <label>Размер пикселей <strong id="facePixelText">18</strong><input id="facePixelSize" type="range" min="5" max="70" value="18"></label>
+  <label>Сила размытия <strong id="faceBlurText">13</strong><input id="faceBlurSize" type="range" min="3" max="45" value="13"></label>
+  <button id="faceAuto" type="button" class="button full" disabled>◎ Найти лица автоматически</button>
+  <button id="faceMark" type="button" class="button primary full" disabled>＋ Выделить лицо пальцем</button>
+  <button id="faceClear" type="button" class="button full">✕ Убрать маски лиц</button>
+  <p class="hint">Маска двигается за выбранным лицом благодаря локальному сопоставлению соседних кадров. Автоопределение доступно лишь при поддержке FaceDetector браузером; для iPhone есть ручное выделение. При быстрых поворотах и выходе из кадра отслеживание может ошибаться.</p>
+ </div>
+ <p id="touchStatus" class="hint" role="status">Загрузи видео. Изображение не отправляется на сервер.</p>
+</section>
+<section id="panel-speed" class="panel">
+ <h2>СКОРОСТЬ / РЕВЕРС / КРИВАЯ ВРЕМЕНИ</h2>
+ <div class="switch"><span>Включить изменение скорости</span><input id="speedEnabled" type="checkbox"></div>
+ <div class="creativeSubnav"><button class="button active" id="speedForward" type="button">＋ ВПЕРЁД</button><button class="button" id="speedReverse" type="button">− НАЗАД</button></div>
+ <label>Скорость <strong id="speedRateText">+1.0×</strong><input id="speedRate" type="range" min="1" max="10" step=".1" value="1"></label>
+ <p class="hint">Значение 1.0× — исходная скорость, 10.0× — в десять раз быстрее. Режим «−» воспроизводит кадры в обратном направлении методом временных переходов.</p>
+ <div class="switch"><span>Кривая скорости на всём ролике</span><input id="speedCurveEnabled" type="checkbox"></div>
+ <div id="speedCurveGraph" class="speedCurveGraph" role="img" aria-label="Ключевые точки кривой скорости"></div>
+ <div class="creativePair">
+  <label>Время, сек<input id="speedPointTime" type="number" min="0" step=".1" value="0"></label>
+  <label>Скорость (−10…+10)<input id="speedPointRate" type="number" min="-10" max="10" step=".1" value="1"></label>
+ </div>
+ <button id="speedAddPoint" type="button" class="button primary full">＋ Точка скорости</button>
+ <div id="speedPointsList" class="creativeList"></div>
+ <p id="speedStatus" class="hint" role="status">Обычное ускорение воспроизводится браузером. Для обратного хода и сложной кривой используются переходы между кадрами; обратное аудио пока не поддерживается. Проверка экспорта отдельно.</p>
+</section>
+<section id="panel-live" class="panel">
+ <h2>ЖИВЫЕ ПОМЕХИ / ПУЛЬТ</h2>
+ <p class="hint">Воспроизводи видео и удерживай большую кнопку — длительность срыва записывается на таймлайн. Всё по-русски.</p>
+ <div class="livePads">
+  <button data-live-effect="tapeChew" type="button">ЗАЖЁВЫВАНИЕ</button>
+  <button data-live-effect="vhold" type="button">СРЫВ КАДРА</button>
+  <button data-live-effect="rf" type="button">ПОМЕХИ ЭФИРА</button>
+  <button data-live-effect="pause" type="button">ЗАСТЫВАНИЕ</button>
+  <button data-live-effect="rewind" type="button">ПЕРЕМОТКА</button>
+  <button data-live-effect="colorBurst" type="button">СБОЙ ЦВЕТА</button>
+ </div>
+ <p id="liveStatus" class="hint" role="status">Зажимай кнопки во время воспроизведения. Записанные события можно редактировать в «СЦЕНЫ».</p>
+ <h3>ПЕРЕТЕКАНИЕ МЕЖДУ КАССЕТАМИ</h3>
+ <label>Кассета A<select id="morphA"></select></label>
+ <label>Кассета Б<select id="morphB"></select></label>
+ <label>Плавное смешивание <strong id="morphValueText">0%</strong><input id="morphSlider" type="range" min="0" max="100" value="0"></label>
+ <p class="hint">Плавно меняются числовые настройки двух пресетов — вручную или во время просмотра. Исходные кассеты не перезаписываются.</p>
+</section>
 <section id="panel-cassettes" class="panel">
   <h2>МОИ ВИДЕОКАССЕТЫ</h2>
+  <div class="creativeSubnav"><button type="button" id="cassetteLibraryTab" class="button active">БИБЛИОТЕКА</button><button type="button" id="cassetteAgingTab" class="button">СТАРЕНИЕ ЛЕНТЫ</button></div>
+  <div id="cassetteLibraryPage">
   <p class="hint">Каждая кассета сохраняет VHS, FILM, помехи, FILM DAMAGE, настройки камеры, VHS-звук и аудиореактивный режим. Музыкальные файлы в пресет не входят.</p>
   <div class="cassetteSaveRow">
     <input id="cassetteName" type="text" maxlength="44" placeholder="Название кассеты">
@@ -315,6 +412,16 @@
   <button id="cassetteDeselect" class="button cassetteDeselect" type="button" disabled>✕ Снять кассету</button>
   <p class="hint" id="cassetteStatus" role="status">Выбери кассету. Повторное нажатие снимет её и восстановит предыдущую обработку.</p>
   <div id="cassetteShelf" class="cassetteShelf"></div>
+  </div>
+  <div id="cassetteAgingPage" hidden>
+   <h3>КАССЕТА СТАРЕЕТ В ТЕЧЕНИЕ ВИДЕО</h3>
+   <div class="switch"><span>Включить старение ленты</span><input id="agingEnabled" type="checkbox"></div>
+   <label>Сила разрушения <strong id="agingAmountText">85%</strong><input id="agingAmount" type="range" min="0" max="100" value="85"></label>
+   <label>Начало старения (% ролика)<input id="agingStart" type="range" min="0" max="95" value="0"></label>
+   <label>Полное старение (% ролика)<input id="agingEnd" type="range" min="5" max="100" value="100"></label>
+   <p class="hint">От начала к концу постепенно усиливаются VHS-шум, потеря цвета, трекинг, мерцание и шипение. Настраивается отдельно от выбранной кассеты.</p>
+   <p id="agingStatus" class="hint">Эффект выключен.</p>
+  </div>
 </section>
 <section id="panel-camera" class="panel">
   <h2>КАМЕРА / ПОЛОЖЕНИЕ ИНДИКАТОРОВ</h2>
@@ -342,7 +449,7 @@
   </div>
 </section>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.7.10</span>
+  <span>VHS Video Lab · 0.8.0</span>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
     <span class="helpToggleMark" aria-hidden="true">?</span>
@@ -409,6 +516,8 @@
 <script src="./help-content.js?v=0.7.9" defer></script>
 <script src="./help-illustrations.js?v=0.7.9" defer></script>
 <script src="./help-ui.js?v=0.7.10" defer></script>
-<script src="./app.js?v=0.7.9" defer></script>
+<script src="./creative-engine.js?v=0.8.0" defer></script>
+<script src="./creative-ui.js?v=0.8.0" defer></script>
+<script src="./app.js?v=0.8.0" defer></script>
 </body>
 </html>
