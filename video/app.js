@@ -214,9 +214,9 @@
  function clipSeed(){return (state.seed^Math.imul(clipIndex+1,0x6c8e9cf5))>>>0;}
  function syncAudio(playing=!source.paused){
   const active=playing&&!!file&&!source.paused;
-  audioEngine.setMix(state.mix);
-  audioEngine.update({...state.audio,seed:clipSeed()},source.currentTime||0,active);
-  audioEngine.syncMusic(globalVideoTime(),active);
+  audioEngine.setMix(state.masterBypass?{...state.mix,videoVolume:100,musicVolume:0}:state.mix);
+  audioEngine.update({...state.audio,enabled:!state.masterBypass&&state.audio.enabled,seed:clipSeed()},source.currentTime||0,active);
+  audioEngine.syncMusic(globalVideoTime(),active&&!state.masterBypass);
 }
  function setSeed(value){state.seed=value>>>0;resetFrameHistory();$('undoGlitch').disabled=!seedHistory.length;persist();renderCurrentFrame();videoUI?.sync();}
  function regenerateSeed(){if(!file||recording)return;seedHistory.push(state.seed>>>0);if(seedHistory.length>50)seedHistory.shift();let next=randomSeed();if(next===state.seed)next=(next+1)>>>0;setSeed(next);}
@@ -229,7 +229,7 @@
   return 0;
  }
  function syncHoldControls(){
-  const usable=!!file&&!recording&&source.readyState>=2;
+  const usable=!!file&&!recording&&!state.masterBypass&&source.readyState>=2;
   for(const b of document.querySelectorAll('.holdGlitch')){
    b.disabled=!usable;b.classList.toggle('is-holding',!!holdActive);
    b.setAttribute('aria-pressed',holdActive?'true':'false');
@@ -238,7 +238,7 @@
   $('holdStatus').textContent=state.holdEvents.length+' записей';
  }
  function beginHold(){
-  if(!file||recording||holdActive||source.readyState<2)return;
+  if(!file||recording||state.masterBypass||holdActive||source.readyState<2)return;
   const time=Number(source.currentTime)||0;
   holdActive={clip:clipIndex,start:time,end:time};
   resetFrameHistory();syncHoldControls();renderCurrentFrame();
@@ -358,7 +358,7 @@
  function syncModeUI(){
   const labels={classic:'ОБЫЧНЫЙ VHS',music:'♫ В ТАКТ МУЗЫКЕ',timeline:'▤ РУЧНОЙ ТАЙМЛАЙН'};
   if(!(state.fxMode in labels))state.fxMode='classic';
-  $('activeFxMode').textContent=labels[state.fxMode];
+  $('activeFxMode').textContent=state.masterBypass?'ВСЁ ВЫКЛЮЧЕНО':labels[state.fxMode];
   for(const [id,mode,label] of [
    ['musicActivate','music','♫'],['timelineActivate','timeline','▤']
   ]){
@@ -1033,14 +1033,14 @@
   ctx.drawImage(source,(iw-tw)/2,(ih-th)/2,tw,th);
   const time=source.currentTime||0;
   const image=ctx.getImageData(0,0,iw,ih);
-  if(state.filmEnabled){
+  if(!state.masterBypass&&state.filmEnabled){
    const f=selectedFilm(),strength=state.filmStrength/100;
    if(f?.type==='builtin')window.VideoFilmCore.filmBuiltin(image.data,builtin[f.name],strength);
    else if(f?.fields)window.VideoFilmCore.filmXMP(image.data,f,strength);
   }
-  if(state.filmDamage.enabled)window.VHSVideoFilmDamage.apply(image.data,iw,ih,{...state.filmDamage,time:globalVideoTime(),seed:clipSeed()});
+  if(!state.masterBypass&&state.filmDamage.enabled)window.VHSVideoFilmDamage.apply(image.data,iw,ih,{...state.filmDamage,time:globalVideoTime(),seed:clipSeed()});
   ctx.putImageData(image,0,0);
-  drawOsd(ctx,iw,ih);
+  if(!state.masterBypass)drawOsd(ctx,iw,ih);
   const frameIndex=Math.floor(time*(Number(state.fps)||15));
   // A mechanical tape splice is strongest at real clip joins.
   const splicePulse=Math.max(
@@ -1048,7 +1048,7 @@
    clipHasNext()&&Number.isFinite(source.duration)?clamp(1-(source.duration-time)/.30,0,1):0
   );
   const seed=(clipSeed()^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
-  if(state.fxMode==='classic'&&state.vhsEnabled&&state.master>0){
+  if(!state.masterBypass&&state.fxMode==='classic'&&state.vhsEnabled&&state.master>0){
    const signal=ctx.getImageData(0,0,iw,ih);
    const tape=window.VHSVideoGlitchFX.TAPES.find(t=>t.id===state.tape)||window.VHSVideoGlitchFX.TAPES[1];
    const preset=state.preset==='damaged'?1.25:state.preset==='camcorder'?.75:1;
@@ -1058,7 +1058,7 @@
    });
    ctx.putImageData(signal,0,0);
   }
-  if(state.fxMode!=='classic'||state.glitchEnabled||state.mode!=='vhs'){
+  if(!state.masterBypass&&(state.fxMode!=='classic'||state.glitchEnabled||state.mode!=='vhs')){
    const signal=ctx.getImageData(0,0,iw,ih);
    const engine=forExport||recording?exportProcessor:previewProcessor;
    engine.apply(signal.data,iw,ih,{
@@ -1072,7 +1072,7 @@
    ctx.putImageData(signal,0,0);
   }
   const intensity=holdIntensityAt(time,clipIndex);
-  if(intensity>0){
+  if(!state.masterBypass&&intensity>0){
    const signal=ctx.getImageData(0,0,iw,ih);
    const engine=forExport||recording?holdExportProcessor:holdPreviewProcessor;
    engine.apply(signal.data,iw,ih,{
@@ -1303,7 +1303,7 @@
    const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:3_000_000});
    recording=rec;exportStopRequested=false;
    $('exportResult').hidden=true;$('export').disabled=true;$('cancel').hidden=false;$('progress').hidden=false;$('progress').value=0;
-   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();
+   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();syncSectionLights();
    rec.ondataavailable=e=>{if(e.data?.size)blobs.push(e.data)};
    rec.onerror=e=>{exportStatus('Ошибка записи: '+(e.error?.message||'неизвестная ошибка'));};
    rec.onstop=()=>{
@@ -1313,7 +1313,7 @@
     for(const tr of recordStream?.getVideoTracks()||[])tr.stop();
     recordStream=null;
     $('cancel').hidden=true;$('progress').hidden=true;$('export').disabled=false;
-    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();syncHoldControls();
+    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();syncHoldControls();syncSectionLights();
     finishExport(blobs,contentType);
     renderCurrentFrame();
    };
@@ -1339,6 +1339,16 @@
  function initEvents(){
   document.querySelectorAll('.tabs button').forEach(button=>button.addEventListener('click',()=>showMainTab(button.dataset.tab)));
   document.querySelectorAll('[data-audio-section]').forEach(button=>button.addEventListener('click',()=>showAudioSection(button.dataset.audioSection)));
+  $('allEffectsToggle').onclick=toggleAllEffects;
+  // Capturing delegates cover controls generated later (camera, imported audio, presets).
+  // Defer indicator repaint until the native input/change listeners have saved their state.
+  let lightFrame=0;
+  const scheduleLights=()=>{
+   if(lightFrame)return;
+   lightFrame=requestAnimationFrame(()=>{lightFrame=0;syncSectionLights();});
+  };
+  document.addEventListener('input',scheduleLights);
+  document.addEventListener('change',scheduleLights);
   mountHoldControls();
   $('videoInput').onchange=e=>{loadVideo(e.target.files).catch(err=>textStatus(err.message));e.target.value='';};
   window.addEventListener('pagehide',releaseOnLeave);
