@@ -44,7 +44,34 @@
  const holdPreviewProcessor=window.VHSVideoGlitchFX.createProcessor(),holdExportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
- function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
+ function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}syncSectionLights();}
+ function syncSectionLights(){
+  const active={
+   vhs:!!state.vhsEnabled,glitch:!!state.glitchEnabled&&state.fxMode==='classic',
+   audio:!!(audioEngine.musicBuffer||extraTracks.length||state.audio.enabled||state.fxMode==='music'),
+   timeline:state.fxMode==='timeline',film:!!state.filmEnabled,
+   filmDamage:!!state.filmDamage.enabled,camera:['rec','play','battery','date','counter','zoom','modeInfo','focus'].some(k=>state.camera[k]),
+   cassettes:!!state.selectedCassetteId
+  };
+  document.querySelectorAll('.tabs [data-tab]').forEach(b=>{
+   const lit=!!active[b.dataset.tab];b.classList.toggle('is-lit',lit);
+   b.setAttribute('data-lit',lit?'true':'false');
+  });
+  document.querySelectorAll('[data-audio-section]').forEach(b=>{
+   const key=b.dataset.audioSection,lit=key==='tracks'?!!(audioEngine.musicBuffer||extraTracks.length):
+    key==='beat'?state.fxMode==='music':key==='tape'?state.audio.enabled:false;
+   b.classList.toggle('is-lit',lit);
+  });
+ }
+ function showAudioSection(key='tracks'){
+  document.querySelectorAll('[data-audio-section]').forEach(b=>b.classList.toggle('active',b.dataset.audioSection===key));
+  document.querySelectorAll('.audioArea').forEach(p=>p.classList.toggle('active',p.id==='audioArea-'+key));
+ }
+ function showMainTab(key){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===key));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+key));
+ }
+
  function textStatus(s){$('status').textContent=s;}
  function exportStatus(s){$('exportStatus').textContent=s;}
  function randomSeed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
@@ -83,6 +110,56 @@
  function setSeed(value){state.seed=value>>>0;resetFrameHistory();$('undoGlitch').disabled=!seedHistory.length;persist();renderCurrentFrame();videoUI?.sync();}
  function regenerateSeed(){if(!file||recording)return;seedHistory.push(state.seed>>>0);if(seedHistory.length>50)seedHistory.shift();let next=randomSeed();if(next===state.seed)next=(next+1)>>>0;setSeed(next);}
  function undoSeed(){if(!file||recording||!seedHistory.length)return;setSeed(seedHistory.pop());}
+ function holdIntensityAt(time,index){
+  for(const event of state.holdEvents){
+   if(event.clip===index&&time>=event.start&&time<event.end)return .94;
+  }
+  if(holdActive&&holdActive.clip===index&&time>=holdActive.start)return 1;
+  return 0;
+ }
+ function syncHoldControls(){
+  const usable=!!file&&!recording&&source.readyState>=2;
+  for(const b of document.querySelectorAll('.holdGlitch')){
+   b.disabled=!usable;b.classList.toggle('is-holding',!!holdActive);
+   b.setAttribute('aria-pressed',holdActive?'true':'false');
+  }
+  $('holdClear').disabled=!state.holdEvents.length||!!recording;
+  $('holdStatus').textContent=state.holdEvents.length+' записей';
+ }
+ function beginHold(){
+  if(!file||recording||holdActive||source.readyState<2)return;
+  const time=Number(source.currentTime)||0;
+  holdActive={clip:clipIndex,start:time,end:time};
+  resetFrameHistory();syncHoldControls();renderCurrentFrame();
+ }
+ function finishHold(){
+  if(!holdActive)return;
+  const event=holdActive;holdActive=null;
+  const duration=Number(source.duration)||0;
+  event.end=clamp(Math.max(event.start+.12,Number(source.currentTime)||0),event.start+.1,Math.max(event.start+.12,duration));
+  state.holdEvents.push(event);
+  if(state.holdEvents.length>120)state.holdEvents.shift();
+  persist();resetFrameHistory();syncHoldControls();renderCurrentFrame();
+ }
+ function mountHoldControls(){
+  for(const button of document.querySelectorAll('.holdGlitch')){
+   button.addEventListener('pointerdown',e=>{
+    if(button.disabled)return;e.preventDefault();
+    try{button.setPointerCapture(e.pointerId)}catch{}
+    beginHold();
+   });
+   button.addEventListener('pointerup',e=>{e.preventDefault();finishHold();});
+   button.addEventListener('pointercancel',finishHold);
+   button.addEventListener('lostpointercapture',finishHold);
+   button.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();beginHold();}});
+   button.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();finishHold();}});
+  }
+  window.addEventListener('blur',finishHold);
+  $('holdClear').onclick=()=>{
+   if(recording)return;finishHold();state.holdEvents=[];persist();syncHoldControls();resetFrameHistory();renderCurrentFrame();
+  };
+  syncHoldControls();
+ }
  function mountGlitchControls(){
   const groups={analogue:{label:'АНАЛОГОВЫЕ СБОИ',open:true},temporal:{label:'ВРЕМЕННЫЕ / МЕЖКАДРОВЫЕ',open:true},digital:{label:'ЦИФРОВЫЕ ПОВРЕЖДЕНИЯ',open:false}};
   const parent=$('glitchControls');parent.replaceChildren();
@@ -172,9 +249,8 @@
   state.fxMode=mode;
   resetFrameHistory();syncModeUI();persist();renderCurrentFrame();
   if(mode!=='classic'){
-   const tab=mode==='music'?'music':'timeline';
-   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));
+   showMainTab(mode==='music'?'audio':'timeline');
+   if(mode==='music')showAudioSection('beat');
   }
  }
  function buildModeControls(){
@@ -665,15 +741,17 @@
   const tw=Math.max(1,source.videoWidth*scale),th=Math.max(1,source.videoHeight*scale);
   ctx.fillStyle='#050707';ctx.fillRect(0,0,iw,ih);
   ctx.drawImage(source,(iw-tw)/2,(ih-th)/2,tw,th);
+  const time=source.currentTime||0;
   const image=ctx.getImageData(0,0,iw,ih);
   if(state.filmEnabled){
    const f=selectedFilm(),strength=state.filmStrength/100;
    if(f?.type==='builtin')window.VideoFilmCore.filmBuiltin(image.data,builtin[f.name],strength);
    else if(f?.fields)window.VideoFilmCore.filmXMP(image.data,f,strength);
   }
+  if(state.filmDamage.enabled)window.VHSVideoFilmDamage.apply(image.data,iw,ih,{...state.filmDamage,time:globalVideoTime(),seed:clipSeed()});
   ctx.putImageData(image,0,0);
   drawOsd(ctx,iw,ih);
-  const time=source.currentTime||0,frameIndex=Math.floor(time*(Number(state.fps)||15));
+  const frameIndex=Math.floor(time*(Number(state.fps)||15));
   // A mechanical tape splice is strongest at real clip joins.
   const splicePulse=Math.max(
    clipIndex>0?clamp(1-time/.33,0,1):0,
@@ -700,6 +778,17 @@
     manualEffects:state.fxMode==='classic'?null:specialEffectsAt(time),
     strength:state.fxMode==='classic'?(state.glitchEnabled?state.glitchStrength/100:0):1,
     effects:state.fxMode==='classic'&&state.glitchEnabled?state.glitches:{}
+   });
+   ctx.putImageData(signal,0,0);
+  }
+  const intensity=holdIntensityAt(time,clipIndex);
+  if(intensity>0){
+   const signal=ctx.getImageData(0,0,iw,ih);
+   const engine=forExport||recording?holdExportProcessor:holdPreviewProcessor;
+   engine.apply(signal.data,iw,ih,{
+    time,seed:clipSeed(),mode:'vhs',tape:state.tape,strength:1,density:0,
+    manualEffects:{tapeChew:intensity,vhold:intensity*.77,dropouts:intensity*.85,
+     colorBurst:intensity*.77,rf:intensity*.8,headClog:intensity*.45}
    });
    ctx.putImageData(signal,0,0);
   }
@@ -817,6 +906,7 @@
    clips[j].duration=await probeClipDuration(clips[j]);
   }
   updateClipNav();
+  state.holdEvents=[];syncHoldControls();persist();
   textStatus('Готово к просмотру: '+clips.length+' клип(ов). Выбери VHS, FILM или ГЛИТЧ.');
  }
  function onLoaded(){
@@ -830,7 +920,7 @@
   selectedTimelineId='';$('addTimelineEvent').textContent='＋ Добавить повреждение';renderTimeline();
   $('play').disabled=!!recording;$('export').disabled=!!recording;$('regenerate').disabled=!!recording;$('seek').disabled=!!recording;
   $('timeTotal').textContent=timeString(source.duration);
-  videoUI?.sync();
+  videoUI?.sync();syncHoldControls();
   textStatus(clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
   renderCurrentFrame();
  }
@@ -923,7 +1013,7 @@
    const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:3_000_000});
    recording=rec;exportStopRequested=false;
    $('exportResult').hidden=true;$('export').disabled=true;$('cancel').hidden=false;$('progress').hidden=false;$('progress').value=0;
-   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();
+   $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();
    rec.ondataavailable=e=>{if(e.data?.size)blobs.push(e.data)};
    rec.onerror=e=>{exportStatus('Ошибка записи: '+(e.error?.message||'неизвестная ошибка'));};
    rec.onstop=()=>{
@@ -933,7 +1023,7 @@
     for(const tr of recordStream?.getVideoTracks()||[])tr.stop();
     recordStream=null;
     $('cancel').hidden=true;$('progress').hidden=true;$('export').disabled=false;
-    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();
+    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();syncHoldControls();
     finishExport(blobs,contentType);
     renderCurrentFrame();
    };
@@ -957,10 +1047,9 @@
   }catch(e){if(e.name!=='AbortError')exportStatus('Не удалось поделиться: '+e.message);}
  }
  function initEvents(){
-  document.querySelectorAll('.tabs button').forEach(button=>button.addEventListener('click',()=>{
-   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b===button));
-   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+button.dataset.tab));
-  }));
+  document.querySelectorAll('.tabs button').forEach(button=>button.addEventListener('click',()=>showMainTab(button.dataset.tab)));
+  document.querySelectorAll('[data-audio-section]').forEach(button=>button.addEventListener('click',()=>showAudioSection(button.dataset.audioSection)));
+  mountHoldControls();
   $('videoInput').onchange=e=>{loadVideo(e.target.files).catch(err=>textStatus(err.message));e.target.value='';};
   window.addEventListener('pagehide',releaseOnLeave);
   window.addEventListener('pageshow',e=>{if(e?.persisted)showMusicSelection();});
@@ -1017,7 +1106,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
@@ -1029,6 +1118,7 @@
    'Автоматически обнаружены '+fromPhoto.length+' XMP-профилей из фото-версии в этом браузере.':
    'Локальная XMP-библиотека фото-версии пока недоступна. Можно импортировать ZIP либо резервную копию.';
   loopId=requestAnimationFrame(tick);
+  syncSectionLights();syncHoldControls();
   if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(console.warn);
  }
  init().catch(e=>{textStatus('Ошибка запуска: '+e.message);console.error(e);});
