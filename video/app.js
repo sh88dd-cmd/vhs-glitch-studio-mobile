@@ -680,7 +680,7 @@
  }
  function syncFrameTools(){
   const ready=!!file&&!recording&&source.readyState>=2;
-  for(const id of ['frameBack','frameForward','frameSavePng'])$(id).disabled=!ready;
+  for(const id of ['frameBack','frameForward','frameSavePng'])$(id).disabled=!ready||framePngBusy;
   $('frameTimeExact').textContent=frameTimestamp(source.currentTime||0);
  }
  function stepFrame(direction){
@@ -695,9 +695,11 @@
   $('frameToolStatus').textContent='Переход к '+frameTimestamp(target)+'. На iPhone Safari показывает ближайший декодируемый кадр.';
   syncFrameTools();
  }
- let framePngUrl='';
+ let framePngUrl='',framePngBusy=false;
  async function saveFramePng(){
-  if(!file||recording||source.readyState<2)return;
+  if(!file||recording||source.readyState<2||framePngBusy)return;
+  framePngBusy=true;source.pause();
+  const capturedAt=Number(source.currentTime)||0;
   $('frameSavePng').disabled=true;
   try{
    const [w,h]=videoDimensions(1920);
@@ -717,13 +719,13 @@
    framePngUrl=URL.createObjectURL(png);
    const name=(file.name||'video').replace(/\.[^.]+$/,'').slice(0,50);
    const link=$('framePngDownload');link.href=framePngUrl;
-   link.download=name+'_frame_'+(source.currentTime||0).toFixed(3).replace('.','-')+'.png';
+   link.download=name+'_frame_'+capturedAt.toFixed(3).replace('.','-')+'.png';
    link.hidden=false;
    $('frameToolStatus').textContent='PNG готов: '+w+' × '+h+' пикс. Нажми «Скачать созданный PNG» для сохранения в iPhone.';
    // Safari can block an automatic download after an async toBlob; leave the
    // visible link for a second direct user tap.
   }catch(err){$('frameToolStatus').textContent='PNG не создан: '+err.message;}
-  finally{syncFrameTools();}
+  finally{framePngBusy=false;syncFrameTools();renderCurrentFrame();}
  }
  function mountFrameTools(){
   $('frameBack').onclick=()=>stepFrame(-1);
