@@ -252,3 +252,65 @@ body.dock-visible .specialModeBar{scroll-margin-top:calc(var(--dock-height,280px
 .musicTrimNumbers input{width:100%;background:#292929;color:#fff;border:1px solid #626262;border-radius:8px;padding:10px;margin:6px 0 10px;font-size:14px}
 .musicTrimNumbers label{min-width:0}
 #musicVideoSource{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
+
+/* 0.7.0: Unified audio hub, active-section pilot lights, cassette shelf. */
+.tabs{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;justify-content:flex-start;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{position:relative;flex:0 0 auto;min-width:66px;padding:12px 9px 11px;white-space:nowrap}
+.tabs button.is-lit::after,.audioSubtabs button.is-lit::after{content:"";display:block;position:absolute;top:5px;right:5px;width:5px;height:5px;border-radius:50%;background:#ffd18b;box-shadow:0 0 6px 2px rgba(255,189,100,.50)}
+.audioSubtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:0 0 16px;background:#1b1b1b;border:1px solid #414141;border-radius:10px;padding:5px}
+.audioSubtabs button{position:relative;min-height:39px;min-width:0;border:1px solid transparent;border-radius:7px;background:transparent;color:#aaa;font-size:10px;font-weight:750;padding:8px 1px}
+.audioSubtabs button.active{background:#444;border-color:#777;color:#fff}
+.audioArea{display:none}.audioArea.active{display:block}
+.waveformHead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.waveformHead h2{margin:0 0 8px!important}
+#waveformInfo{font-size:10px;color:#c8c8c8}
+#musicWaveform,.trackWave{display:block;width:100%;height:92px;touch-action:none;border:1px solid #555;border-radius:9px;background:#151515;margin:8px 0 16px}
+.trackWave{height:66px;margin:9px 0 10px}
+.additionalTrackSection{margin:22px 0;padding:13px;border:1px solid #535353;border-radius:10px;background:#151515}
+.additionalTrackSection h2{margin:0 0 7px!important}
+.additionalTrackSection .button{width:100%}
+.is-disabled{opacity:.45;pointer-events:none}
+.extraAudioCard{border:1px solid #666;background:#242424;border-radius:10px;padding:12px;margin:12px 0}
+.extraAudioHeading{display:flex;justify-content:space-between;align-items:center;gap:7px;min-width:0}
+.extraAudioHeading strong{font-size:12px;word-break:break-word;min-width:0}
+.extraAudioHeading button{white-space:nowrap;min-height:32px;padding:7px;font-size:10px}
+.extraAudioFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.extraAudioFields label{font-size:10px;min-width:0}
+.extraAudioFields input,.cassetteSaveRow input{width:100%;min-height:39px;padding:8px;border:1px solid #666;border-radius:8px;background:#191919;color:#fff;margin:5px 0}
+.extraAudioLoop{display:flex;align-items:center;gap:8px;margin-top:11px}
+.extraAudioLoop input{width:18px;height:18px}
+.holdActionRow{display:flex;align-items:center;gap:7px;margin:1px 0 10px;flex-wrap:wrap}
+.holdActionRow .holdGlitch{flex:1 1 190px}
+.holdActionRow .hint{margin:0;font-size:10px}
+.holdGlitch{background:#313030;border:1px solid #94694b;color:#f5d0a4;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.holdGlitch.is-holding{background:#b46936;color:#100c09;border-color:#f2bc87;box-shadow:0 0 18px rgba(234,112,40,.4)}
+.holdGlitch:disabled{opacity:.35;box-shadow:none}
+.viewerHold{padding:7px 12px 0;display:flex}
+.viewerHold .holdGlitch{width:100%;min-height:44px;font-size:12px}
+#dockHoldGlitch{font-size:19px;min-width:34px;color:#f3c48e}
+#dockHoldGlitch.is-holding{color:#101010}
+.cassetteSaveRow{display:grid;grid-template-columns:1fr auto;gap:7px;margin:8px 0 12px}
+.cassetteSaveRow .button{align-self:center}
+.cassetteTools{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.cassetteTools .button{width:100%;padding:9px 6px;font-size:11px}
+.cassetteShelf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:10px 0 24px}
+.cassetteCard{min-width:0}
+.cassetteFace{display:flex;flex-direction:column;justify-content:space-between;gap:9px;position:relative;overflow:hidden;text-align:left;width:100%;min-height:139px;border:2px solid #727272;border-radius:12px;background:linear-gradient(140deg,#363636,#0b0b0b 70%);padding:10px 8px 8px;color:#ddd;box-shadow:inset 0 0 0 4px #252525,0 3px 10px rgba(0,0,0,.3)}
+.cassetteFace:before,.cassetteFace:after{content:"";position:absolute;bottom:8px;width:20px;height:5px;background:#000;border:1px solid #696969}
+.cassetteFace:before{left:8px}.cassetteFace:after{right:8px}
+.cassetteCard.selected .cassetteFace{border-color:#f8cd8d;box-shadow:inset 0 0 0 4px #252525,0 0 12px rgba(246,187,102,.24)}
+.cassetteTop{font-family:monospace;font-size:7px;letter-spacing:.4px;color:#c8c8c8}
+.cassetteReels{display:flex;justify-content:space-around;align-items:center;height:46px;background:#101010;border:1px solid #606060;border-radius:5px;padding:4px}
+.cassetteReel{width:39px;height:39px;border:7px dotted #b6b6b6;border-radius:50%;background:radial-gradient(circle,#191919 0 25%,#aaa 26% 32%,#282828 33%);box-shadow:0 0 0 3px #444}
+.cassetteLabel{background:#d0c6ad;color:#201e1d;text-align:center;padding:8px 3px;min-height:31px;font-family:monospace;font-weight:900;font-size:10px;line-height:1.25;letter-spacing:.15px;word-break:break-word;border-top:3px solid #8b3636}
+.cassetteFooter{display:flex;justify-content:space-between;align-items:center;min-height:30px;font-size:9px;color:#999;gap:5px}
+.cassetteDelete{background:transparent;border:1px solid #565656;border-radius:7px;color:#ccc;padding:5px;font-size:10px}
+#filmDamageControls .control{margin:12px 0}
+@media(min-width:720px){.cassetteShelf{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:360px){.audioSubtabs button{font-size:9px}.cassetteLabel{font-size:9px}.cassetteReel{width:30px;height:30px;border-width:5px}}
+
+/* Make seconds and date/time fields legible in iPhone Safari dark mode. */
+.cameraCardOptions input[type="datetime-local"],.cameraCardOptions input[type="number"],.cameraCardOptions input[type="text"]{
+ width:100%;min-height:42px;border:1px solid #656565;border-radius:8px;background:#232323;color:#f6f6f6;color-scheme:dark;padding:8px 9px
+}
