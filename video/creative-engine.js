@@ -233,7 +233,7 @@ function gray(ctx,width=160){
  return {data,w:width,h};
 }
 root.VHSVideoCreative=Object.freeze({
- defaults,hydrate,active,agingAt,aged,colorSample,transfer,speedAt,
+ defaults:defaultCreative,hydrate,active,agingAt,aged,colorSample,transfer,speedAt,
  beatEvents,brushArray,drawStrokes,drawFaces,trackBoxes,gray
 });
 })(window);
