@@ -38,7 +38,7 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
- let musicRequest=0,musicLoading=false,musicVideoURL='';
+ let musicRequest=0,musicLoading=false;
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
  function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}}
@@ -321,38 +321,28 @@
   }
   refreshMusicTrim();
  }
- function clearMusicSource(){
-  audioEngine.setMusicBuffer(null);
-  const media=$('musicVideoSource');
-  try{media.pause();media.removeAttribute('src');media.load();}catch{}
-  if(musicVideoURL){URL.revokeObjectURL(musicVideoURL);musicVideoURL='';}
- }
+ function clearMusicSource(){audioEngine.setMusicBuffer(null);}
  async function prepareMusicVideo(inputFile,request){
-  const media=$('musicVideoSource');
-  musicVideoURL=URL.createObjectURL(inputFile);
-  media.src=musicVideoURL;
-  media.preload='auto';media.playsInline=true;media.loop=false;media.muted=false;
-  const duration=await new Promise((resolve,reject)=>{
-   let done=false;
-   function cleanup(){clearTimeout(timeout);media.removeEventListener('loadedmetadata',ok);media.removeEventListener('error',bad);}
-   function ok(){if(done)return;done=true;cleanup();resolve(media.duration);}
-   function bad(){if(done)return;done=true;cleanup();reject(Error('Safari не смог открыть звук из этого видео. Попробуй MP4 или MOV.'));}
-   const timeout=setTimeout(()=>{if(done)return;done=true;cleanup();reject(Error('Видео не удалось подготовить за 15 секунд.'));},15000);
-   media.addEventListener('loadedmetadata',ok);media.addEventListener('error',bad);
-   media.load();
-   if(media.readyState>=1)ok();
-  });
+  // Never play the second video in a hidden <video>. iOS Safari may interrupt
+  // the primary video, including leaving the primary play control unresponsive.
+  const bytes=await window.VHSVideoAudioExtract.extract(inputFile);
   if(request!==musicRequest)return 0;
-  if(!Number.isFinite(duration)||duration<=0)throw Error('Неизвестная длительность видео. Попробуй другой файл.');
-  audioEngine.setMusicVideo(media);
-  return duration;
+  const buffer=await audioEngine.ctx.decodeAudioData(bytes);
+  if(request!==musicRequest)return 0;
+  if(!buffer||!Number.isFinite(buffer.duration)||buffer.duration<=0)
+   throw Error('Safari не смог декодировать извлечённую аудиодорожку.');
+  const pcm=buffer.length*buffer.numberOfChannels*4;
+  if(pcm>120*1024*1024)
+   throw Error('Дорожка слишком длинная для памяти iPhone. Выбери более короткое видео.');
+  audioEngine.setMusicBuffer(buffer);
+  return buffer.duration;
  }
  async function loadMusicTrack(inputFile,kind='file'){
   if(recording){musicLoadStatus('Нельзя менять музыку во время экспорта.');return;}
   if(!inputFile)return;
   const request=++musicRequest;musicLoading=true;
   clearMusicSource();state.selectedTrack=null;showMusicSelection();
-  musicLoadStatus(kind==='video'?'Открываю звуковую дорожку из видео…':'Открываю аудиофайл…');
+  musicLoadStatus(kind==='video'?'Извлекаю только звуковые данные из видео, не включая видеоплеер…':'Открываю аудиофайл…');
   try{
    await audioEngine.start();
    if(request!==musicRequest)return;
@@ -999,7 +989,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
