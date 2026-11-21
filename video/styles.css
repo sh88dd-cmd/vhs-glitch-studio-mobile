@@ -401,3 +401,16 @@ body.effects-bypassed .audioSubtabs button.is-lit::after{content:none}
  .allEffectsToggle{font-size:9px;gap:5px;padding:6px}
  .allEffectsCross{height:23px;width:23px}
 }
+
+/* 0.7.1 — scene fields and exact audio-trim handles. */
+#panel-timeline .timelinePair label.is-lit::before,
+#panel-timeline>label.is-lit::before{
+ content:"";display:inline-block;vertical-align:middle;
+ width:6px;height:6px;margin:0 7px 2px 0;border-radius:50%;
+ background:var(--status-led);box-shadow:0 0 5px 2px var(--status-glow);
+}
+.musicTrimHead.is-lit>span:first-child::after{
+ content:"";display:inline-block;vertical-align:middle;
+ width:6px;height:6px;margin:0 0 2px 7px;border-radius:50%;
+ background:var(--status-led);box-shadow:0 0 5px 2px var(--status-glow);
+}
