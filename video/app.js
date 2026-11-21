@@ -258,7 +258,7 @@
   document.querySelectorAll('.audioArea').forEach(p=>p.classList.toggle('active',p.id==='audioArea-'+key));
  }
  function showMainTab(key){
-  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===key));
+  document.querySelectorAll('.tabs button[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===key));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+key));
   if(key==='keyframes')renderKeyframes();
   if(key==='frameTools')syncFrameTools();
@@ -1945,7 +1945,7 @@
   }catch(e){if(e.name!=='AbortError')exportStatus('Не удалось поделиться: '+e.message);}
  }
  function initEvents(){
-  document.querySelectorAll('.tabs button').forEach(button=>button.addEventListener('click',()=>showMainTab(button.dataset.tab)));
+  document.querySelectorAll('.tabs button[data-tab]').forEach(button=>button.addEventListener('click',()=>showMainTab(button.dataset.tab)));
   document.querySelectorAll('[data-audio-section]').forEach(button=>button.addEventListener('click',()=>showAudioSection(button.dataset.audioSection)));
   $('allEffectsToggle').onclick=resetAllEffects;
   $('restoreEffects').onclick=restoreLastEffects;
@@ -2052,7 +2052,8 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset||!window.VHSVideoCleanPath||!window.VHSVideoCameraOSD||!window.VHSVideoKeyframes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset||!window.VHSVideoCleanPath||!window.VHSVideoCameraOSD||!window.VHSVideoKeyframes||!window.VHSVideoHelpContent||!window.VHSVideoHelpIllustrations||!window.VHSVideoHelpUI)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  window.VHSVideoHelpUI.mount();
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);

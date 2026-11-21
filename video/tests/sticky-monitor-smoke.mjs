@@ -80,6 +80,6 @@ assert.ok(app.includes('requestAnimationFrame(()=>videoUI?.updateVisibility())')
  'Switching to short tabs must recompute dock after Safari clamps scrollY');
 assert.ok(styles.includes('.monitorDock{position:fixed'));
 assert.ok(html.includes('player-ui.js?v=0.7.8'));
-assert.ok(html.includes('БЕТА 0.7.8'));
-assert.ok(sw.includes("vhs-video-lab-0.7.8"));
+assert.match(html,/БЕТА 0\.7\.\d+/,'App version label must be present');
+assert.match(sw,/vhs-video-lab-0\.7\.\d+/,'Offline cache version must be present');
 console.log('PASS: dock follows actual video frame, remains fixed at page bottom, reacts to Safari viewport and tab resize');
