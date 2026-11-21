@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.7.6">
+<link rel="stylesheet" href="./styles.css?v=0.7.7">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.7.6 · КАМЕРА И КАССЕТЫ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.7.7 · СРАВНЕНИЕ И КАДРЫ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -23,9 +23,9 @@
   <div class="masterFxExplanation"><strong>ОБРАБОТКА</strong><span id="masterFxStatus" role="status">Эффекты активны</span></div>
   <div class="masterFxActions">
     <button id="allEffectsToggle" class="allEffectsToggle" type="button" title="Обнулить все настройки эффектов, сохранив возможность их восстановить">
-      <span class="allEffectsCross" aria-hidden="true">✕</span><span id="allEffectsLabel">ВЫКЛЮЧИТЬ ВСЁ</span>
+      <span class="allEffectsCross" aria-hidden="true">✕</span><span id="allEffectsLabel">СБРОС</span>
     </button>
-    <button id="restoreEffects" class="restoreEffects" type="button" disabled title="Вернуть последние настройки до сброса">↶ ВЕРНУТЬ ПОСЛЕДНИЕ</button>
+    <button id="restoreEffects" class="restoreEffects" type="button" disabled title="Вернуть последние настройки до сброса">↶ ВЕРНУТЬ</button>
   </div>
 </div>
 <section class="stage" id="videoStage" aria-label="Просмотр обрабатываемого видео">
@@ -33,6 +33,7 @@
   <div class="stageCanvas">
     <canvas id="preview" width="480" height="270"></canvas>
     <button type="button" id="openViewer" class="stageExpand" aria-label="Увеличить видео на весь экран" title="Полный экран" disabled>⛶</button>
+    <button type="button" id="compareMain" class="compareButton" disabled aria-label="Зажми для сравнения с исходным видео">◉ ДО / ПОСЛЕ</button>
     <div id="empty" class="empty"><strong>VHS / VIDEO</strong><span>Открой видео с iPhone</span></div>
   </div>
   <video id="source" playsinline preload="metadata"></video>
@@ -94,6 +95,8 @@
   <button class="active" data-tab="vhs">VHS</button>
   <button data-tab="glitch">ГЛИТЧ</button>
   <button data-tab="timeline">▤ СЦЕНЫ</button>
+  <button data-tab="keyframes">◆ КЛЮЧЕВЫЕ КАДРЫ</button>
+  <button data-tab="frameTools">▦ ПОКАДРОВО</button>
   <button data-tab="film">FILM</button>
   <button data-tab="filmDamage">ПЛЁНКА FX</button>
   <button data-tab="audio">♫ АУДИО</button>
@@ -228,6 +231,48 @@
   <div id="timelineEvents" class="timelineEvents"></div>
   <p class="hint">Нажатие на событие перематывает к нему. ✕ удаляет только выбранное событие. На монтаже из нескольких клипов у каждого свой таймлайн.</p>
 </section>
+<section id="panel-keyframes" class="panel">
+  <h2>◆ КЛЮЧЕВЫЕ КАДРЫ VHS-ЭФФЕКТОВ</h2>
+  <p class="hint">Устанавливай силу в разные моменты времени — между ключевыми кадрами она меняется плавно. Все значения относятся к выбранному клипу. Просмотр и экспорт используют один и тот же таймкод.</p>
+  <div class="switch"><span>Включить анимацию ключевых кадров</span><input id="keyframesEnabled" type="checkbox" checked></div>
+  <label>Какой эффект анимировать<select id="keyframeTrack">
+    <option value="vhs">Сила VHS</option>
+    <option value="film">Сила FILM</option>
+    <option value="glitch">Сила глитчей</option>
+    <option value="leak">Сила засветов</option>
+  </select></label>
+  <div class="keyframeTimeline"><div id="keyframeMarkers" class="keyframeMarkers"></div><span id="keyframePlayhead" class="keyframePlayhead"></span></div>
+  <div class="keyframeFields">
+    <label>Время, секунды<input id="keyframeTime" type="number" min="0" step=".01" value="0"></label>
+    <label>Сила эффекта<input id="keyframeValue" type="number" min="0" max="100" step="1" value="0"></label>
+  </div>
+  <input id="keyframeValueRange" type="range" min="0" max="100" value="0" step="1" aria-label="Сила ключевого кадра">
+  <div class="keyframeActions">
+    <button id="keyframeUseTime" class="button" type="button">◉ Текущий момент</button>
+    <button id="keyframeAdd" class="button primary" type="button">＋ Добавить точку</button>
+  </div>
+  <p class="hint" id="keyframeStatus" role="status">Поставь две точки: например, 0 с — 0%, 5 с — 100%. Между ними эффект плавно усилится.</p>
+  <div id="keyframeList" class="keyframeList"></div>
+  <p class="hint">Это отдельный режим анимации силы — он не заменяет «СЦЕНЫ» с разовыми повреждениями. Режимы специальных музыкальных помех и обычных VHS-глитчей не смешиваются.</p>
+</section>
+<section id="panel-frameTools" class="panel">
+  <h2>▦ ПОКАДРОВАЯ ПЕРЕМОТКА И СНИМОК PNG</h2>
+  <p class="hint">Останови воспроизведение и перемещайся на один шаг по времени кадра. Для роликов с переменной частотой кадров Safari может перейти к ближайшему декодируемому кадру.</p>
+  <label>Шаг перемотки<select id="frameStepFps">
+    <option value="24">1 / 24 секунды</option>
+    <option value="25">1 / 25 секунды</option>
+    <option value="30" selected>1 / 30 секунды</option>
+    <option value="60">1 / 60 секунды</option>
+  </select></label>
+  <div class="frameActions">
+    <button id="frameBack" type="button" class="button" disabled>← Кадр</button>
+    <button id="frameForward" type="button" class="button" disabled>Кадр →</button>
+  </div>
+  <p id="frameTimeExact" class="frameTimeExact" role="status">00:00.000</p>
+  <div class="switch"><span>PNG с выбранными эффектами</span><input id="frameSaveEffects" type="checkbox" checked></div>
+  <button id="frameSavePng" type="button" class="button primary full" disabled>↓ Сохранить кадр PNG</button>
+  <p id="frameToolStatus" class="hint" role="status">Снимок сохраняется в PNG до 1920 пикселей по длинной стороне, без отправки файла на сервер.</p>
+</section>
 <section id="panel-film" class="panel">
   <h2>ПЛЁНОЧНЫЕ ФИЛЬТРЫ</h2>
   <div class="switch"><span>Включить FILM</span><input id="filmEnabled" type="checkbox"></div>
@@ -295,14 +340,14 @@
     <button id="share" class="button full">Поделиться / Сохранить в «Фото»</button>
   </div>
 </section>
-<footer><span>VHS Video Lab · 0.7.6</span></footer>
+<footer><span>VHS Video Lab · 0.7.7</span></footer>
 </main>
 <dialog id="videoViewer" class="videoViewer" aria-label="Увеличенный видеопросмотр">
   <div class="viewerHead">
     <strong id="viewerName">Просмотр видео</strong>
     <button id="closeViewer" type="button" aria-label="Закрыть увеличенный просмотр">✕</button>
   </div>
-  <div class="viewerCanvasBox"><canvas id="viewerCanvas" width="480" height="270"></canvas></div>
+  <div class="viewerCanvasBox"><canvas id="viewerCanvas" width="480" height="270"></canvas><button id="compareViewer" type="button" class="compareButton" disabled aria-label="Зажми для сравнения с исходным видео">◉ ДО / ПОСЛЕ</button></div>
   <div class="viewerHold">
   <button id="viewerHoldGlitch" type="button" class="holdGlitch button" disabled>⚡ ЗАЖМИ — ПОМЕХИ</button>
   <div class="holdBlend" role="group" aria-label="Баланс помех в увеличенном просмотре">
@@ -334,6 +379,7 @@
 <script src="./effects-reset.js?v=0.7.4" defer></script>
 <script src="./clean-path.js?v=0.7.5" defer></script>
 <script src="./camera-osd.js?v=0.7.6" defer></script>
-<script src="./app.js?v=0.7.6" defer></script>
+<script src="./keyframes.js?v=0.7.7" defer></script>
+<script src="./app.js?v=0.7.7" defer></script>
 </body>
 </html>
