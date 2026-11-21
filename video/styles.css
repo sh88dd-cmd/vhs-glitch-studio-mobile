@@ -696,3 +696,44 @@ body.helpDialogOpen{overflow:hidden}
 .helpButtonSlot:has(> [hidden]){display:none!important}
 .helpStandalone>canvas{max-width:100%;height:auto;display:block}
 details.helpBlock{padding-right:33px}
+
+/* 0.7.10 — ONE footer switch controls visibility of all contextual ? badges.
+   CSS defaults to hidden before JS/localStorage loads, preventing icon flash. */
+body:not(.help-visible) .helpIcon{display:none!important}
+.videoFooter{padding:17px 13px calc(env(safe-area-inset-bottom,0px) + 22px);gap:13px}
+.helpVisibilityToggle{
+ display:flex;align-items:center;justify-content:center;gap:10px;
+ width:100%;min-height:47px;padding:10px 14px;
+ border:1px solid #6f6459;border-radius:10px;
+ background:#242322;color:#efefef;
+ font-size:12px;font-weight:800;letter-spacing:.2px;
+ touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+.helpVisibilityToggle .helpToggleMark{
+ display:inline-flex;align-items:center;justify-content:center;
+ width:23px;height:23px;min-width:23px;border:1.5px solid #dfbb85;
+ border-radius:50%;color:#f1cf98;font-size:14px;font-weight:900;
+}
+.helpVisibilityToggle[aria-pressed="true"]{border-color:#c3905c;background:#30251d;color:#ffe1b3}
+.helpVisibilityToggle[aria-pressed="true"] .helpToggleMark{background:#e3ac6f;color:#1d160e;border-color:#e3ac6f}
+.helpVisibilityToggle:focus-visible{outline:2px solid #f6c582;outline-offset:3px}
+/* When ? is hidden, don't reserve extra space in rows and buttons. */
+body:not(.help-visible) .helpField,
+body:not(.help-visible) .helpStandalone{padding-right:0}
+body:not(.help-visible) .helpBlock.control{padding-right:0}
+body:not(.help-visible) .helpBlock.switch{padding-right:12px}
+body:not(.help-visible) .helpBlock.cameraCard{padding-right:11px}
+body:not(.help-visible) .helpBlock.cameraFrameCard{padding-right:13px}
+body:not(.help-visible) .helpBlock.extraAudioCard{padding-right:initial}
+body:not(.help-visible) details.helpBlock{padding-right:12px}
+body:not(.help-visible) .helpButtonSlot>.button{padding-right:10px!important}
+body:not(.help-visible) .helpButtonSlot>.button.mini{padding-right:8px!important}
+body:not(.help-visible) .tabs>.helpNavSlot>button:not(.helpIcon){padding-right:9px!important}
+body:not(.help-visible) .audioSubtabs>.helpNavSlot>button:not(.helpIcon){padding-right:1px!important}
+body:not(.help-visible) .specialModeButtons>.helpNavSlot>.modeChoice{padding-right:3px!important}
+body:not(.help-visible) .tabs>.helpNavSlot>button.is-lit::after{right:5px}
+body:not(.help-visible) .audioSubtabs>.helpNavSlot>button.is-lit::after{right:5px}
+body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){padding-right:7px!important}
+@media(max-width:370px){
+ body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){padding-right:5px!important}
+}
