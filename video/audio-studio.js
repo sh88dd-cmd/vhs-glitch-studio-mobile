@@ -147,9 +147,34 @@ function create({engine,mix,sync,status,isRecording,onChange}){
   $(id).onchange=e=>{const f=e.target.files?.[0];if(f)importFile(f,kind);e.target.value='';};
  }
  render();redrawMain();
- return Object.freeze({redrawMain,count:()=>tracks.length,clear(){
-   seq++;tracks=[];refresh();render();
- },get busy(){return busy;}});
+ const SETTINGS=['at','trimStart','trimEnd','volume','fadeIn','fadeOut','loop'];
+ const snapshotTracks=()=>tracks.map(t=>Object.fromEntries([
+  ['id',t.id],...SETTINGS.map(key=>[key,t[key]])
+ ]));
+ function resetTrackSettings(){
+  for(const track of tracks){
+   track.at=0;track.trimStart=0;track.trimEnd=track.buffer.duration;
+   track.volume=0;track.loop=false;track.fadeIn=0;track.fadeOut=0;
+  }
+  refresh();render();
+ }
+ function restoreTrackSettings(snapshot){
+  if(!Array.isArray(snapshot))return;
+  const stored=new Map(snapshot.filter(t=>t&&typeof t.id==='string').map(t=>[t.id,t]));
+  for(const track of tracks){
+   const before=stored.get(track.id);if(!before)continue;
+   for(const key of SETTINGS){
+    if(key==='loop')track.loop=!!before.loop;
+    else if(Number.isFinite(Number(before[key])))track[key]=Number(before[key]);
+   }
+  }
+  refresh();render();
+ }
+ return Object.freeze({
+  redrawMain,count:()=>tracks.length,snapshotTracks,resetTrackSettings,restoreTrackSettings,
+  clear(){seq++;tracks=[];refresh();render();},
+  get busy(){return busy;}
+ });
 }
 root.VHSVideoAudioStudio=Object.freeze({create});
 })(window);
