@@ -28,7 +28,9 @@ function hydrate(raw){
  result.touch.manualFaces=(Array.isArray(result.touch.manualFaces)?result.touch.manualFaces:[]).slice(0,6);
  result.speed.points=(Array.isArray(result.speed.points)?result.speed.points:[]).slice(0,70);
  result.live.events=(Array.isArray(result.live.events)?result.live.events:[]).slice(0,140);
- result.speed.rate=clamp(result.speed.rate,1,10);
+ const rate=Number(result.speed.rate);
+  result.speed.rate=Number.isFinite(rate)&&Math.abs(rate)>=1?(rate<0?-1:1)*clamp(Math.abs(rate),1,10):1;
+  result.speed.points=result.speed.points.filter(p=>p&&Number.isFinite(Number(p.time))&&Number.isFinite(Number(p.rate))&&Math.abs(Number(p.rate))>=1).map(p=>({...p,time:Math.max(0,Number(p.time)),rate:(Number(p.rate)<0?-1:1)*clamp(Math.abs(p.rate),1,10)}));
  return result;
 }
 function active(state){
@@ -57,7 +59,9 @@ function aged(state,time,duration){
  s.signal.tracking=clamp((Number(s.signal.tracking)||0)+amount*60,0,100);
  s.signal.chromaLoss=clamp((Number(s.signal.chromaLoss)||0)+amount*42,0,100);
  s.filmDamage.enabled=true;
- s.filmDamage.flicker=clamp((Number(s.filmDamage.flicker)||0)+amount*38,0,100);
+ s.filmDamage.flicker=clamp((Number(s.filmDamage.flicker)||0)+amount*55,0,100);
+  s.filmDamage.grain=clamp((Number(s.filmDamage.grain)||0)+amount*48,0,100);
+  s.filmDamage.scratches=clamp((Number(s.filmDamage.scratches)||0)+amount*55,0,100);
  return s;
 }
 function colorSample(data,width,height,step=4){
@@ -90,30 +94,71 @@ function transfer(data,width,height,target,strength=70){
   }
  }
 }
+// UI convention: +N means Nx faster, -N means Nx slower (never backwards).
+// Only the independent reverse switch controls playback direction.
+function forwardFactor(value){
+ const v=Number(value);
+ if(!Number.isFinite(v)||Math.abs(v)<1)return 1;
+ return v<0?1/clamp(Math.abs(v),1,10):clamp(v,1,10);
+}
 function speedAt(speed,time,duration){
  if(!speed?.enabled)return 1;
- const dir=speed.reverse?-1:1,magnitude=clamp(speed.rate||1,1,10);
- if(!speed.curveEnabled||!Array.isArray(speed.points)||!speed.points.length)return dir*magnitude;
- const points=speed.points.filter(p=>Number.isFinite(p.time)&&Number.isFinite(p.rate))
+ const direction=speed.reverse?-1:1,base=forwardFactor(speed.rate);
+ if(!speed.curveEnabled||!Array.isArray(speed.points)||!speed.points.length)return direction*base;
+ const points=speed.points.filter(p=>Number.isFinite(Number(p.time))&&Math.abs(Number(p.rate))>=1)
   .sort((a,b)=>a.time-b.time);
- if(!points.length)return dir*magnitude;
+ if(!points.length)return direction*base;
  const p=clamp(time,0,Math.max(duration||time,0));
- if(p<=points[0].time)return clamp(points[0].rate,-10,10)||dir;
+ if(p<=points[0].time)return direction*forwardFactor(points[0].rate);
  for(let j=1;j<points.length;j++){
   const x=points[j-1],y=points[j];
   if(p<=y.time){
-   const ratio=clamp((p-x.time)/Math.max(.001,y.time-x.time),0,1);
-   if(x.rate*y.rate<0){
-    // Negative native video playbackRate is unsupported in Safari. Switching
-    // direction is an explicit discrete crossing, never an impossible 0x stall.
-    return ratio<.5?Math.sign(x.rate)*Math.max(1,Math.abs(x.rate)*(1-ratio*2)):
-     Math.sign(y.rate)*Math.max(1,Math.abs(y.rate)*(ratio-.5)*2);
-   }
-   const value=Number(x.rate)+(Number(y.rate)-Number(x.rate))*ratio;
-   return Math.sign(value||1)*clamp(Math.abs(value),1,10);
+   const fraction=clamp((p-x.time)/Math.max(.001,y.time-x.time),0,1);
+   // Logarithmic interpolation feels natural across 0.1x → 1x → 10x.
+   const f1=forwardFactor(x.rate),f2=forwardFactor(y.rate);
+   return direction*Math.exp(Math.log(f1)*(1-fraction)+Math.log(f2)*fraction);
   }
  }
- return clamp(points[points.length-1].rate,-10,10);
+ return direction*forwardFactor(points[points.length-1].rate);
+}
+// Additional independent mechanical aging pass, applied even in timeline/music mode.
+// Deterministic per frame; offline and available in both preview and export.
+function damageTape(p,w,h,amount,time,seed=0){
+ const age=clamp(amount,0,1);
+ if(age<=.002||!p||p.length!==w*h*4)return;
+ const frame=Math.floor(Math.max(0,time)*15);
+ const noise=(n)=>{let q=(Math.imul((n|0)^(seed|0),0x45d9f3b))>>>0;
+  q^=q>>>16;q=Math.imul(q,0x45d9f3b);q^=q>>>16;return(q>>>0)/4294967295;};
+ const saturated=1-age*.9;
+ const flicker=1-age*(.055+.12*(noise(frame*79+71)-.5))*(.4+.6*Math.sin(frame*.73)**2);
+ const bands=Math.round(age*9);
+ const bandList=[];
+ for(let i=0;i<bands;i++){
+  const y=Math.floor(noise(frame*113+i*53+7)*h);
+  const thick=1+Math.floor(noise(frame*59+i*37+9)*Math.max(1,h*.045*age));
+  bandList.push({y,thick,shift:Math.round((noise(frame*67+i*41+19)-.5)*w*.18*age),
+   tone:noise(frame*23+i*47+3)>.5?1:-1});
+ }
+ const dropout=age>.58&&noise(frame*17+99)<(age-.52)*.045;
+ const original=p.slice();
+ for(let y=0;y<h;y++){
+  let shift=0,bandTone=0;
+  for(const band of bandList)if(y>=band.y&&y<band.y+band.thick){shift=band.shift;bandTone=band.tone;}
+  const horizontal=(noise(Math.floor(y/2)+frame*43+123)-.5)*age*24;
+  for(let x=0;x<w;x++){
+   const from=(y*w+Math.max(0,Math.min(w-1,x+shift)))*4;
+   const dest=(y*w+x)*4;
+   const r=original[from],g=original[from+1],b=original[from+2];
+   const luma=r*.299+g*.587+b*.114;
+   const grain=(noise(x*15427+y*821+frame*76543)-.5)*age*110;
+   const scratch=(noise(x+frame*97+775)<age*.002?age*135:0);
+   const stripe=bandTone*age*65;
+   const fade=dropout?.37:1;
+   p[dest]=clamp((luma+(r-luma)*saturated)*flicker*fade+grain+horizontal+stripe+scratch,0,255);
+   p[dest+1]=clamp((luma+(g-luma)*saturated)*flicker*fade+grain+horizontal+stripe+scratch,0,255);
+   p[dest+2]=clamp((luma+(b-luma)*saturated)*flicker*fade+grain+horizontal+stripe+scratch,0,255);
+  }
+ }
 }
 function beatEvents(buffer,{sensitivity=55,limit=90,duration=30,clip=0,effect='tapeChew'}={}){
  if(!buffer||!buffer.numberOfChannels||!buffer.sampleRate)return[];
@@ -234,6 +279,6 @@ function gray(ctx,width=160){
 }
 root.VHSVideoCreative=Object.freeze({
  defaults:defaultCreative,hydrate,active,agingAt,aged,colorSample,transfer,speedAt,
- beatEvents,brushArray,drawStrokes,drawFaces,trackBoxes,gray
+ beatEvents,damageTape,forwardFactor,brushArray,drawStrokes,drawFaces,trackBoxes,gray
 });
 })(window);
