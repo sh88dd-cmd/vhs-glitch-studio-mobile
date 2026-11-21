@@ -40,7 +40,7 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
- let musicRequest=0,musicLoading=false,extraTracks=[],extraRequest=0,holdActive=null;
+ let musicRequest=0,musicLoading=false,audioStudio=null,holdActive=null;
  const holdPreviewProcessor=window.VHSVideoGlitchFX.createProcessor(),holdExportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
@@ -48,7 +48,7 @@
  function syncSectionLights(){
   const active={
    vhs:!!state.vhsEnabled,glitch:!!state.glitchEnabled&&state.fxMode==='classic',
-   audio:!!(audioEngine.musicBuffer||extraTracks.length||state.audio.enabled||state.fxMode==='music'),
+   audio:!!(audioEngine.musicBuffer||(audioStudio?.count()||0)||state.audio.enabled||state.fxMode==='music'),
    timeline:state.fxMode==='timeline',film:!!state.filmEnabled,
    filmDamage:!!state.filmDamage.enabled,camera:['rec','play','battery','date','counter','zoom','modeInfo','focus'].some(k=>state.camera[k]),
    cassettes:!!state.selectedCassetteId
@@ -381,7 +381,7 @@
  function refreshMusicTrim(){
   const {duration,start,end}=trimState();
   $('musicTrim').hidden=!duration;
-  if(!duration)return;
+  if(!duration){audioStudio?.redrawMain();return;}
   for(const id of ['musicTrimStartRange','musicTrimEndRange'])$(id).max=String(duration);
   $('musicTrimStartRange').value=String(start);
   $('musicTrimEndRange').value=String(end);
@@ -390,6 +390,7 @@
   $('musicTrimStartLabel').textContent=timeString(start);
   $('musicTrimEndLabel').textContent=timeString(end);
   $('musicTrimDuration').textContent='Длительность выбранного отрывка: '+(end-start).toFixed(1)+' сек. из '+duration.toFixed(1)+' сек.';
+  audioStudio?.redrawMain();
  }
  function changeMusicTrim(edge,value){
   const {duration,start,end}=trimState();
@@ -477,7 +478,7 @@
  }
  function releaseOnLeave(event){
   musicRequest++;musicLoading=false;
-  clearMusicSource();
+  clearMusicSource();audioStudio?.clear();
   if(!event?.persisted)audioEngine.release();
  }
  function mountMusicLibrary(){
@@ -491,6 +492,10 @@
    $('musicVideoStart').value=String(state.mix.musicStart);
    persist();syncAudio(!source.paused);
   };
+  for(const [id,key] of [['musicFadeIn','fadeIn'],['musicFadeOut','fadeOut']]){
+   $(id).value=String(state.mix[key]||0);
+   $(id).onchange=()=>{state.mix[key]=clamp(Number($(id).value)||0,0,30);audioEngine.setMix(state.mix);persist();syncAudio(!source.paused);};
+  }
   $('musicLoop').checked=!!state.mix.musicLoop;
   $('musicLoop').onchange=()=>{state.mix.musicLoop=$('musicLoop').checked;persist();syncAudio(!source.paused);};
   $('musicFileInput').onchange=e=>{
@@ -514,6 +519,10 @@
    state.mix.musicOffset=0;state.mix.musicTrimEnd=duration;
    audioEngine.setMix(state.mix);syncAudio(!source.paused);persist();refreshMusicTrim();
   };
+  audioStudio=window.VHSVideoAudioStudio.create({
+   engine:audioEngine,mix:state.mix,sync:()=>syncAudio(!source.paused),
+   status:musicLoadStatus,isRecording:()=>!!recording,onChange:()=>{persist();refreshMusicTrim();}
+  });
   $('removeMusic').onclick=removeMusicTrack;
   showMusicSelection();
   if(state.selectedTrack)musicLoadStatus('После перезапуска выбери локальный файл или видео заново: '+state.selectedTrack.title);
@@ -1106,7 +1115,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
