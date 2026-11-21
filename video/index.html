@@ -282,6 +282,7 @@
   <label>Длительность экспорта<select id="exportScope"><option value="30">Первые 30 секунд / короткий тест</option><option value="full">Весь ролик / все выбранные клипы</option></select></label>
   <div class="switch"><span>Сохранить звук (оригинал или VHS-обработку)</span><input id="keepAudio" type="checkbox" checked></div>
   <p class="hint">Экспорт работает в реальном времени. Все эффекты видны и записываются в одном конвейере. На iPhone не сворачивай приложение; длительные ролики, 720p и сложные эффекты могут перегружать память. Поддержка MP4/AAC зависит от Safari; WebM возможен как резервный формат.</p>
+  <p class="hint">Без эффектов исходное качество сохраняется в предпросмотре. Для одного неизменённого ролика выбери «Весь ролик», чтобы скачать оригинальный файл без повторного сжатия. При экспорте части ролика или с эффектами действует выбранное разрешение 360/480/720p.</p>
   <button class="button primary full" id="export" disabled>↓ Сохранить обработанное видео</button>
   <button class="button danger full" id="cancel" hidden>Остановить экспорт</button>
   <progress id="progress" value="0" max="100" hidden></progress>
