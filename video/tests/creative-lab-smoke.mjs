@@ -89,6 +89,9 @@ assert.ok(tracked[0].y>faces[0].y,'Face rectangle should follow downward motion'
 const visionContext={console,Float64Array,Float32Array,Int32Array,Uint8Array,Uint8ClampedArray,
  Float64Array,ArrayBuffer,Math,Number,Object,Array,String,Date,setTimeout,clearTimeout};
 visionContext.window=visionContext;
+visionContext.navigator={};
+visionContext.document={createElement:()=>({}),querySelector:()=>null};
+visionContext.URL={};
 vm.runInNewContext(fs.readFileSync('video/vendor/tracking-min.js','utf8'),visionContext);
 vm.runInNewContext(fs.readFileSync('video/vendor/tracking-face-min.js','utf8'),visionContext);
 assert.ok(visionContext.tracking?.ViolaJones?.classifiers?.face);
