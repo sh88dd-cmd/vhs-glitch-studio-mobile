@@ -170,7 +170,12 @@ function scan(){
  }
  for(const id of ['musicWaveform','keyframeTimeline','timelineTrack']){
   const node=$(id)||document.querySelector('.'+id);
-  if(node&&node.dataset.helpDecorated!=='yes')decorateBlock(node,'visualization');
+  if(node&&node.dataset.helpDecorated!=='yes'){
+   // Canvas children are fallback content and are NOT rendered in Safari.
+   // Put the badge in a real sibling wrapper instead.
+   if(node.tagName==='CANVAS')decorateStandalone(node);
+   else decorateBlock(node,'visualization');
+  }
  }
  // Catch any controls added by future editor versions: every slider, checkbox,
  // select, input, file picker, native button and details should still get ?.
