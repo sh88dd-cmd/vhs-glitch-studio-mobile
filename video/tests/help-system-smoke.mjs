@@ -47,7 +47,7 @@ const sw=fs.readFileSync('video/sw.js','utf8');
 const css=fs.readFileSync('video/styles.css','utf8');
 const ui=fs.readFileSync('video/help-ui.js','utf8');
 for(const script of ['help-content.js','help-illustrations.js','help-ui.js']){
- assert.ok(html.includes(script+'?v=0.7.9'),'Not linked: '+script);
+ assert.ok(html.includes(script+'?v='+(script==='help-ui.js'?'0.7.10':'0.7.9')),'Not linked: '+script);
  assert.ok(sw.includes("'./"+script+"'"),'Not cached: '+script);
 }
 assert.ok(html.includes('id="videoHelpModal"')&&html.includes('id="helpClose"'));
@@ -89,6 +89,33 @@ function el(id){
 const doc={getElementById:el,body:el('body')};
 vm.runInNewContext(ui,{window:root,document:doc,console,requestAnimationFrame:callback=>callback(),MutationObserver:class{}});
 const help=root.VHSVideoHelpUI;
+assert.ok(html.includes('id="toggleHelpIcons"'), 'Footer visibility button missing');
+assert.equal((html.match(/id="toggleHelpIcons"/g)||[]).length,1,'Only one footer toggle allowed');
+assert.match(html,/<footer[\s\S]*?id="toggleHelpIcons"[\s\S]*?<\/footer>/,'Toggle belongs at bottom');
+assert.ok(css.includes('body:not(.help-visible) .helpIcon{display:none!important}'),
+ 'All tiny question marks must start hidden, including before JS loads');
+assert.ok(css.includes('.helpVisibilityToggle'),'Dedicated footer button style required');
+assert.ok(sw.includes("vhs-video-lab-0.7.10"));
+const visibleClasses=new Set();
+doc.body.classList={
+ add(c){visibleClasses.add(c);},remove(c){visibleClasses.delete(c);},
+ contains(c){return visibleClasses.has(c);},
+ toggle(c,on){if(on)visibleClasses.add(c);else visibleClasses.delete(c);return !!on;}
+};
+const toggle=el('toggleHelpIcons');
+toggle.attrs={};
+toggle.setAttribute=(k,v)=>{toggle.attrs[k]=v;};
+help.setVisible(true,false);
+assert.equal(visibleClasses.has('help-visible'),true);
+assert.equal(toggle.attrs['aria-pressed'],'true');
+assert.equal(el('helpToggleText').textContent,'Скрыть подсказки');
+help.setVisible(false,false);
+assert.equal(visibleClasses.has('help-visible'),false);
+assert.equal(toggle.attrs['aria-pressed'],'false');
+assert.equal(el('helpToggleText').textContent,'Показать подсказки');
+assert.ok(ui.includes("localStorage.setItem(HELP_VISIBILITY_KEY"),
+ 'Visible preference must persist across reloads');
+assert.ok(ui.includes("saved==='1'"),'Visible preference must be loaded');
 help.open('tab-keyframes','КЛЮЧЕВЫЕ КАДРЫ','section',el('dummy'));
 assert.equal(el('videoHelpModal').open,true);
 assert.ok(el('helpIllustration').src.startsWith('data:image/gif;base64,'));
@@ -99,4 +126,4 @@ assert.equal(el('videoHelpModal').open,false);
 help.open('vhsEnabled','ВКЛЮЧИТЬ VHS','checkbox',el('dummy'));
 assert.ok(el('helpIllustration').src.startsWith('data:image/svg+xml'));
 assert.ok(el('helpMediaLabel').textContent.includes('ДО / ПОСЛЕ'));
-console.log('PASS: descriptions, 10 fully decoded 6-frame GIFs, help popup, offline precache');
+console.log('PASS: help modal, GIFs, single footer switch, default hidden, on/off states, preference persistence and offline precache');
