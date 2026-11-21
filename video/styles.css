@@ -314,3 +314,90 @@ body.dock-visible .specialModeBar{scroll-margin-top:calc(var(--dock-height,280px
 .cameraCardOptions input[type="datetime-local"],.cameraCardOptions input[type="number"],.cameraCardOptions input[type="text"]{
  width:100%;min-height:42px;border:1px solid #656565;border-radius:8px;background:#232323;color:#f6f6f6;color-scheme:dark;padding:8px 9px
 }
+
+/* v0.7.1 — tiny amber LEDs for individual active features and parameters.
+ * Display data comes from actual editor settings, not the selected tab. */
+:root{--status-led:#ffc77d;--status-glow:rgba(255,171,71,.56)}
+.tabs button.is-lit::after,.audioSubtabs button.is-lit::after{
+ background:var(--status-led);
+ box-shadow:0 0 5px 2px var(--status-glow);
+}
+.control.is-lit .controlHead strong::after,
+.cameraCard.is-lit .cameraCardTitle strong::after,
+.switch.is-lit>span:first-child::after,
+.extraAudioCard.is-lit .extraAudioHeading strong::after,
+.cassetteCard.is-lit .cassetteFooter>span:first-child::after,
+#musicSelection.is-lit .musicSelectedTitle::after,
+#glitchControls details.is-lit>summary::after,
+.musicTrim.is-lit>h2:first-child::after,
+.timelineEvent.is-lit strong::after{
+ content:"";display:inline-block;vertical-align:middle;
+ height:6px;width:6px;min-width:6px;margin:0 0 2px 7px;
+ border-radius:50%;background:var(--status-led);
+ box-shadow:0 0 6px 2px var(--status-glow);
+}
+#glitchControls details.is-lit>summary::after{margin-left:9px}
+#glitchControls details.is-lit>summary{border-left:2px solid #db9b51}
+#cameraControls .cameraCard.is-lit{border-color:#806846}
+#musicTrim.is-lit{border-color:#a77d47}
+.controlHead strong,.cameraCardTitle strong,.extraAudioHeading strong{display:inline}
+#musicWaveform.is-lit{border-color:#b18d57}
+.switch:not(.is-lit)>span:first-child::after{content:none}
+#vhsControls label.is-lit::before,
+#panel-vhs>label.is-lit::before,
+#panel-film>label.is-lit::before,
+#panel-filmDamage>label.is-lit::before,
+.audioArea label.is-lit::before,
+#cameraControls .cameraCardOptions label.is-lit::before{
+ content:"";display:inline-block;vertical-align:middle;
+ width:6px;height:6px;border-radius:50%;
+ margin:0 7px 2px 0;background:var(--status-led);
+ box-shadow:0 0 5px 2px var(--status-glow);
+}
+/* A meaningful action (not a tab title) can also show a tiny dot. */
+.modeChoice.is-lit::after,
+#musicActivate.is-lit::after,
+#timelineActivate.is-lit::after,
+#cassetteSave.is-lit::after{
+ content:"";display:inline-block;vertical-align:middle;
+ width:6px;height:6px;border-radius:50%;margin-left:7px;
+ background:var(--status-led);box-shadow:0 0 6px 2px var(--status-glow);
+}
+.masterFxBar{
+ display:flex;align-items:center;justify-content:space-between;gap:11px;
+ margin:5px 0 15px;padding:10px 11px;
+ border:1px solid #56504b;border-radius:11px;
+ background:linear-gradient(125deg,#1c1b19,#121212);
+}
+.masterFxExplanation{display:flex;flex-direction:column;gap:3px;min-width:0}
+.masterFxExplanation strong{font-size:11px;letter-spacing:1.3px;font-weight:850;color:#eee}
+.masterFxExplanation span{font-size:10px;color:#aaa;line-height:1.3}
+.allEffectsToggle{
+ min-height:42px;min-width:0;display:flex;align-items:center;gap:8px;
+ padding:8px 11px;border-radius:9px;
+ border:1px solid #c98232;background:#3c2513;color:#ffbd75;
+ font-size:10px;letter-spacing:.3px;white-space:nowrap;font-weight:850;
+ flex-shrink:0;touch-action:manipulation;
+}
+.allEffectsCross{
+ display:inline-flex;align-items:center;justify-content:center;
+ background:#e88d34;color:#261201;
+ border-radius:6px;font-size:16px;font-weight:950;
+ width:24px;height:24px;line-height:1;
+ box-shadow:0 0 10px rgba(236,133,36,.29)
+}
+.allEffectsToggle.is-bypassed{
+ background:#df8730;border-color:#ffbd65;color:#1e150a;
+ box-shadow:0 0 13px rgba(255,158,49,.22)
+}
+.allEffectsToggle.is-bypassed .allEffectsCross{background:#2b180c;color:#ffc07c}
+.allEffectsToggle:disabled{opacity:.5;cursor:not-allowed}
+body.effects-bypassed .tabs button.is-lit::after,
+body.effects-bypassed .audioSubtabs button.is-lit::after{content:none}
+@media(max-width:380px){
+ .masterFxBar{padding:8px;gap:7px}
+ .masterFxExplanation strong{font-size:10px}
+ .masterFxExplanation span{font-size:9px}
+ .allEffectsToggle{font-size:9px;gap:5px;padding:6px}
+ .allEffectsCross{height:23px;width:23px}
+}
