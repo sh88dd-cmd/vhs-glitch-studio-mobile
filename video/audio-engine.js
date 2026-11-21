@@ -12,8 +12,8 @@ class TapeAudio{
  constructor(element){
   this.element=element;this.ctx=null;this.stream=null;this.filter=null;this.delay=null;this.saturator=null;this.gain=null;this.noiseGain=null;this.noise=null;this.bypass=false;this.connected=false;
   this.state={enabled:false,mode:'linear',strength:55,hiss:45,wow:40,flutter:30,drop:25,saturation:20,seed:0};
-  this.mix={videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true};
-  this.musicBuffer=null;this.musicSource=null;this.musicPlayAt=-1;this.musicCtxStart=0;
+  this.mix={videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true,fadeIn:0,fadeOut:0};
+  this.musicBuffer=null;this.musicSource=null;this.musicPlayAt=-1;this.musicCtxStart=0;this.extraAudio=[];
  }
  async start(){
   if(this.connected){if(this.ctx.state==='suspended')await this.ctx.resume();return;}
@@ -107,6 +107,7 @@ class TapeAudio{
   next.musicOffset=C(Number(next.musicOffset)||0,0,7200);
   next.musicTrimEnd=C(Number(next.musicTrimEnd)||0,0,7200);
   next.musicLoop=!!next.musicLoop;
+  next.fadeIn=C(Number(next.fadeIn)||0,0,30);next.fadeOut=C(Number(next.fadeOut)||0,0,30);
   const shift=next.musicStart!==prev.musicStart||next.musicOffset!==prev.musicOffset||next.musicTrimEnd!==prev.musicTrimEnd||next.musicLoop!==prev.musicLoop;
   this.mix=next;
   if(this.connected){
@@ -121,7 +122,7 @@ class TapeAudio{
   this.musicBuffer=buffer||null;
  }
  getMusicDuration(){return this.musicBuffer?.duration||0;}
- stopMusic(){
+ stopMainMusic(){
   if(this.musicSource){
    const old=this.musicSource;this.musicSource=null;old.onended=null;
    try{old.stop()}catch{}
@@ -129,6 +130,29 @@ class TapeAudio{
    try{old.buffer=null}catch{}
   }
   this.musicPlayAt=-1;
+ }
+ stopExtras(){
+  for(const track of this.extraAudio){
+   if(track.node){
+    const node=track.node;track.node=null;node.onended=null;
+    try{node.stop()}catch{}
+    try{node.disconnect()}catch{}
+    try{node.buffer=null}catch{}
+   }
+   track.playAt=-1;
+  }
+ }
+ stopMusic(){this.stopMainMusic();this.stopExtras();}
+ setExtraTracks(tracks){
+  this.stopExtras();
+  for(const old of this.extraAudio){try{old.gain?.disconnect()}catch{}}
+  this.extraAudio=[];
+  if(!this.connected)return;
+  for(const item of (tracks||[]).slice(0,2)){
+   if(!item?.buffer||!item.buffer.duration)continue;
+   const gain=this.ctx.createGain();gain.gain.value=0;gain.connect(this.mixer);
+   this.extraAudio.push({...item,gain,node:null,playAt:-1,ctxStart:0});
+  }
  }
  async decodeMusic(bytes){
   await this.start();
@@ -139,34 +163,73 @@ class TapeAudio{
   return buffer;
  }
  syncMusic(videoTime,playing){
-  if(!this.connected||!this.musicBuffer||!playing){this.stopMusic();return;}
-  const duration=this.musicBuffer.duration;
-  const start=C(this.mix.musicOffset,0,Math.max(0,duration-.05));
-  const end=this.mix.musicTrimEnd>0?C(this.mix.musicTrimEnd,start+.05,duration):duration;
-  const length=end-start,local=Number(videoTime)-this.mix.musicStart;
-  if(!Number.isFinite(local)||local<0||length<=0||(!this.mix.musicLoop&&local>=length)){
-   this.stopMusic();return;
+  if(!this.connected||!playing){this.stopMusic();return;}
+  const duration=this.getMusicDuration();
+  if(duration>0){
+   const start=C(this.mix.musicOffset,0,Math.max(0,duration-.05));
+   const end=this.mix.musicTrimEnd>0?C(this.mix.musicTrimEnd,start+.05,duration):duration;
+   const length=end-start,local=Number(videoTime)-this.mix.musicStart;
+   if(!Number.isFinite(local)||local<0||length<=0||(!this.mix.musicLoop&&local>=length)){
+    this.stopMainMusic();
+    this.musicGain.gain.setTargetAtTime(0,this.ctx.currentTime,.015);
+   }else{
+    const phase=this.mix.musicLoop?(local%length):local;
+    const offset=start+phase;
+    const drift=this.musicSource?
+     Math.abs(this.musicPlayAt+(this.ctx.currentTime-this.musicCtxStart)-Number(videoTime)):Infinity;
+    if(!this.musicSource||drift>=.40){
+     this.stopMainMusic();
+     const node=this.ctx.createBufferSource();node.buffer=this.musicBuffer;node.loop=this.mix.musicLoop;
+     if(node.loop){node.loopStart=start;node.loopEnd=end;}
+     node.connect(this.musicGain);node.connect(this.musicAnalyser);
+     this.musicSource=node;this.musicPlayAt=Number(videoTime);this.musicCtxStart=this.ctx.currentTime;
+     node.onended=()=>{if(this.musicSource===node){this.musicSource=null;this.musicPlayAt=-1;}};
+     try{if(node.loop)node.start(0,offset);else node.start(0,offset,Math.max(.005,end-offset));}
+     catch(err){this.musicSource=null;this.musicPlayAt=-1;throw err;}
+    }
+    const fi=Math.max(0,this.mix.fadeIn||0),fo=Math.max(0,this.mix.fadeOut||0);
+    const envelope=Math.min(1,fi>0?phase/fi:1,fo>0?(length-phase)/fo:1);
+    this.musicGain.gain.setTargetAtTime(this.mix.musicVolume/100*C(envelope,0,1),this.ctx.currentTime,.025);
+   }
+  }else this.stopMainMusic();
+  for(const track of this.extraAudio){
+   const d=track.buffer.duration,start=C(Number(track.trimStart)||0,0,Math.max(0,d-.05));
+   const end=Number(track.trimEnd)>0?C(Number(track.trimEnd),start+.05,d):d;
+   const length=end-start,local=Number(videoTime)-(Number(track.at)||0);
+   const looping=!!track.loop;
+   if(!Number.isFinite(local)||local<0||length<=0||(!looping&&local>=length)){
+    if(track.node){
+     const node=track.node;track.node=null;node.onended=null;
+     try{node.stop()}catch{}try{node.disconnect()}catch{}
+    }
+    track.playAt=-1;track.gain.gain.setTargetAtTime(0,this.ctx.currentTime,.012);
+    continue;
+   }
+   const phase=looping?(local%length):local;
+   const offset=start+phase;
+   const drift=track.node?
+    Math.abs(track.playAt+(this.ctx.currentTime-track.ctxStart)-Number(videoTime)):Infinity;
+   if(!track.node||drift>=.4){
+    if(track.node){
+     const old=track.node;old.onended=null;try{old.stop()}catch{}try{old.disconnect()}catch{}
+    }
+    const node=this.ctx.createBufferSource();
+    node.buffer=track.buffer;node.loop=looping;
+    if(looping){node.loopStart=start;node.loopEnd=end;}
+    node.connect(track.gain);node.connect(this.musicAnalyser);
+    track.node=node;track.playAt=Number(videoTime);track.ctxStart=this.ctx.currentTime;
+    node.onended=()=>{if(track.node===node){track.node=null;track.playAt=-1;}};
+    try{if(looping)node.start(0,offset);else node.start(0,offset,Math.max(.005,end-offset));}
+    catch(e){track.node=null;track.playAt=-1;console.warn('Дополнительная дорожка',e);}
+   }
+   const fi=C(Number(track.fadeIn)||0,0,30),fo=C(Number(track.fadeOut)||0,0,30);
+   const level=C(Math.min(1,fi>0?phase/fi:1,fo>0?(length-phase)/fo:1),0,1);
+   track.gain.gain.setTargetAtTime(C(Number(track.volume)||0,0,100)/100*level,this.ctx.currentTime,.025);
   }
-  const offset=start+(this.mix.musicLoop?(local%length):local);
-  const drift=this.musicSource?
-   Math.abs(this.musicPlayAt+(this.ctx.currentTime-this.musicCtxStart)-Number(videoTime)):Infinity;
-  if(this.musicSource&&drift<.40)return;
-  this.stopMusic();
-  const node=this.ctx.createBufferSource();
-  node.buffer=this.musicBuffer;node.loop=this.mix.musicLoop;
-  if(node.loop){node.loopStart=start;node.loopEnd=end;}
-  node.connect(this.musicGain);
-  node.connect(this.musicAnalyser);
-  this.musicSource=node;
-  this.musicPlayAt=Number(videoTime);
-  this.musicCtxStart=this.ctx.currentTime;
-  node.onended=()=>{if(this.musicSource===node){this.musicSource=null;this.musicPlayAt=-1;}};
-  try{if(node.loop)node.start(0,offset);else node.start(0,offset,Math.max(.005,end-offset));}
-  catch(err){this.musicSource=null;this.musicPlayAt=-1;throw err;}
  }
  getLevels(){
   if(!this.connected||!this.analyser||!this.spectrum||this.ctx?.state==='suspended')return{bass:0,mid:0,high:0,rms:0,available:false};
-  const active=this.musicBuffer?this.musicAnalyser:this.analyser;
+  const active=(this.musicBuffer||this.extraAudio.length)?this.musicAnalyser:this.analyser;
   active.getByteFrequencyData(this.spectrum);
   const nyquist=this.ctx.sampleRate/2,bins=this.spectrum.length;
   function band(lo,hi){
@@ -184,6 +247,7 @@ class TapeAudio{
  // Called during real navigation/close; garbage collection timing is browser-controlled.
  release(){
   this.stopMusic();this.musicBuffer=null;
+  for(const tr of this.extraAudio){try{tr.gain.disconnect()}catch{}}this.extraAudio=[];
   this.suspendNoise();
   if(this.noise){try{this.noise.stop()}catch{}try{this.noise.disconnect()}catch{}this.noise=null;}
   const ctx=this.ctx;
