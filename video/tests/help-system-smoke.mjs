@@ -95,7 +95,7 @@ assert.match(html,/<footer[\s\S]*?id="toggleHelpIcons"[\s\S]*?<\/footer>/,'Toggl
 assert.ok(css.includes('body:not(.help-visible) .helpIcon{display:none!important}'),
  'All tiny question marks must start hidden, including before JS loads');
 assert.ok(css.includes('.helpVisibilityToggle'),'Dedicated footer button style required');
-assert.ok(sw.includes("vhs-video-lab-0.7.10"));
+assert.match(sw,/vhs-video-lab-\d+\.\d+\.\d+/,'Offline cache version present');
 const visibleClasses=new Set();
 doc.body.classList={
  add(c){visibleClasses.add(c);},remove(c){visibleClasses.delete(c);},

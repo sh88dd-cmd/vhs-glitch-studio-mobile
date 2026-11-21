@@ -74,17 +74,30 @@ class TapeAudio{
   // soundtrack (camera + imported music), independently from VHS AUDIO.
   // Only the time-based event envelope is stored; no extra video/audio decoder.
   const held=playing?C(Number(s.holdGlitch)||0,0,1):0;
-  const enabled=tapeEnabled||held>.001;
+  const device=['camcorder','walkman','radio','phone','cctv','broken'].includes(s.device)?s.device:'off';
+  const devices={
+   off:{hz:19500,q:.5,hiss:0,saturation:0,wow:0,drop:0,band:false},
+   camcorder:{hz:6800,q:.55,hiss:.009,saturation:.12,wow:.06,drop:0,band:false},
+   walkman:{hz:5600,q:.6,hiss:.014,saturation:.16,wow:.15,drop:.03,band:false},
+   radio:{hz:1500,q:.72,hiss:.028,saturation:.36,wow:0,drop:.05,band:true},
+   phone:{hz:1950,q:1.05,hiss:.012,saturation:.27,wow:0,drop:0,band:true},
+   cctv:{hz:3200,q:.8,hiss:.025,saturation:.22,wow:0,drop:.07,band:false},
+   broken:{hz:2400,q:1.0,hiss:.046,saturation:.6,wow:.32,drop:.28,band:false}
+  };
+  const profile=devices[device],deviceActive=device!=='off';
+  const enabled=tapeEnabled||deviceActive||held>.001;
   const type=s.mode==='hifi'?'hifi':'linear';
   const baseHz=tapeEnabled?(type==='hifi'?14800-(s.strength||0)*42:4900-(s.strength||0)*27):19500;
   const tearingHz=5600-3800*held+300*Math.sin(time*13.1);
-  const hz=held>0?Math.min(baseHz,tearingHz):baseHz;
+  const hz=held>0?Math.min(baseHz,tearingHz,profile.hz):Math.min(baseHz,profile.hz);
+  const filterType=profile.band?'bandpass':'lowpass';
+  if(this.filter.type!==filterType)this.filter.type=filterType;
   this.dry.gain.setTargetAtTime(enabled?0:1,now,.012);
   this.wet.gain.setTargetAtTime(enabled?1:0,now,.012);
   this.filter.frequency.setTargetAtTime(C(hz,1100,19500),now,.012);
-  this.filter.Q.setTargetAtTime(.5+held*1.1,now,.02);
+  this.filter.Q.setTargetAtTime(profile.q+held*1.1,now,.02);
   const tapeDistort=tapeEnabled?strength*C((s.saturation||0)/100,0,1):0;
-  const distort=Math.max(tapeDistort,held*.72);
+  const distort=Math.max(tapeDistort,held*.72,profile.saturation);
   // AudioTape effect uses one simple, deterministic analog-like smooth saturation curve.
   if(distort>.002){
    const curve=new Float32Array(257);
@@ -95,7 +108,7 @@ class TapeAudio{
   const wobble=tapeEnabled?(s.wow||0)/100*strength:0;
   const flutter=tapeEnabled?(s.flutter||0)/100*strength:0;
   const delaySeconds=enabled?
-   .012+wobble*.006*Math.sin(time*2.3)+flutter*.0016*Math.sin(time*26.4)+
+   .012+(wobble+profile.wow)*.006*Math.sin(time*2.3)+flutter*.0016*Math.sin(time*26.4)+
    held*(.004+Math.sin(time*33)*.0028):0;
   this.delay.delayTime.setTargetAtTime(C(delaySeconds,0,.065),now,.012);
   let dropout=1;
@@ -103,6 +116,10 @@ class TapeAudio{
    const slot=Math.floor(time*2.4),u=rand(s.seed||1,slot);
    const fade=(time*2.4)%1;
    if(u<.12+(s.drop||0)/100*.43&&fade<.20)dropout=C(.08+fade*3.7,0,1);
+  }
+  if(deviceActive&&profile.drop>0){
+   const index=Math.floor(time*3.3);
+   if(rand(s.seed||1,index+22001)<profile.drop&&time%0.32<.09)dropout=Math.min(dropout,.12);
   }
   if(held>.001){
    // Short repeatable tape-head cuts, synchronized to the *video timestamp*.
@@ -115,9 +132,9 @@ class TapeAudio{
     dropout=Math.min(dropout,1-held*.94*cutShape);
    }
   }
-  this.gain.gain.setTargetAtTime(dropout*(tapeEnabled?(1-.16*strength):1),now,.009);
+  this.gain.gain.setTargetAtTime(dropout*(tapeEnabled?(1-.16*strength):1)*(deviceActive?.92:1),now,.009);
   const tapeNoise=tapeEnabled&&playing?C((s.hiss||0)/100,0,1)*strength*(type==='hifi'?.006:.025):0;
-  const noise=tapeNoise+(playing?held*.024:0);
+  const noise=tapeNoise+(playing?held*.024+profile.hiss:0);
   this.noiseGain.gain.setTargetAtTime(C(noise,0,.12),now,.018);
  }
  setMix(settings){

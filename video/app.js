@@ -12,7 +12,7 @@
   mode:'vhs',modeStrength:75,tape:'used',signalWidth:'auto',eventDensity:48,glitchStrength:85,
   fxMode:'classic',music:{bassEffect:'vhold',highEffect:'dropouts',sensitivity:60,threshold:25,strength:85,release:35},timelineEvents:[],timelineStrength:85,
   mix:{videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true,fadeIn:0,fadeOut:0},
-  selectedTrack:null,holdEvents:[],holdBalance:50,keyframesEnabled:true,keyframes:[],cassettes:[],selectedCassetteId:null,
+  selectedTrack:null,holdEvents:[],holdBalance:50,keyframesEnabled:true,keyframes:[],creative:window.VHSVideoCreative.defaults(),cassettes:[],selectedCassetteId:null,
   filmDamage:{enabled:false,type:'edge-left',leak:70,dust:23,grain:30,scratches:22,flicker:23,halation:30},
   speed:'SP',filmId:'builtin:Нейтральный / без плёнки',filmStrength:85,
   signal:{chromaBleed:52,composite:35,edgeWave:38,tracking:54,noise:38,chromaLoss:15,ringing:19},
@@ -25,7 +25,7 @@
   size:'480',fps:15,exportScope:'30',keepAudio:true,seed:91823710};
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem('vhs.video.settings')||'null')}catch{}
- const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},mix:{...defaults.mix,...(saved?.mix||{})},selectedTrack:saved?.selectedTrack||null,holdEvents:(Array.isArray(saved?.holdEvents)?saved.holdEvents.slice(0,150):[]).filter(e=>e&&Number.isFinite(e.start)&&Number.isFinite(e.end)&&Number.isInteger(e.clip)).map(e=>({...e,blend:Number.isFinite(Number(e.blend))?clamp(Number(e.blend),0,100):0})),holdBalance:clamp(Number(saved?.holdBalance??50)||0,0,100),keyframesEnabled:saved?.keyframesEnabled!==false,keyframes:window.VHSVideoKeyframes.normalizeAll(saved?.keyframes),cassettes:(Array.isArray(saved?.cassettes)?saved.cassettes.slice(0,80):[]),filmDamage:{...defaults.filmDamage,...(saved?.filmDamage||{})},timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
+ const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},mix:{...defaults.mix,...(saved?.mix||{})},selectedTrack:saved?.selectedTrack||null,holdEvents:(Array.isArray(saved?.holdEvents)?saved.holdEvents.slice(0,150):[]).filter(e=>e&&Number.isFinite(e.start)&&Number.isFinite(e.end)&&Number.isInteger(e.clip)).map(e=>({...e,blend:Number.isFinite(Number(e.blend))?clamp(Number(e.blend),0,100):0})),holdBalance:clamp(Number(saved?.holdBalance??50)||0,0,100),keyframesEnabled:saved?.keyframesEnabled!==false,keyframes:window.VHSVideoKeyframes.normalizeAll(saved?.keyframes),creative:window.VHSVideoCreative.hydrate(saved?.creative),cassettes:(Array.isArray(saved?.cassettes)?saved.cassettes.slice(0,80):[]),filmDamage:{...defaults.filmDamage,...(saved?.filmDamage||{})},timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
  // Remove the obsolete persistent bypass: new effects must remain usable.
  state.masterBypass=false;
  const LAST_FX_KEY='vhs.video.last-effects.v1';
@@ -54,7 +54,7 @@
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
- let musicRequest=0,musicLoading=false,audioStudio=null,holdActive=null,comparisonHeld=false;
+ let musicRequest=0,musicLoading=false,audioStudio=null,holdActive=null,comparisonHeld=false,creativeUI=null,liveActive=null;
  let videoImportBusy=false,videoImportCommitted=false,videoImportSerial=0,videoPickerPending=false;
  const holdPreviewProcessor=window.VHSVideoGlitchFX.createProcessor(),holdExportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const FILM_LIMIT=1200;
@@ -92,7 +92,9 @@
    vhs:actualVhs||actualMode,glitch:actualGlitch,
    audio:(engaged&&(hasTracks||actualTape||actualBeat)),timeline:actualTimeline,
    film:actualFilm,filmDamage:actualDamage,camera:actualCamera,
-   cassettes:engaged&&!!state.selectedCassetteId,keyframes:actualKeyframes,frameTools:false
+   cassettes:engaged&&(!!state.selectedCassetteId||state.creative.aging.enabled),keyframes:actualKeyframes,frameTools:false,
+   touch:engaged&&!!(state.creative.touch.enabled||state.creative.touch.facesEnabled),
+   speed:engaged&&state.creative.speed.enabled,live:engaged&&state.timelineEvents.some(e=>String(e.id).startsWith('live-'))
   };
   document.querySelectorAll('.tabs [data-tab]').forEach(el=>setIndicator(el,active[el.dataset.tab]));
   const audioFlags={tracks:engaged&&hasTracks,trim:actualTrim,beat:actualBeat,tape:actualTape};
@@ -209,6 +211,7 @@
   refreshMusicTrim();
   renderTimeline();
   renderKeyframes();
+  creativeUI?.refresh();
   renderCassetteShelf();
   resetFrameHistory();
   audioEngine.setMix(state.mix);
@@ -262,6 +265,7 @@
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+key));
   if(key==='keyframes')renderKeyframes();
   if(key==='frameTools')syncFrameTools();
+  if(['touch','speed','live','cassettes'].includes(key))creativeUI?.refresh();
   // Safari may clamp scrollY after switching to a shorter tab without emitting
   // a scroll event. Re-evaluate the dock once the new layout has settled.
   requestAnimationFrame(()=>videoUI?.updateVisibility());
@@ -280,7 +284,7 @@
   input.addEventListener('input',()=>{count.textContent=input.value+'%';onInput(Number(input.value));persist();renderCurrentFrame();});
   wrap.append(head,input);parent.append(wrap);return input;}
  function CFinite(x,a,b){return Number.isFinite(x)?clamp(x,a,b):b;}
- function resetFrameHistory(){previewProcessor.reset();exportProcessor.reset();holdPreviewProcessor.reset();holdExportProcessor.reset();lastMusicState={bass:0,high:0};lastMusicTime=0;}
+ function resetFrameHistory(){creativeUI?.resetTracking();previewProcessor.reset();exportProcessor.reset();holdPreviewProcessor.reset();holdExportProcessor.reset();lastMusicState={bass:0,high:0};lastMusicTime=0;}
  function tuneAdaptiveResolution(cost,exporting){
   if(state.signalWidth!=='auto')return;
   if(cost>110){slowFrames++;fastFrames=0;}
@@ -300,8 +304,15 @@
   const active=playing&&!!file&&!source.paused;
   audioEngine.setMix(state.masterBypass?{...state.mix,videoVolume:100,musicVolume:0}:state.mix);
   const held=holdStrengthsAt(source.currentTime||0,clipIndex);
-  audioEngine.update({...state.audio,enabled:!state.masterBypass&&state.audio.enabled,
-   holdGlitch:!state.masterBypass&&active?held.audio:0,seed:clipSeed()},source.currentTime||0,active);
+  const age=window.VHSVideoCreative.agingAt(state.creative.aging,source.currentTime||0,source.duration||0);
+  const audioCfg={...state.audio,
+   enabled:!state.masterBypass&&(state.audio.enabled||age>.005),
+   strength:Math.max(Number(state.audio.strength)||0,age*88),
+   hiss:Math.max(Number(state.audio.hiss)||0,age*80),
+   drop:Math.max(Number(state.audio.drop)||0,age*65),
+   device:state.creative.audioDevice,
+   holdGlitch:!state.masterBypass&&active?held.audio:0,seed:clipSeed()};
+  audioEngine.update(audioCfg,source.currentTime||0,active);
   audioEngine.syncMusic(globalVideoTime(),active&&!state.masterBypass);
 }
  function setSeed(value){state.seed=value>>>0;resetFrameHistory();$('undoGlitch').disabled=!seedHistory.length;persist();renderCurrentFrame();videoUI?.sync();}
@@ -836,7 +847,7 @@
  }
  function specialEffectsAt(time){
   const special=window.VHSVideoSpecialModes;
-  if(state.fxMode==='timeline')return special.eventsAt(time,clipIndex,state.timelineEvents);
+  if(state.fxMode==='timeline')return special.eventsAt(time,clipIndex,liveActive?[...state.timelineEvents,{...liveActive,duration:Math.max(.15,time-liveActive.time+.14)}]:state.timelineEvents);
   if(state.fxMode==='music'){
    const readings=audioEngine.getLevels();
    const dt=Math.max(0,Math.min(.5,time-lastMusicTime))||.08;
@@ -1471,7 +1482,7 @@
   // A zero-effects frame must never pass through the 192–240px VHS signal
   // buffer: that downsample was blurring the original even after "Reset all".
   const atTime=source.currentTime||0;
-  const frameState=window.VHSVideoKeyframes.effective(state,clipIndex,atTime);
+  const frameState=window.VHSVideoCreative.aged(window.VHSVideoKeyframes.effective(state,clipIndex,atTime),atTime,source.duration||0);
   const holdVideo=holdStrengthsAt(atTime,clipIndex).video;
   const clean=comparisonHeld&&canvas===preview||!window.VHSVideoCleanPath.hasVisualEffects(frameState,holdVideo);
   if(canvas===preview){
@@ -1496,6 +1507,8 @@
   ctx.drawImage(source,(iw-tw)/2,(ih-th)/2,tw,th);
   const time=source.currentTime||0;
   const image=ctx.getImageData(0,0,iw,ih);
+  if(frameState.creative?.look?.enabled&&frameState.creative.look.target&&frameState.creative.look.strength>0)
+   window.VHSVideoCreative.transfer(image.data,iw,ih,frameState.creative.look.target,frameState.creative.look.strength);
   if(!state.masterBypass&&frameState.filmEnabled){
    const f=selectedFilm(),strength=frameState.filmStrength/100;
    if(f?.type==='builtin')window.VideoFilmCore.filmBuiltin(image.data,builtin[f.name],strength);
@@ -1503,6 +1516,7 @@
   }
   if(!state.masterBypass&&frameState.filmDamage.enabled)window.VHSVideoFilmDamage.apply(image.data,iw,ih,{...frameState.filmDamage,time:globalVideoTime(),seed:clipSeed()});
   ctx.putImageData(image,0,0);
+  creativeUI?.drawTouch(ctx,atTime,clipIndex);
   if(!state.masterBypass)drawOsd(ctx,iw,ih);
   const frameIndex=Math.floor(time*(Number(state.fps)||15));
   // A mechanical tape splice is strongest at real clip joins.
@@ -1557,6 +1571,7 @@
   finally{renderBusy=false;}
  }
  function tick(now){
+  creativeUI?.updateSpeed(now);
   loopId=requestAnimationFrame(tick);
   if(!file||source.paused||source.ended)return;
   const fps=recording?Number(state.fps):12;
@@ -1574,6 +1589,7 @@
     exportStatus('Запись: '+timeString(elapsed)+' / '+timeString(max)+' · клип '+(clipIndex+1)+'/'+clips.length);
     if(elapsed>=max-.04||(!clipHasNext()&&source.ended))stopExport();
    }else{drawFrame(preview);}
+   creativeUI?.syncButtons();
    videoUI?.render();
    tuneAdaptiveResolution(performance.now()-begin,!!recording);
   }catch(e){
@@ -1723,6 +1739,9 @@
    clips=candidate;clipIndex=0;file=first;sourceUrl=candidate[0].url;videoImportCommitted=true;
    resetFrameHistory();seedHistory=[];$('undoGlitch').disabled=true;
    state.holdEvents=[];state.keyframes=[];state.keyframesEnabled=true;
+   state.creative.touch.strokes=[];state.creative.touch.manualFaces=[];
+   state.creative.speed.points=[];state.creative.live.events=[];
+   creativeUI?.resetTracking();
    comparisonHeld=false;
    if(framePngUrl){URL.revokeObjectURL(framePngUrl);framePngUrl='';}
    $('framePngDownload').hidden=true;
@@ -1792,7 +1811,7 @@
   $('play').disabled=!!recording;$('export').disabled=!!recording||!frameReady;
   $('regenerate').disabled=!!recording;$('seek').disabled=!!recording;
   $('timeTotal').textContent=timeString(source.duration);
-  videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();renderKeyframes();
+  videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();renderKeyframes();creativeUI?.refresh();
   textStatus(!frameReady?'Файл распознан. Нажми ▶ для первого кадра (особенность Safari на iPhone).':
    clips.length>1?'Монтаж: '+clips.length+' клипов. VHS + FILM применяются ко всей серии.':'Видео готово. Нажми ▶ или перемести ползунок. Оригинал не изменяется.');
   if(frameReady&&!videoImportBusy&&file)
@@ -1802,6 +1821,11 @@
  async function togglePlay(){
   if(!file||recording)return;
   try{
+   if(creativeUI?.isReverse()){creativeUI.stopReverse();$('play').textContent='▶ Просмотр';return;}
+   if(state.creative.speed.enabled&&creativeUI?.speedRate(source.currentTime||0)<0){
+    if(source.currentTime<=.03)source.currentTime=Math.max(0,(source.duration||0)-.04);
+    if(creativeUI.startReverse()){$('play').textContent='Ⅱ Пауза';return;}
+   }
    if(source.paused){try{await audioEngine.start();syncAudio(true);}catch(err){if(!audioErrorShown){textStatus('Звук недоступен: '+err.message);audioErrorShown=true;}}await source.play();$('play').textContent='Ⅱ Пауза';}
    else{source.pause();$('play').textContent='▶ Просмотр';}
   }catch(e){textStatus('Не удалось воспроизвести: '+e.message);}
@@ -1848,6 +1872,11 @@
  }
  async function beginExport(){
   if(!file||recording)return;
+  if(state.creative.speed.enabled&&(
+     state.creative.speed.reverse||state.creative.speed.curveEnabled&&state.creative.speed.points.some(p=>Number(p.rate)<=0))){
+    exportStatus('Обратная скорость и переход через ноль пока доступны только в предпросмотре. Для экспорта реверса нужен отдельный покадровый кодировщик; исходный файл не изменён.');
+    return;
+  }
   // If a single, entire clip has not been changed, return its real bytes.
   // Canvas/MediaRecorder would otherwise re-encode and reduce quality even
   // though the user explicitly set every video/audio effect to zero.
@@ -2043,6 +2072,54 @@
  }
  async function init(){
   mountControls();mountKeyframes();initEvents();
+  const mixSnapshots=(a,b,v)=>{
+   if(typeof a==='number'&&typeof b==='number')return a+(b-a)*v;
+   if(a&&b&&typeof a==='object'&&typeof b==='object'&&!Array.isArray(a)&&!Array.isArray(b)){
+    const result={...a};
+    for(const key of Object.keys(b))if(key in a)result[key]=mixSnapshots(a[key],b[key],v);
+    return result;
+   }
+   return v<.5?a:b;
+  };
+  creativeUI=window.VHSVideoCreativeUI.create({
+   state,source,preview,
+   hasVideo:()=>!!file&&source.readyState>=2,
+   isRecording:()=>!!recording,
+   getClip:()=>clipIndex,
+   getAudioBuffer:()=>audioEngine.musicBuffer,
+   getCassettes:()=>[...builtInCassettes(),...state.cassettes],
+   callbacks:{
+    save:()=>persist(),
+    render:()=>{renderCurrentFrame();syncAudio(!source.paused);},
+    audio:()=>syncAudio(!source.paused),
+    speed:()=>{creativeUI?.updateSpeed();syncAudio(!source.paused);renderCurrentFrame();},
+   },
+   onBeat:events=>{
+    if(recording)return;
+    const manual=state.timelineEvents.filter(e=>!(String(e.id).startsWith('auto-')&&e.clip===clipIndex));
+    state.timelineEvents=[...manual,...events].slice(0,120);
+    state.fxMode='timeline';syncModeUI();persist();renderTimeline();resetFrameHistory();renderCurrentFrame();
+   },
+   onLiveStart:ev=>{
+    if(recording)return;liveActive=ev;state.fxMode='timeline';
+    syncModeUI();renderCurrentFrame();
+   },
+   onLive:ev=>{
+    if(recording)return;liveActive=null;
+    const event=window.VHSVideoSpecialModes.cleanEvent(ev);
+    if(event)state.timelineEvents=[...state.timelineEvents,event].slice(-120);
+    state.fxMode='timeline';syncModeUI();persist();renderTimeline();renderCurrentFrame();
+   },
+   onMorph:(a,b,v)=>{
+    if(recording)return;
+    const snap={};
+    for(const key of CASSETTE_FIELDS)if(Object.prototype.hasOwnProperty.call(a,key)&&Object.prototype.hasOwnProperty.call(b,key))
+     snap[key]=mixSnapshots(a[key],b[key],v);
+    applyCassetteSnapshot(snap,null);
+    renderCassetteShelf();
+   }
+  });
+  creativeUI.mount();
   if(!window.VHSVideoPlayerUI)throw Error('Модуль просмотра не загружен. Обнови страницу с интернетом.');
   videoUI=window.VHSVideoPlayerUI.create({
    source,preview,
@@ -2052,7 +2129,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset||!window.VHSVideoCleanPath||!window.VHSVideoCameraOSD||!window.VHSVideoKeyframes||!window.VHSVideoHelpContent||!window.VHSVideoHelpIllustrations||!window.VHSVideoHelpUI)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset||!window.VHSVideoCleanPath||!window.VHSVideoCameraOSD||!window.VHSVideoKeyframes||!window.VHSVideoHelpContent||!window.VHSVideoHelpIllustrations||!window.VHSVideoHelpUI||!window.VHSVideoCreative||!window.VHSVideoCreativeUI)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   window.VHSVideoHelpUI.mount();
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();

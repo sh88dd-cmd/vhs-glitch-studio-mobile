@@ -8,7 +8,7 @@ const FIELDS=[
  'vhsEnabled','filmEnabled','glitchEnabled','master','preset','mode',
  'modeStrength','eventDensity','glitchStrength','fxMode',
  'music','timelineEvents','timelineStrength','holdEvents','holdBalance',
- 'filmStrength','signal','glitches','audio','camera','filmDamage','keyframesEnabled','keyframes',
+ 'filmStrength','signal','glitches','audio','camera','filmDamage','keyframesEnabled','keyframes','creative',
  'selectedCassetteId','mix'
 ];
 const CAMERA_FLAGS=['rec','play','battery','date','counter','zoom','modeInfo','focus','frame'];
@@ -25,6 +25,13 @@ function zero(state){
  state.eventDensity=0;state.glitchStrength=0;state.fxMode='classic';
  state.timelineStrength=0;state.timelineEvents=[];state.holdEvents=[];state.holdBalance=50;
  state.keyframesEnabled=false;state.keyframes=[];
+ if(state.creative&&typeof state.creative==='object'){
+  const clean=root.VHSVideoCreative?.defaults?.()||{};
+  for(const key of ['touch','aging','look','speed','live']){
+   if(state.creative[key]&&clean[key])Object.assign(state.creative[key],deep(clean[key]));
+  }
+  state.creative.audioDevice='off';
+ }
  state.filmStrength=0;state.selectedCassetteId=null;
  for(const key of Object.keys(state.signal||{}))if(typeof state.signal[key]==='number')state.signal[key]=0;
  for(const key of Object.keys(state.glitches||{}))if(typeof state.glitches[key]==='number')state.glitches[key]=0;
@@ -53,6 +60,17 @@ function restore(state,saved){
   if(!Object.prototype.hasOwnProperty.call(saved,key))continue;
   const value=saved[key];
   if(value===undefined||typeof value==='function')continue;
+  if(key==='creative'&&state.creative&&value&&typeof value==='object'){
+   for(const name of ['touch','aging','look','speed','live']){
+    if(value[name]&&state.creative[name]&&typeof value[name]==='object'){
+     for(const own of Object.keys(state.creative[name]))
+      if(!(own in value[name]))delete state.creative[name][own];
+     Object.assign(state.creative[name],deep(value[name]));
+    }
+   }
+   state.creative.audioDevice=value.audioDevice||'off';
+   continue;
+  }
   if(key==='mix'&&value&&typeof value==='object'&&!Array.isArray(value)){
    Object.assign(state.mix,value);continue;
   }

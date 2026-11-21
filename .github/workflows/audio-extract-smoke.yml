@@ -21,6 +21,12 @@ on:
       - 'video/help-illustrations.js'
       - 'video/help-ui.js'
       - 'video/tests/help-system-smoke.mjs'
+      - 'video/creative-engine.js'
+      - 'video/creative-ui.js'
+      - 'video/vendor/tracking-min.js'
+      - 'video/vendor/tracking-face-min.js'
+      - 'video/vendor/TRACKING_LICENSE.txt'
+      - 'video/tests/creative-lab-smoke.mjs'
       - 'video/styles.css'
       - 'video/index.html'
       - 'video/sw.js'
@@ -50,6 +56,12 @@ on:
       - 'video/help-illustrations.js'
       - 'video/help-ui.js'
       - 'video/tests/help-system-smoke.mjs'
+      - 'video/creative-engine.js'
+      - 'video/creative-ui.js'
+      - 'video/vendor/tracking-min.js'
+      - 'video/vendor/tracking-face-min.js'
+      - 'video/vendor/TRACKING_LICENSE.txt'
+      - 'video/tests/creative-lab-smoke.mjs'
       - 'video/styles.css'
       - 'video/index.html'
       - 'video/sw.js'
@@ -82,6 +94,10 @@ jobs:
           node --check video/help-content.js
           node --check video/help-illustrations.js
           node --check video/help-ui.js
+          node --check video/creative-engine.js
+          node --check video/creative-ui.js
+          node --check video/vendor/tracking-min.js
+          node --check video/vendor/tracking-face-min.js
           node --check video/film-damage.js
           node --check video/audio-studio.js
       - name: Verify mini video monitor stays visible at iPhone scroll bottom
@@ -106,6 +122,8 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y -qq ffmpeg
           fi
+      - name: Test creative rendering, offline face detection, beat and signed speed
+        run: node video/tests/creative-lab-smoke.mjs
       - name: Validate every contextual tip and animated offline GIF
         run: node video/tests/help-system-smoke.mjs
       - name: Test AAC extraction from real MP4 and MOV files

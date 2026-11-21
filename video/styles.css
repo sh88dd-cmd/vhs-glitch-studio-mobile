@@ -737,3 +737,39 @@ body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){p
 @media(max-width:370px){
  body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){padding-right:5px!important}
 }
+
+/* 0.8.0 — touch art, aging cassette page, speed curves, live Russian pad deck */
+.stageCanvas{position:relative}
+#touchOverlay{
+ position:absolute;inset:0;width:100%;height:100%;
+ z-index:4;touch-action:none;cursor:crosshair;
+ user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+}
+#touchOverlay[hidden]{display:none!important}
+#touchOverlay.is-drawing{pointer-events:auto;background:rgba(221,157,89,.035)}
+.creativeSubnav{display:flex;gap:8px;margin:12px 0}
+.creativeSubnav .button{flex:1;min-width:0;text-align:center}
+.creativeSubnav .button.active{background:#614025;border-color:#e3a360;color:#fce3c6}
+.creativeCard{margin-top:18px;padding:13px;border:1px solid #544331;border-radius:11px;background:#191a1d}
+.creativeCard h3,.panel h3{font-size:13px;color:#f1bd82;letter-spacing:.5px;margin:12px 0}
+.creativeCard p.hint{margin:8px 0 12px}
+.creativePair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.creativePair input{width:100%;padding:9px 6px;background:#222;border:1px solid #665849;color:#eee;border-radius:7px}
+.creativePointRow{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:7px 10px;background:#232326;border:1px solid #494340;border-radius:8px;margin:5px 0;color:#efcead;font-size:13px}
+.creativePointRow .button{min-width:35px;min-height:32px;padding:5px}
+.speedCurveGraph{height:115px;border:1px solid #706255;position:relative;border-radius:8px;margin:11px 0 16px;
+ background:
+ linear-gradient(to bottom,transparent 48%,#9a8b79 49%,#9a8b79 50%,transparent 51%),
+ repeating-linear-gradient(90deg,#222124 0,#222124 9%,#323033 10%);
+ overflow:hidden}
+.speedPointMarker{position:absolute;z-index:2;transform:translate(-50%,-50%);padding:0;
+ background:#f0aa68;border:2px solid #f9dbba;border-radius:50%;width:17px;height:17px;
+ min-height:17px;min-width:17px;box-shadow:0 0 9px #d79e5e99}
+.livePads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:13px 0 19px}
+.livePads button{min-height:78px;max-width:100%;padding:11px 7px;border:1px solid #8f7255;border-radius:10px;background:linear-gradient(145deg,#3b3028,#1c1b1d);color:#f4e2ca;font-size:12px;line-height:1.25;font-weight:850;letter-spacing:.2px;touch-action:none;user-select:none;-webkit-user-select:none}
+.livePads button:active,.livePads button.is-pressed{background:#a15f31;color:#fff8e9;border-color:#ffcb85;box-shadow:inset 0 0 10px #0006,0 0 13px #d89a5b6b}
+#cassetteAgingPage>label,#panel-touch label,#panel-speed label,#panel-live label,#audioArea-devices label{display:block;margin:10px 0}
+#panel-touch label>input[type=range],#panel-speed label>input[type=range],#panel-live label>input[type=range],#cassetteAgingPage input[type=range],#audioArea-beat .creativeCard input[type=range],#panel-film .creativeCard input[type=range]{width:100%;margin:8px 0 12px;accent-color:#deaa72}
+#panel-touch label>input[type=number],#panel-speed input[type=number]{padding:9px 7px;min-height:38px;border:1px solid #605343;border-radius:7px;color:#eee;background:#222}
+#touchStatus,#speedStatus,#liveStatus,#agingStatus,#lookStatus,#autoBeatStatus,#audioDeviceStatus{line-height:1.45;white-space:normal}
+@media(max-width:350px){.livePads button{font-size:11px;min-height:68px}.creativeSubnav .button{font-size:10px}}
