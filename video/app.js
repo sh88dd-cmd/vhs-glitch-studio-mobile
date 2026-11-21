@@ -262,6 +262,9 @@
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+key));
   if(key==='keyframes')renderKeyframes();
   if(key==='frameTools')syncFrameTools();
+  // Safari may clamp scrollY after switching to a shorter tab without emitting
+  // a scroll event. Re-evaluate the dock once the new layout has settled.
+  requestAnimationFrame(()=>videoUI?.updateVisibility());
  }
 
  function textStatus(s){$('status').textContent=s;}
