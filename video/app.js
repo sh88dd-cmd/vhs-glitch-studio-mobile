@@ -1884,7 +1884,7 @@
   if(beatAudioCache.file===selected&&beatAudioCache.buffer)return beatAudioCache.buffer;
   await audioEngine.start();
   let bytes;
-  if(/\\.(mp4|mov|m4v)$/i.test(selected.name||'')){
+  if(/\.(mp4|mov|m4v)$/i.test(selected.name||'')){
    bytes=await window.VHSVideoAudioExtract.extract(selected);
   }else{
    if(selected.size>100*1024*1024)throw Error('Анализ этого формата ограничен 100 МБ; для больших роликов нужен MP4/MOV с AAC.');
