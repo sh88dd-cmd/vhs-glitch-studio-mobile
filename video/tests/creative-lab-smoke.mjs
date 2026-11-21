@@ -52,8 +52,8 @@ assert.equal(fx.speedAt(speed,2,10),3);
 speed.reverse=true;assert.equal(fx.speedAt(speed,2,10),-3);
 speed.curveEnabled=true;speed.points=[{time:0,rate:-1},{time:5,rate:-5},{time:10,rate:-10}];
 assert.equal(fx.speedAt(speed,0,10),-1);
-assert.equal(fx.speedAt(speed,2.5,10),-3);
-assert.equal(fx.speedAt(speed,10,10),-10);
+assert.ok(Math.abs(fx.speedAt(speed,2.5,10)+Math.sqrt(.2))<1e-9,'Negative values slow down even with the reverse toggle');
+assert.equal(fx.speedAt(speed,10,10),-.1,'-10 means 0.1x, not 10x reverse');
 speed.points=[{time:0,rate:1},{time:10,rate:-1}];
 assert.ok(Math.abs(fx.speedAt(speed,6,10))>=1,'Direction switches must not stick at zero playback');
 
