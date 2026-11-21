@@ -454,3 +454,25 @@ body.effects-bypassed .audioSubtabs button.is-lit::after{content:none}
  .viewerHold{grid-template-columns:minmax(0,1fr)}
  .viewerHold .holdBlend{height:auto}
 }
+
+/* 0.7.4 — the orange X is a real reset to zero, not a permanent bypass. */
+.masterFxBar{align-items:center;gap:10px;flex-wrap:wrap}
+.masterFxExplanation{flex:1 1 110px}
+.masterFxActions{display:flex;flex:2 1 245px;justify-content:flex-end;gap:7px;min-width:0;align-items:stretch}
+.masterFxActions button{min-width:0;min-height:42px}
+.masterFxActions .allEffectsToggle{flex:1 1 155px;justify-content:center;white-space:normal}
+.restoreEffects{
+ display:flex;align-items:center;justify-content:center;
+ flex:1 1 130px;min-height:42px;padding:8px 9px;border-radius:9px;
+ background:#292621;border:1px solid #b48a53;color:#f1d0a1;
+ font-size:10px;letter-spacing:.2px;font-weight:800;line-height:1.25;text-align:center;
+ touch-action:manipulation;
+}
+.restoreEffects:disabled{opacity:.35;cursor:not-allowed;border-color:#505050;color:#aaa}
+.restoreEffects:not(:disabled){box-shadow:0 0 8px rgba(255,182,85,.08)}
+@media(max-width:440px){
+ .masterFxBar{display:block}
+ .masterFxExplanation{margin-bottom:8px}
+ .masterFxActions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+ .masterFxActions .allEffectsToggle,.masterFxActions .restoreEffects{width:100%;font-size:10px}
+}

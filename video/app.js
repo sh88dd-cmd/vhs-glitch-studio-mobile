@@ -26,6 +26,14 @@
  let saved=null;
  try{saved=JSON.parse(localStorage.getItem('vhs.video.settings')||'null')}catch{}
  const state={...defaults,...(saved||{}),signal:{...defaults.signal,...(saved?.signal||{})},glitches:{...glitchDefaults,...(saved?.glitches||{})},music:{...defaults.music,...(saved?.music||{})},mix:{...defaults.mix,...(saved?.mix||{})},selectedTrack:saved?.selectedTrack||null,holdEvents:(Array.isArray(saved?.holdEvents)?saved.holdEvents.slice(0,150):[]).filter(e=>e&&Number.isFinite(e.start)&&Number.isFinite(e.end)&&Number.isInteger(e.clip)).map(e=>({...e,blend:Number.isFinite(Number(e.blend))?clamp(Number(e.blend),0,100):0})),holdBalance:clamp(Number(saved?.holdBalance??50)||0,0,100),cassettes:(Array.isArray(saved?.cassettes)?saved.cassettes.slice(0,80):[]),filmDamage:{...defaults.filmDamage,...(saved?.filmDamage||{})},timelineEvents:(Array.isArray(saved?.timelineEvents)?saved.timelineEvents.slice(0,150):[]).map(e=>window.VHSVideoSpecialModes.cleanEvent(e)).filter(Boolean),audio:{...defaults.audio,...(saved?.audio||{})},camera:{...defaults.camera,...(saved?.camera||{}),positions:{...defaults.camera.positions,...(saved?.camera?.positions||{})},sizes:{...defaults.camera.sizes,...(saved?.camera?.sizes||{})}}};
+ // Remove the obsolete persistent bypass: new effects must remain usable.
+ state.masterBypass=false;
+ const LAST_FX_KEY='vhs.video.last-effects.v1';
+ let lastFxSnapshot=null;
+ try{
+  const item=JSON.parse(localStorage.getItem(LAST_FX_KEY)||'null');
+  if(item?.version===1&&item.settings&&typeof item.settings==='object')lastFxSnapshot=item;
+ }catch{}
  // Old network tracks cannot be restored: v0.6 supports only local files.
  if(state.selectedTrack&&!['file','video'].includes(state.selectedTrack.kind))state.selectedTrack=null;
  let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
@@ -54,8 +62,8 @@
  }
  function syncSectionLights(){
   const engaged=!state.masterBypass;
-  const hasMusic=!!audioEngine.musicBuffer,extras=audioStudio?.count()||0;
-  const hasTracks=hasMusic||extras>0;
+  const hasMusic=!!audioEngine.musicBuffer;
+  const hasTracks=(hasMusic&&Number(state.mix.musicVolume)>0)||audioEngine.extraAudio.some(t=>Number(t.volume)>0);
   const actualVhs=engaged&&state.fxMode==='classic'&&state.vhsEnabled&&state.master>0;
   const actualMode=engaged&&state.fxMode==='classic'&&state.mode!=='vhs'&&state.modeStrength>0;
   const actualGlitch=engaged&&state.fxMode==='classic'&&state.glitchEnabled&&state.glitchStrength>0;
@@ -67,7 +75,7 @@
   const actualBeat=engaged&&state.fxMode==='music'&&state.music.strength>0;
   const actualTimeline=engaged&&state.fxMode==='timeline';
   const duration=audioEngine.getMusicDuration();
-  const actualTrim=engaged&&hasMusic&&(
+  const actualTrim=engaged&&hasMusic&&Number(state.mix.musicVolume)>0&&(
    Number(state.mix.musicOffset)>0.001||
    (Number(state.mix.musicTrimEnd)>0&&Number(state.mix.musicTrimEnd)<duration-.01)||
    Number(state.mix.musicStart)>0||Number(state.mix.fadeIn)>0||Number(state.mix.fadeOut)>0||
@@ -104,7 +112,7 @@
     const val=Number(row.querySelector('input[type=range]')?.value);
     let rowEnabled=gate&&Number.isFinite(val)&&val>0;
     if(group==='musicMixerControls'){
-     rowEnabled=engaged&&val>0&&(index===0||hasMusic);
+     rowEnabled=engaged&&val>0&&index!==0&&hasMusic;
     }
     setIndicator(row,rowEnabled);
    });
@@ -126,7 +134,7 @@
    vhsEnabled:actualVhs,glitchEnabled:actualGlitch,filmEnabled:actualFilm,
    filmDamageEnabled:actualDamage,audioEnabled:actualTape,
    musicLoop:engaged&&hasMusic&&state.mix.musicLoop,
-   keepAudio:engaged&&!!state.keepAudio
+   keepAudio:false
   };
   document.querySelectorAll('.switch').forEach(row=>{
    const input=row.querySelector('input[type=checkbox]');
@@ -150,8 +158,8 @@
   };
   for(const [id,on] of Object.entries(selectors))setIndicator($(id)?.closest('label'),on);
   setIndicator($('musicTrim'),actualTrim);
-  setIndicator($('musicSelection'),engaged&&hasMusic);
-  setIndicator($('musicWaveform'),engaged&&hasMusic);
+  setIndicator($('musicSelection'),engaged&&hasMusic&&state.mix.musicVolume>0);
+  setIndicator($('musicWaveform'),engaged&&hasMusic&&state.mix.musicVolume>0);
   setIndicator($('musicMixerControls'),engaged&&hasTracks);
   setIndicator($('timelineTrack'),actualTimeline&&state.timelineEvents.some(e=>e.clip===clipIndex));
   $('timelineEvents')?.querySelectorAll('.timelineEvent').forEach(e=>setIndicator(e,actualTimeline));
@@ -167,23 +175,70 @@
    });
    setIndicator(card.querySelector('.extraAudioLoop'),enabled&&!!card.querySelector('input[type=checkbox]')?.checked);
   });
-  $('masterFxStatus').textContent=engaged?'Обработка включена':'Эффекты отключены · оригинал без обработки';
-  $('allEffectsLabel').textContent=engaged?'ВЫКЛЮЧИТЬ ВСЁ':'ВЕРНУТЬ ЭФФЕКТЫ';
+  $('masterFxStatus').textContent=lastFxSnapshot?
+   'Последние настройки сохранены · новые эффекты доступны':
+   'Все эффекты можно настраивать';
+  $('allEffectsLabel').textContent='ВЫКЛЮЧИТЬ ВСЁ';
   $('allEffectsToggle').disabled=!!recording;
-  $('allEffectsToggle').setAttribute('aria-pressed',String(!engaged));
-  $('allEffectsToggle').classList.toggle('is-bypassed',!engaged);
-  document.body.classList.toggle('effects-bypassed',!engaged);
+  $('allEffectsToggle').setAttribute('aria-pressed','false');
+  $('allEffectsToggle').classList.remove('is-bypassed');
+  $('restoreEffects').disabled=!!recording||!lastFxSnapshot;
+  document.body.classList.remove('effects-bypassed');
  }
- function toggleAllEffects(){
-  if(recording)return;
-  if(holdActive)finishHold();
-  state.masterBypass=!state.masterBypass;
+ function resyncAfterEffectReset(){
+  state.masterBypass=false;
+  selectedTimelineId='';
+  $('addTimelineEvent').textContent='＋ Добавить повреждение';
+  syncCassetteUI(); // Refreshes VHS, GLITCH, FILM, CAMERA, FILM DAMAGE and AUDIO.
+  setControlByTitle($('timelineControls'),'Сила выбранного события',state.timelineStrength);
+  setControlByTitle($('musicMixerControls'),'Громкость оригинального звука видео',state.mix.videoVolume);
+  setControlByTitle($('musicMixerControls'),'Громкость добавленной музыки',state.mix.musicVolume);
+  $('musicVideoStart').value=String(state.mix.musicStart);
+  $('musicFadeIn').value=String(state.mix.fadeIn);
+  $('musicFadeOut').value=String(state.mix.fadeOut);
+  $('musicLoop').checked=!!state.mix.musicLoop;
+  refreshMusicTrim();
+  renderTimeline();
+  renderCassetteShelf();
   resetFrameHistory();
-  syncModeUI();
+  audioEngine.setMix(state.mix);
   syncAudio(!source.paused);
   syncHoldControls();
-  persist();
+  syncSectionLights();
   renderCurrentFrame();
+ }
+ function resetAllEffects(){
+  if(recording)return;
+  if(holdActive)finishHold();
+  const utility=window.VHSVideoEffectsReset;
+  if(utility.isZero(state)&&(!audioStudio||audioStudio.isMuted())){
+   textStatus('Все эффекты уже равны 0%. Теперь настрой новые.');
+   return; // Never overwrite a useful backup with a second empty reset.
+  }
+  const previous={
+   version:1,created:Date.now(),settings:utility.snapshot(state),
+   tracks:audioStudio?.snapshotTracks()||[]
+  };
+  lastFxSnapshot=previous;
+  try{localStorage.setItem(LAST_FX_KEY,JSON.stringify(previous));}
+  catch(err){console.warn('Last effect settings could not be persisted',err);}
+  utility.zero(state);
+  audioStudio?.resetTrackSettings();
+  resyncAfterEffectReset();
+  persist();
+  textStatus('Эффекты обнулены. Можно создавать новую обработку. «Вернуть последние» восстановит прежние значения.');
+ }
+ function restoreLastEffects(){
+  if(recording||!lastFxSnapshot)return;
+  if(holdActive)finishHold();
+  const before=lastFxSnapshot;
+  if(!window.VHSVideoEffectsReset.restore(state,before.settings))return;
+  audioStudio?.restoreTrackSettings(before.tracks);
+  lastFxSnapshot=null;
+  try{localStorage.removeItem(LAST_FX_KEY);}catch{}
+  resyncAfterEffectReset();
+  persist();
+  textStatus('Последние настройки возвращены. Исходные видео, звуковые дорожки и кассеты сохранены.');
  }
  function showAudioSection(key='tracks'){
   document.querySelectorAll('[data-audio-section]').forEach(b=>b.classList.toggle('active',b.dataset.audioSection===key));
@@ -421,6 +476,16 @@
  function selectMode(mode){
   if(recording||!['classic','music','timeline'].includes(mode))return;
   state.fxMode=mode;
+  if(mode==='music'&&state.music.strength===0){
+   Object.assign(state.music,{sensitivity:60,threshold:25,strength:85,release:35});
+   for(const [key,label] of [['sensitivity','Чувствительность к музыке'],['threshold','Порог срабатывания'],
+    ['strength','Сила музыкальных повреждений'],['release','Длительность затухания эффекта']])
+     setControlByTitle($('musicControls'),label,state.music[key]);
+  }
+  if(mode==='timeline'&&state.timelineStrength===0){
+   state.timelineStrength=85;
+   setControlByTitle($('timelineControls'),'Сила выбранного события',85);
+  }
   resetFrameHistory();syncModeUI();persist();renderCurrentFrame();
   if(mode!=='classic'){
    showMainTab(mode==='music'?'audio':'timeline');
@@ -632,6 +697,10 @@
    }
    if(request!==musicRequest)return;
    state.selectedTrack={kind,title:inputFile.name,duration};
+   if(lastFxSnapshot&&state.mix.musicVolume===0){
+    state.mix.musicVolume=75; // A newly added track is audible after a clean reset.
+    setControlByTitle($('musicMixerControls'),'Громкость добавленной музыки',75);
+   }
    state.mix.musicOffset=0;
    state.mix.musicTrimEnd=duration;
    audioEngine.setMix(state.mix);syncAudio(!source.paused);
@@ -706,9 +775,24 @@
  function mountFilmDamageControls(){
   const box=$('filmDamageControls');box.replaceChildren();
   $('filmDamageEnabled').checked=!!state.filmDamage.enabled;
-  $('filmDamageEnabled').onchange=()=>{state.filmDamage.enabled=$('filmDamageEnabled').checked;persist();renderCurrentFrame();};
+  $('filmDamageEnabled').onchange=()=>{
+   state.filmDamage.enabled=$('filmDamageEnabled').checked;
+   if(state.filmDamage.enabled&&['leak','dust','grain','scratches','flicker','halation'].every(k=>state.filmDamage[k]===0)){
+    state.filmDamage.leak=70;
+    setControlByTitle($('filmDamageControls'),'Сила засветов',70);
+   }
+   persist();renderCurrentFrame();
+  };
   $('filmLeakType').value=state.filmDamage.type;
-  $('filmLeakType').onchange=()=>{state.filmDamage.type=$('filmLeakType').value;persist();renderCurrentFrame();};
+  $('filmLeakType').onchange=()=>{
+   state.filmDamage.type=$('filmLeakType').value;
+   if(!state.filmDamage.enabled&&['leak','dust','grain','scratches','flicker','halation'].every(k=>Number(state.filmDamage[k])===0)){
+    state.filmDamage.leak=70;
+    setControlByTitle($('filmDamageControls'),'Сила засветов',70);
+   }
+   if(!state.filmDamage.enabled)enableAfterZero('damage');
+   persist();renderCurrentFrame();
+  };
   const names={leak:'Сила засветов',dust:'Пыль и грязь',grain:'Живое зерно',scratches:'Царапины',
    flicker:'Мерцание экспозиции',halation:'Свечение света (halation)'};
   for(const [id,label] of Object.entries(names))
@@ -853,6 +937,43 @@
   };
   renderCassetteShelf();
  }
+ function enableAfterZero(group){
+  // Reactivate an effect on the user's next deliberate adjustment.
+  if(group==='vhs'){
+   state.vhsEnabled=true;
+   if(state.master===0)state.master=65;
+   $('vhsEnabled').checked=true;
+   setControlByTitle($('vhsControls'),'Общая сила VHS',state.master);
+  }else if(group==='glitch'){
+   state.glitchEnabled=true;
+   if(state.glitchStrength===0)state.glitchStrength=85;
+   $('glitchEnabled').checked=true;
+   setControlByTitle($('eventControls'),'Общая сила дополнительных помех',state.glitchStrength);
+  }else if(group==='film'){
+   state.filmEnabled=true;
+   if(state.filmStrength===0)state.filmStrength=85;
+   $('filmEnabled').checked=true;
+   setControlByTitle($('filmControls'),'Сила плёнки',state.filmStrength);
+  }else if(group==='damage'){
+   state.filmDamage.enabled=true;
+   $('filmDamageEnabled').checked=true;
+  }else if(group==='audio'){
+   state.audio.enabled=true;
+   if(state.audio.strength===0)state.audio.strength=65;
+   $('audioEnabled').checked=true;
+   setControlByTitle($('audioControls'),'Сила деградации аудио',state.audio.strength);
+  }
+  persist();syncAudio(!source.paused);renderCurrentFrame();
+ }
+ function enableAfterResetInput(input){
+  if(!input||input.type!=='range'||Number(input.value)<=0)return;
+  if(input.closest('#filmDamageControls')&&!state.filmDamage.enabled)enableAfterZero('damage');
+  else if(input.closest('#filmControls')&&!state.filmEnabled)enableAfterZero('film');
+  else if(input.closest('#audioControls')&&!state.audio.enabled)enableAfterZero('audio');
+  else if(input.closest('#vhsControls')&&!state.vhsEnabled)enableAfterZero('vhs');
+  else if(input.closest('#glitchControls')&&!state.glitchEnabled)enableAfterZero('glitch');
+  else if(input.closest('#eventControls')&&!state.glitchEnabled)enableAfterZero('glitch');
+ }
  function mountControls(){
   control($('vhsControls'),'Общая сила VHS',state.master,v=>{state.master=v;resetFrameHistory();});
   const tape=document.createElement('label');tape.textContent='Режим видеокассеты';
@@ -871,15 +992,34 @@
   const tapes=$('tapeKind');
   for(const def of window.VHSVideoGlitchFX.TAPES)tapes.add(new Option(def.name,def.id));
   tapes.value=state.tape;
-  tapes.onchange=()=>{state.tape=tapes.value;persist();resetFrameHistory();renderCurrentFrame();};
+  tapes.onchange=()=>{
+   state.tape=tapes.value;
+   if(!state.vhsEnabled||state.master===0)enableAfterZero('vhs');
+   persist();resetFrameHistory();renderCurrentFrame();
+  };
   $('signalWidth').value=state.signalWidth;
   $('signalWidth').onchange=()=>{
    state.signalWidth=$('signalWidth').value;resetFrameHistory();persist();renderCurrentFrame();
   };
   $('modeSelect').value=state.mode;
-  $('modeSelect').onchange=()=>{state.mode=$('modeSelect').value;persist();resetFrameHistory();renderCurrentFrame();};
+  $('modeSelect').onchange=()=>{
+   state.mode=$('modeSelect').value;
+   if(state.mode!=='vhs'&&state.modeStrength===0){
+    state.modeStrength=75;
+    setControlByTitle($('modeStrengthControl'),'Сила режима (MiniDV / CRT / Night Vision)',75);
+   }
+   persist();resetFrameHistory();renderCurrentFrame();
+  };
   $('glitchEnabled').checked=state.glitchEnabled;
-  $('glitchEnabled').onchange=()=>{state.glitchEnabled=$('glitchEnabled').checked;persist();resetFrameHistory();renderCurrentFrame();};
+  $('glitchEnabled').onchange=()=>{
+   state.glitchEnabled=$('glitchEnabled').checked;
+   if(state.glitchEnabled&&state.glitchStrength===0){
+    state.glitchStrength=85;
+    if(Object.values(state.glitches).every(v=>Number(v)===0))Object.assign(state.glitches,glitchDefaults);
+    syncCassetteUI();
+   }
+   persist();resetFrameHistory();renderCurrentFrame();
+  };
   for(const [name,fn] of [
     ['gentleGlitch',d=>d.group==='digital'?0:Math.min(d.default,22)],
     ['chaosGlitch',d=>Math.min(100,Math.round(d.default*1.75))],
@@ -889,7 +1029,14 @@
     if(name==='chaosGlitch')state.eventDensity=80;
     if(name==='gentleGlitch')state.eventDensity=35;
     if(name==='offGlitch')state.eventDensity=0;
-    mountEventControls();mountGlitchControls();persist();resetFrameHistory();renderCurrentFrame();
+    if(name!=='offGlitch'){
+     state.glitchEnabled=true;
+     if(state.glitchStrength===0)state.glitchStrength=85;
+     $('glitchEnabled').checked=true;
+    }
+    mountEventControls();mountGlitchControls();
+    setControlByTitle($('eventControls'),'Общая сила дополнительных помех',state.glitchStrength);
+    persist();resetFrameHistory();renderCurrentFrame();
   };
   const audio=$('audioControls');
   for(const [id,label] of [
@@ -898,7 +1045,14 @@
     ['drop','Выпадения звука'],['saturation','Перегрузка и насыщение']
   ])control(audio,label,state.audio[id],v=>{state.audio[id]=v;syncAudio();});
   $('audioEnabled').checked=state.audio.enabled;
-  $('audioEnabled').onchange=()=>{state.audio.enabled=$('audioEnabled').checked;syncAudio();persist();};
+  $('audioEnabled').onchange=()=>{
+   state.audio.enabled=$('audioEnabled').checked;
+   if(state.audio.enabled&&state.audio.strength===0){
+    state.audio.strength=65;
+    setControlByTitle($('audioControls'),'Сила деградации аудио',65);
+   }
+   syncAudio();persist();
+  };
   $('audioMode').value=state.audio.mode;
   $('audioMode').onchange=()=>{state.audio.mode=$('audioMode').value;syncAudio();persist();};
   control($('filmControls'),'Сила плёнки',state.filmStrength,v=>state.filmStrength=v);
@@ -908,9 +1062,27 @@
   $('exportScope').value=state.exportScope;
   $('keepAudio').checked=state.keepAudio;
   mountCameraControls();mountFilmDamageControls();buildModeControls();mountMusicLibrary();mountCassetteShelf();
-  $('vhsEnabled').onchange=()=>{state.vhsEnabled=$('vhsEnabled').checked;persist();renderCurrentFrame();};
-  $('filmEnabled').onchange=()=>{state.filmEnabled=$('filmEnabled').checked;persist();renderCurrentFrame();};
-  $('vhsPreset').onchange=()=>{state.preset=$('vhsPreset').value;persist();renderCurrentFrame();};
+  $('vhsEnabled').onchange=()=>{
+   state.vhsEnabled=$('vhsEnabled').checked;
+   if(state.vhsEnabled&&state.master===0){
+    state.master=65;
+    if(Object.values(state.signal).every(v=>Number(v)===0))Object.assign(state.signal,defaults.signal);
+    syncCassetteUI();
+   }
+   persist();renderCurrentFrame();
+  };
+  $('filmEnabled').onchange=()=>{
+   state.filmEnabled=$('filmEnabled').checked;
+   if(state.filmEnabled&&state.filmStrength===0){
+    state.filmStrength=85;setControlByTitle($('filmControls'),'Сила плёнки',85);
+   }
+   persist();renderCurrentFrame();
+  };
+  $('vhsPreset').onchange=()=>{
+   state.preset=$('vhsPreset').value;
+   if(!state.vhsEnabled||state.master===0)enableAfterZero('vhs');
+   persist();renderCurrentFrame();
+  };
   $('outputSize').onchange=()=>{state.size=$('outputSize').value;persist();};
   $('fps').onchange=()=>{state.fps=Number($('fps').value);persist();};
   $('keepAudio').onchange=()=>{state.keepAudio=$('keepAudio').checked;persist();};
@@ -1503,7 +1675,8 @@
  function initEvents(){
   document.querySelectorAll('.tabs button').forEach(button=>button.addEventListener('click',()=>showMainTab(button.dataset.tab)));
   document.querySelectorAll('[data-audio-section]').forEach(button=>button.addEventListener('click',()=>showAudioSection(button.dataset.audioSection)));
-  $('allEffectsToggle').onclick=toggleAllEffects;
+  $('allEffectsToggle').onclick=resetAllEffects;
+  $('restoreEffects').onclick=restoreLastEffects;
   // Capturing delegates cover controls generated later (camera, imported audio, presets).
   // Defer indicator repaint until the native input/change listeners have saved their state.
   let lightFrame=0;
@@ -1511,7 +1684,7 @@
    if(lightFrame)return;
    lightFrame=requestAnimationFrame(()=>{lightFrame=0;syncSectionLights();});
   };
-  document.addEventListener('input',scheduleLights);
+  document.addEventListener('input',e=>{enableAfterResetInput(e.target);scheduleLights();});
   document.addEventListener('change',scheduleLights);
   mountHoldControls();
   for(const [id,origin] of [['videoInput','gallery'],['videoFilesInput','files'],['videoClipsInput','clips']]){
@@ -1582,7 +1755,12 @@
   $('regenerate').onclick=regenerateSeed;
   $('undoGlitch').onclick=undoSeed;
   $('filmSearch').oninput=renderFilmSelect;
-  $('filmSelect').onchange=()=>{if(!$('filmSelect').value)return;state.filmId=$('filmSelect').value;state.filmEnabled=true;$('filmEnabled').checked=true;persist();renderCurrentFrame();};
+  $('filmSelect').onchange=()=>{
+   if(!$('filmSelect').value)return;
+   state.filmId=$('filmSelect').value;state.filmEnabled=true;$('filmEnabled').checked=true;
+   if(state.filmStrength===0){state.filmStrength=85;setControlByTitle($('filmControls'),'Сила плёнки',85);}
+   persist();renderCurrentFrame();
+  };
   $('filmImport').onchange=async e=>{
    for(const f of [...(e.target.files||[])])try{await importPresets(f)}catch(err){$('filmImportStatus').textContent='Ошибка: '+err.message;}
    e.target.value='';
@@ -1602,7 +1780,7 @@
    onNext:()=>selectClip(clipIndex+1,false).catch(e=>textStatus(e.message)),
    onSeek:time=>{source.currentTime=time;updateTime();}
   });
-  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
+  if(!window.VideoFilmCore||!window.VHSPhotoEngine||!window.VHSVideoGlitchFX||!window.VHSVideoTapeAudio||!window.VHSVideoAudioExtract||!window.VHSVideoFilmDamage||!window.VHSVideoAudioStudio||!window.VHSVideoSpecialModes||!window.VHSVideoEffectsReset)throw Error('Не загрузились эффекты. Обнови страницу с интернетом.');
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
