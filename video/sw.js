@@ -1,6 +1,6 @@
 /* VHS Video Lab offline assets; separate cache and service worker from photo app. */
-const VERSION='vhs-video-lab-0.7.6';
-const FILES=['./','./index.html','./app.js','./film-core.js','./glitch-engine.js','./audio-engine.js','./audio-studio.js','./effects-reset.js','./clean-path.js','./camera-osd.js','./film-damage.js','./audio-extract.js','./special-modes.js','./player-ui.js','./styles.css','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png',
+const VERSION='vhs-video-lab-0.7.7';
+const FILES=['./','./index.html','./app.js','./film-core.js','./glitch-engine.js','./audio-engine.js','./audio-studio.js','./effects-reset.js','./clean-path.js','./camera-osd.js','./keyframes.js','./film-damage.js','./audio-extract.js','./special-modes.js','./player-ui.js','./styles.css','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png',
  '../ntsc-photo.js','../looks.json','../jszip.min.js'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));
