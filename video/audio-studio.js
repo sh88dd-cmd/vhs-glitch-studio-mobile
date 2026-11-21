@@ -171,7 +171,7 @@ function create({engine,mix,sync,status,isRecording,onChange}){
   refresh();render();
  }
  return Object.freeze({
-  redrawMain,count:()=>tracks.length,snapshotTracks,resetTrackSettings,restoreTrackSettings,
+  redrawMain,count:()=>tracks.length,isMuted:()=>tracks.every(t=>Number(t.volume)===0),snapshotTracks,resetTrackSettings,restoreTrackSettings,
   clear(){seq++;tracks=[];refresh();render();},
   get busy(){return busy;}
  });
