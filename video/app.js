@@ -450,7 +450,9 @@
     if(request!==musicRequest)return;
     if(!buffer||!Number.isFinite(buffer.duration)||buffer.duration<=0)throw Error('Safari не может прочитать это аудио.');
     const pcmSize=buffer.length*buffer.numberOfChannels*4;
-    if(pcmSize>120*1024*1024)throw Error('Аудиодорожка слишком длинная для памяти iPhone (лимит 120 МБ распакованного звука).');
+    const extraPcm=audioEngine.extraAudio.reduce((sum,t)=>sum+t.buffer.length*t.buffer.numberOfChannels*4,0);
+    if(pcmSize>120*1024*1024||pcmSize+extraPcm>160*1024*1024)
+     throw Error('Недостаточно памяти для всех аудиодорожек. Убери одну из дополнительных или выбери файл короче.');
     audioEngine.setMusicBuffer(buffer);
     duration=buffer.duration;
    }
