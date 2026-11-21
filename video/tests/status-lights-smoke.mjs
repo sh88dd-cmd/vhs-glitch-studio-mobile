@@ -1,98 +1,81 @@
-/* Regression coverage for 0.7.1 live LEDs and non-destructive effects bypass.
- * Runs with Node only, no browser or remote server needed.
- */
+/* Regression tests for 0.7.4: true zero reset and last-settings restoration. */
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 
 const app=fs.readFileSync('video/app.js','utf8');
 const html=fs.readFileSync('video/index.html','utf8');
 const css=fs.readFileSync('video/styles.css','utf8');
-const start=app.indexOf(' function setIndicator(');
-const end=app.indexOf(' function showAudioSection(',start);
-assert.ok(start>0&&end>start,'Cannot locate master indicator logic');
-const lighting=app.slice(start,end);
-function el(){
- const statuses=new Set();
- return {
-  classList:{
-   contains:k=>statuses.has(k),
-   toggle:(k,v)=>{if(v)statuses.add(k);else statuses.delete(k);}
-  },
-  setAttribute(k,v){this[k]=v;},
-  dataset:{},textContent:'',value:'',disabled:false,
-  querySelectorAll(){return[];},querySelector(){return null;}
- };
-}
-const elements=new Map();
-const $=id=>{if(!elements.has(id))elements.set(id,el());return elements.get(id);};
-const tabs=['vhs','glitch','audio','timeline','film','filmDamage','camera','cassettes'].map(name=>{
- const e=el();e.dataset.tab=name;return e;
-});
-const subs=['tracks','trim','beat','tape'].map(name=>{
- const e=el();e.dataset.audioSection=name;return e;
-});
-const doc={body:el(),querySelectorAll(selector){
- if(selector==='.tabs [data-tab]')return tabs;
- if(selector==='[data-audio-section]')return subs;
- return [];
-}};
+const pure=fs.readFileSync('video/effects-reset.js','utf8');
+const exports={};
+vm.runInNewContext(pure,{window:exports,JSON,Object,Array,Number,Math});
+const fx=exports.VHSVideoEffectsReset;
+assert.ok(fx);
 const state={
- masterBypass:false,fxMode:'music',vhsEnabled:true,master:80,mode:'vhs',
- modeStrength:75,glitchEnabled:true,glitchStrength:80,
- filmEnabled:true,filmStrength:80,
- filmDamage:{enabled:true,leak:75,dust:15,scratches:25,grain:40,flicker:12,halation:20},
- camera:{date:true,rec:true},audio:{enabled:true,strength:65},
- music:{strength:75},selectedCassetteId:null,keepAudio:true,
- mix:{musicOffset:0,musicTrimEnd:10,musicStart:0,fadeIn:0,fadeOut:0,musicLoop:true},
- holdEvents:[],timelineEvents:[]
+ masterBypass:false,vhsEnabled:true,filmEnabled:true,glitchEnabled:true,master:80,
+ preset:'damaged',mode:'crt',modeStrength:75,eventDensity:48,glitchStrength:65,fxMode:'music',
+ music:{bassEffect:'vhold',highEffect:'rf',sensitivity:66,threshold:25,strength:75,release:35},
+ timelineEvents:[{clip:0,time:1,effect:'rf',strength:95}],timelineStrength:70,
+ holdEvents:[{clip:0,start:1,end:2,blend:75}],holdBalance:45,
+ filmStrength:60,signal:{chromaBleed:60,tracking:55,noise:80},
+ glitches:{tapeChew:85,rf:43},
+ audio:{enabled:true,mode:'hifi',strength:65,hiss:50,wow:20,flutter:20,drop:40,saturation:80},
+ camera:{date:true,rec:true,battery:true,positions:{date:'left-top'},sizes:{rec:125}},
+ filmDamage:{enabled:true,type:'both',leak:90,dust:15,scratches:25,grain:40,flicker:12,halation:20},
+ selectedCassetteId:'builtin-chewed',mix:{videoVolume:60,musicVolume:90,musicStart:0,musicOffset:4,musicTrimEnd:8,musicLoop:true,fadeIn:2,fadeOut:2},
+ selectedTrack:{kind:'video',title:'song.mov'},cassettes:[{name:'My tape',id:'a'}],
+ size:'480',fps:15,exportScope:'30',keepAudio:true
 };
-const original=JSON.stringify({...state,masterBypass:false});
-const buffer={duration:10},engine={musicBuffer:buffer,extraAudio:[],getMusicDuration:()=>10};
-let saved=0,drawn=0,synced=0;
-const factory=new Function('state','audioEngine','audioStudio','document','$','holdActive',
- 'clipIndex','recording','finishHold','resetFrameHistory','syncModeUI','syncAudio',
- 'syncHoldControls','persist','renderCurrentFrame',
- lighting+'return {syncSectionLights,toggleAllEffects};');
-const ctx=factory(state,engine,{count:()=>1},doc,$,null,0,false,
- ()=>{},()=>{},()=>{},()=>{synced++;},()=>{},()=>{saved++;},()=>{drawn++;});
-ctx.syncSectionLights();
-assert.ok(tabs[2].classList.contains('is-lit'),'Audio tab must be lit with imported tracks');
-assert.ok(subs[0].classList.contains('is-lit'),'Audio/Tracks must be lit with imported file');
-assert.ok(subs[2].classList.contains('is-lit'),'Audio/Beat must be lit in music mode');
-assert.ok(tabs[5].classList.contains('is-lit'),'Film Damage must be lit when enabled');
-assert.equal($('allEffectsLabel').textContent,'ВЫКЛЮЧИТЬ ВСЁ');
-ctx.toggleAllEffects();ctx.syncSectionLights();
-assert.equal(state.masterBypass,true);
-assert.ok([...tabs,...subs].every(b=>!b.classList.contains('is-lit')),
- 'Master bypass must extinguish all active section LEDs');
-assert.equal($('allEffectsLabel').textContent,'ВЕРНУТЬ ЭФФЕКТЫ');
-assert.equal($('allEffectsToggle')['aria-pressed'],'true');
-assert.ok(doc.body.classList.contains('effects-bypassed'));
-ctx.toggleAllEffects();ctx.syncSectionLights();
-assert.equal(state.masterBypass,false);
-assert.ok(tabs[2].classList.contains('is-lit'),'Active indicator must restore');
-assert.equal(JSON.stringify({...state,masterBypass:false}),original,
- 'Global bypass must not reset existing effect settings');
-assert.equal(saved,2);
-assert.equal(drawn,2);
-assert.equal(synced,2);
-const locked=factory(state,engine,{count:()=>1},doc,$,null,0,true,
- ()=>{},()=>{},()=>{},()=>{},()=>{},()=>{},()=>{});
-locked.toggleAllEffects();
-assert.equal(state.masterBypass,false,'Export must lock out the global bypass action');
+const raw=JSON.stringify(state),mix=state.mix;
+const backup=fx.snapshot(state);
+fx.zero(state);
+assert.equal(fx.isZero(state),true,'Effect parameters must be genuinely zero');
+assert.equal(state.masterBypass,false,'Hard bypass must remain off');
+assert.equal(state.master,0);assert.equal(state.filmStrength,0);assert.equal(state.glitchStrength,0);
+assert.deepEqual(Object.values(state.glitches),[0,0]);
+assert.ok(!state.filmDamage.enabled&&state.filmDamage.leak===0);
+assert.ok(state.holdEvents.length===0&&state.timelineEvents.length===0);
+assert.ok(!state.camera.date&&!state.camera.rec);
+assert.equal(state.mix.videoVolume,100,'Native video audio must survive');
+assert.equal(state.mix.musicVolume,0,'Imported music must be muted, not removed');
+assert.equal(state.selectedTrack.title,'song.mov');
+assert.equal(state.cassettes[0].name,'My tape');
+assert.equal(state.fps,15);assert.equal(state.keepAudio,true);
+assert.equal(state.mix,mix,'Mixer reference must remain stable');
+fx.restore(state,backup);
+assert.equal(JSON.stringify(state),raw,'All saved processing settings must be restored exactly');
+assert.equal(state.mix,mix,'Restore must preserve the mixer reference');
 
-for(const gate of [
- '!state.masterBypass&&state.filmEnabled',
- '!state.masterBypass&&state.filmDamage.enabled',
- 'if(!state.masterBypass)drawOsd',
- '!state.masterBypass&&state.fxMode',
- '!state.masterBypass&&(state.fxMode',
- '!state.masterBypass&&intensity>0',
- 'audioEngine.syncMusic(globalVideoTime(),active&&!state.masterBypass)',
- 'enabled:!state.masterBypass&&state.audio.enabled',
- 'videoVolume:100,musicVolume:0'
-])assert.ok(app.includes(gate),'Missing rendering/audio bypass: '+gate);
-assert.ok(html.includes('id="allEffectsToggle"')&&html.includes('id="masterFxStatus"'));
-assert.ok(css.includes('.allEffectsCross')&&css.includes('.control.is-lit'));
-assert.ok(!app.includes('extraTracks.length'),'Regression: undefined extraTracks causes LED failure');
-console.log('PASS: individual LED state, audio sub-tabs, global bypass and restore.');
+const element=()=>{
+ const classes=new Set();
+ return{classList:{contains:k=>classes.has(k),toggle:(k,on)=>{if(on)classes.add(k);else classes.delete(k);},remove:k=>classes.delete(k)},
+  dataset:{},textContent:'',disabled:false,setAttribute(k,v){this[k]=v;},querySelectorAll:()=>[],querySelector:()=>null};
+};
+const map=new Map(),$=id=>{if(!map.has(id))map.set(id,element());return map.get(id);};
+const tabs=['vhs','glitch','audio','timeline','film','filmDamage','camera','cassettes'].map(key=>{const e=element();e.dataset.tab=key;return e;});
+const subtabs=['tracks','trim','beat','tape'].map(key=>{const e=element();e.dataset.audioSection=key;return e;});
+const doc={body:element(),querySelectorAll:q=>q==='.tabs [data-tab]'?tabs:q==='[data-audio-section]'?subtabs:[]};
+const begin=app.indexOf(' function setIndicator(');
+const end=app.indexOf(' function resyncAfterEffectReset(',begin);
+assert.ok(begin>0&&end>begin,'Cannot find indicator section');
+const lighting=app.slice(begin,end);
+const run=new Function('state','audioEngine','audioStudio','document','$','holdActive','clipIndex','recording','lastFxSnapshot',
+ lighting+'return syncSectionLights;');
+const engine={musicBuffer:{duration:10},extraAudio:[{volume:75,buffer:{duration:10}}],
+ getMusicDuration:()=>10};
+const lights=run(state,engine,{count:()=>1},doc,$,null,0,false,null);
+lights();
+assert.ok(subtabs[0].classList.contains('is-lit'));
+assert.ok(tabs[5].classList.contains('is-lit'));
+fx.zero(state);engine.extraAudio[0].volume=0;lights();
+assert.ok([...tabs,...subtabs].every(el=>!el.classList.contains('is-lit')),'Zero reset must extinguish all effects lamps');
+assert.equal($('allEffectsLabel').textContent,'ВЫКЛЮЧИТЬ ВСЁ');
+assert.equal($('restoreEffects').disabled,true);
+fx.restore(state,backup);engine.extraAudio[0].volume=75;lights();
+assert.ok(tabs[5].classList.contains('is-lit'),'Restoring settings lights the enabled effects again');
+assert.ok(html.includes('id="restoreEffects"')&&html.includes('id="allEffectsToggle"'));
+assert.ok(html.includes('effects-reset.js?v=0.7.4'));
+assert.ok(css.includes('.restoreEffects'));
+assert.ok(!app.includes('toggleAllEffects()'),'Obsolete hard bypass action must be removed');
+assert.ok(!app.includes('extraTracks.length'),'Old undefined variable must not return');
+console.log('PASS: actual zero reset, reversible full settings backup, original media preserved, LEDs update');
