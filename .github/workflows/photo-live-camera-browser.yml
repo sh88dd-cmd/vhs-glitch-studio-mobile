@@ -1,4 +1,4 @@
-name: Photo 1.6 fast live camera + NEW browser test
+name: Photo 1.7 real effects live camera + NEW browser test
 on:
   push:
     paths:
@@ -25,7 +25,7 @@ jobs:
         run: |
           npm install --no-save --no-audit --no-fund playwright@1.65.1
           npx playwright install --with-deps chromium-headless-shell
-      - name: Test real browser camera permission, live filters and saved photo
+      - name: Test real browser camera permission, real effects and saved photo
         shell: bash
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/photo-camera-web.log 2>&1 &
