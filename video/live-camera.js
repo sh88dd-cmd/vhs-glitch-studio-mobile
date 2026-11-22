@@ -35,12 +35,20 @@ function colorFilter(state={}){
  const vhs=!!state.vhsEnabled&&Number(state.master)>0;
  const name=String(state.filmId||'').toLowerCase();
  const strength=clamp(state.filmStrength,0,100)/100;
+ const mode=String(state.mode||'vhs'),amount=clamp(state.modeStrength,0,100)/100;
+ const night=mode==='night'&&amount>0,crt=mode==='crt'&&amount>0;
+ const dv=mode==='minidv'&&amount>0;
  const monochrome=film&&/ilford|tri.x|t.max|monochrom|черно.бел|чёрно.бел/.test(name);
- const saturated=clamp(1-(vhs?.09:0)-(film?.06*strength:0),.45,1.2);
- const contrast=clamp(1+(vhs?.065:0)+(film?.05*strength:0),.85,1.32);
+ const saturated=clamp(1-(vhs?.09:0)-(film?.06*strength:0)+
+  (dv?.16*amount:0),.45,1.4);
+ const contrast=clamp(1+(vhs?.065:0)+(film?.05*strength:0)+
+  (crt?.20*amount:0)+(night?.22*amount:0),.85,1.55);
  const tint=film&&/kodak|gold|portra|vintage|old/i.test(name)?.15*strength:0;
+ // All browser-native CSS filters also exist in the recorded Canvas filter.
+ // Night Vision is deliberately green rather than merely monochrome.
  return 'contrast('+contrast.toFixed(3)+') saturate('+saturated.toFixed(3)+
-  ') sepia('+tint.toFixed(3)+') grayscale('+(monochrome?1:0)+')';
+  ') sepia('+(night?1:tint).toFixed(3)+') grayscale('+(monochrome?1:0)+
+  ')'+(night?' hue-rotate(63deg) saturate(3.2) brightness(.78)':'');
 }
 function mount({getSettings,onImport}){
  const dialog=$('videoLiveCameraDialog'),stage=$('videoLiveStage');
@@ -182,12 +190,20 @@ function mount({getSettings,onImport}){
   const damage=!!base.filmDamage?.enabled;
   const vhsStrength=analog?clamp(base.master,0,100)/100:0;
   const glitchStrength=glitch?clamp(base.glitchStrength,0,100)/100:0;
-  const intensity=holding?1.85:1;
+  const glitches=base.glitches||{};
+  const dropoutGain=clamp((Number(glitches.dropouts)||0)+(Number(glitches.vhold)||0),0,200)/200;
+  const rfGain=clamp((Number(glitches.rf)||0)+(Number(glitches.tapeChew)||0),0,200)/200;
+  const aged=base.creative?.aging?.enabled&&recording?
+   clamp(base.creative.aging.amount,0,100)/100*
+    clamp((performance.now()-durationStart)/60000,0,1):0;
+  const intensity=(holding?1.85:1)*(1+aged*.7);
+  const mode=String(base.mode||'vhs');
   // Fresh animation for the same seed. NEW replaces this seed without
   // affecting cassette selection, film color, or the other stored settings.
   const r=random((seed^Math.imul(++frameIndex,0x9e3779b9))>>>0);
   const waves=Math.round((analog?10*vhsStrength:0)+
-   (glitch?9*glitchStrength:0)+(holding?23:0));
+   (glitch?(7+dropoutGain*7+rfGain*5)*glitchStrength:0)+
+   (base.preset==='damaged'?7*vhsStrength:0)+aged*8+(holding?23:0));
   for(let i=0;i<waves;i++){
    const y=Math.floor(r()*h),band=1+Math.floor(r()*Math.max(2,h*.02*intensity));
    const left=Math.floor(r()*w*.25);
@@ -199,13 +215,26 @@ function mount({getSettings,onImport}){
     ctx.fillRect(left,y+1,Math.round(w*(.12+r()*.66)),Math.max(1,Math.floor(intensity)));
    }
   }
-  if(analog||damage||glitch||holding){
+  if(analog||damage||glitch||holding||mode==='night'){
    const grains=Math.min(300,Math.round(25*vhsStrength+
-    (damage?25:0)+(glitch?22*glitchStrength:0)+(holding?80:0)));
+    (damage?clamp(base.filmDamage.grain,0,100)*.5:0)+
+    (glitch?22*glitchStrength:0)+(holding?80:0)+aged*55));
    for(let i=0;i<grains;i++){
     const x=Math.floor(r()*w),y=Math.floor(r()*h);
     ctx.fillStyle=r()>.52?'rgba(245,236,217,.14)':'rgba(8,12,18,.18)';
     ctx.fillRect(x,y,1+(r()>.92?2:0),1);
+   }
+  }
+  if(mode==='crt'&&Number(base.modeStrength)>0){
+   ctx.fillStyle='rgba(0,0,0,'+(clamp(base.modeStrength,0,100)*.001)+')';
+   for(let line=0;line<h;line+=3)ctx.fillRect(0,line,w,1);
+  }
+  if(damage&&Number(base.filmDamage.scratches)>12){
+   const scratches=Math.min(6,Math.round(Number(base.filmDamage.scratches)/25));
+   for(let i=0;i<scratches;i++){
+    const x=Math.floor(r()*w);
+    ctx.fillStyle='rgba(252,250,237,'+(.04+r()*.14)+')';
+    ctx.fillRect(x,0,1,h);
    }
   }
   if(holding){
