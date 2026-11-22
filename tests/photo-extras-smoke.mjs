@@ -112,7 +112,7 @@ context.window.VHSVideoFilmDamage.apply(damaged,w,h,{
 assert.ok(damaged.some((v,i)=>i%4!==3&&v!==source[i]),
  'Imported film damage must affect real photo pixels');
 assert.ok(app.includes('VHSPhotoPolaroid.look(frame,extras.polaroid)')&&
- app.includes('VHSPhotoPolaroid.render(frame,extras.polaroid)'),
+ app.includes('VHSPhotoPolaroid.render(frame,paperCfg)'),
  'Polaroid appearance and frame must be saved by the real image export pipeline');
 assert.ok(app.includes("'undoPhotoFxReset'")&&
  app.includes("state.extras.selectedCassetteId=null"),
