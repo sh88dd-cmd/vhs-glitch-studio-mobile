@@ -22,8 +22,9 @@ assert.ok(css.includes('.tabs{overflow-x:auto'),
  'Expanded mobile tabs must scroll rather than collapse into tiny touch targets');
 assert.ok(css.includes('photoHelpVisible .photoHelpMark'),
  'Global help switch should reveal per-function ? controls');
-assert.ok(ui.includes("camControls.filter(([id])=>id!=='zoom')"),
- 'Zoom must be excluded from photo camera controls');
+assert.ok(!ui.includes("['zoom','ZOOM']")&&
+ ui.includes("['counter','Счётчик ленты']"),
+ 'ZOOM must be removed from photo camera settings completely');
 assert.ok(app.includes('zoom:false,rec:false,play:false,date:false,battery:false'),
  'Photo camera must never draw ZOOM');
 assert.ok(app.includes('if(state.allFxOff)return frame'),
