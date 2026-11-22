@@ -45,7 +45,7 @@
    positions:{...defaults.extraCamera.positions,...(state.extraCamera?.positions||{})},
    sizes:{...defaults.extraCamera.sizes,...(state.extraCamera?.sizes||{})}};
   delete state.extraCamera.zoom; // ZOOM is not part of the photo camera OSD.
-  let photoExtrasUI=null,photoPolaroidUI=null,resetUndo=null;
+  let photoExtrasUI=null,photoPolaroidUI=null,photoLiveCamera=null,resetUndo=null;
   state.previewDock={...defaults.previewDock,...(state.previewDock||{})};
   // Discard obsolete color, warm-halo and shape settings from previous releases.
   state.edgeBurn=Object.fromEntries(Object.keys(defaults.edgeBurn).map(key=>[key,state.edgeBurn?.[key]??defaults.edgeBurn[key]]));
@@ -424,7 +424,9 @@
     return out;
   }
   async function processImage(im,seed,opts={},sizeLimit=PREVIEW_MAX){
-    const [w,h]=renderSize(im.naturalWidth||im.width, im.naturalHeight||im.height, sizeLimit==='full'?'full':String(sizeLimit));
+    const [w,h]=renderSize(im.naturalWidth||im.videoWidth||im.width,
+     im.naturalHeight||im.videoHeight||im.height,
+     sizeLimit==='full'?'full':String(sizeLimit));
     if(w*h>54e6)throw Error('Изображение слишком большое для мобильной памяти. Выбери экспорт до 3200 px.');
     const frame=newCanvas(w,h),ctx=frame.getContext('2d',{willReadFrequently:true});ctx.drawImage(im,0,0,w,h);
     let img=ctx.getImageData(0,0,w,h),p=img.data;const fac=power[state.preset]||1;
@@ -497,9 +499,11 @@
      extras.glitch;
     if(extraGlitch?.enabled)X.glitch(frame,extraGlitch,seed);
     // Per-image finger masks must NOT silently land on unrelated BATCH photos.
-    if(!opts.batch&&extras.masks?.enabled&&
-       (extras.masks.strokes?.length||extras.masks.faces?.length))
-       X.masks(frame,extras.masks);
+    const imageMasks=opts.cameraLive?null:
+     opts.cameraCapture?(opts.captureMasks||null):opts.batch?null:extras.masks;
+    if(imageMasks?.enabled&&
+       (imageMasks.strokes?.length||imageMasks.faces?.length))
+       X.masks(frame,imageMasks);
     // The instant-print border wraps the *entire uncropped photo*. When it
     // is selected, the old FILM white/black border is omitted to avoid
     // accidentally stacking two paper frames.
@@ -806,7 +810,7 @@
     stage.addEventListener('wheel',e=>{e.preventDefault();mainViewerZoomAt(mainViewerView.zoom*(e.deltaY<0?1.15:1/1.15),e.clientX,e.clientY);},{passive:false});
     window.addEventListener('resize',()=>{if($('mainPreviewDialog').open)paintMainViewerTransform();});
   }
-  function toggleCompare(){if(!original||!latestPreview)return;showingOriginal=!showingOriginal;if(showingOriginal){const [w,h]=renderSize(original.naturalWidth,original.naturalHeight,String(PREVIEW_MAX));const c=newCanvas(w,h);c.getContext('2d').drawImage(original,0,0,w,h);setCanvas($('previewCanvas'),c);}else setCanvas($('previewCanvas'),latestPreview);syncDockCanvas();}
+  function toggleCompare(){if(!original||!latestPreview)return;showingOriginal=!showingOriginal;if(showingOriginal){const [w,h]=renderSize(original.naturalWidth||original.width,original.naturalHeight||original.height,String(PREVIEW_MAX));const c=newCanvas(w,h);c.getContext('2d').drawImage(original,0,0,w,h);setCanvas($('previewCanvas'),c);}else setCanvas($('previewCanvas'),latestPreview);syncDockCanvas();}
   function saveBlob(blob,filename){const a=document.createElement('a');const url=URL.createObjectURL(blob);a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),90_000);}
   function canvasBlob(cv,type='image/jpeg',quality=.94){return new Promise((resolve,reject)=>cv.toBlob(b=>b?resolve(b):reject(Error('Не удалось создать изображение — возможно, не хватает памяти.')),type,quality));}
   async function saveSingle(fileIm=original,filename=photoName,seed=state.seed,size=state.singleSize,opts={}){if(!fileIm)throw Error('Сначала открой фотографию');
@@ -994,7 +998,7 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.4.0');
+      const cache=await caches.open('vhs-mobile-v1.5.0');
       const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js',
        './photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js',
        './photo-polaroid-ui.js','./photo-face-ai.js','./photo-face-detect.js',
@@ -1025,6 +1029,11 @@
       }catch(err){btn.disabled=false;btn.textContent='↻ Повторить обновление';notify('Ошибка обновления: '+err.message,true);}
     });
     $('fileSingle').addEventListener('change',async e=>{try{await openSingle(e.target.files[0]);}catch(err){notify(err.message,true);}});
+    $('cameraFallbackFile').addEventListener('change',async e=>{
+      const file=e.target.files?.[0];
+      try{if(file)await openSingle(file);}catch(err){notify(err.message,true);}
+      e.target.value='';
+    });
     $('reroll').addEventListener('click',()=>changeMainSeed(false));
     $('undoMain').addEventListener('click',()=>changeMainSeed(true));
     $('compare').addEventListener('click',toggleCompare);
@@ -1141,6 +1150,96 @@
     photoExtrasUI?.refresh();photoPolaroidUI?.refresh();schedulePreview();
     notify('Настройки до сброса восстановлены.');
   }
+  function cameraCurrentProfile(){
+    const e=state.extras||{},active=[];
+    if(state.vhsEnabled&&state.master>0)active.push('VHS');
+    if(state.filmEnabled)active.push('FILM: '+(state.film.name||'плёнка'));
+    if(e.glitch?.enabled)active.push('GLITCH');
+    if(window.VHSPhotoExtras.activeAdjustment(e.correction))active.push('КОРРЕКЦИЯ');
+    if(e.polaroid?.enabled)active.push('POLAROID');
+    if(Object.values(state.camera||{}).some(x=>x?.on))active.push('КАМЕРА OSD');
+    if(e.damage?.enabled||state.edgeBurn?.enabled)active.push('FILM FX');
+    const selected=e.cassettes?.find(x=>x.id===e.selectedCassetteId);
+    if(selected)active.unshift('КАССЕТА: '+selected.name);
+    else if(e.selectedCassetteId?.startsWith('factory-')){
+      const named=window.VHSPhotoExtras.factory.find(x=>'factory-'+x.id===e.selectedCassetteId);
+      if(named)active.unshift('КАССЕТА: '+named.name);
+    }
+    return active.length?active.join(' · '):'Без фильтров — оригинал';
+  }
+  async function onCameraCaptured(raw,seed,faceStyle,showProgress){
+    // The raw source canvas remains editable in the main photo editor.
+    // A masked/colored preview from an unrelated opened photo is NOT reused.
+    const masks=state.extras.masks;
+    let selectedMasks=null;
+    if(faceStyle!=='off'){
+      try{
+       showProgress('Ищу лица на снятом кадре…');
+       const outcome=await window.VHSPhotoFaceDetect.detect(raw,msg=>showProgress(msg));
+       if(outcome.faces?.length){
+        selectedMasks={...masks,enabled:true,faces:outcome.faces,strokes:[],
+         mode:'auto',style:faceStyle};
+        showProgress('Найдено лиц: '+outcome.faces.length+'; накладываю '+(faceStyle==='blur'?'размытие':'пиксели')+'…');
+       }else showProgress('Лица не обнаружены, сохраняю снимок с остальными фильтрами.');
+      }catch(err){
+       showProgress('Лица недоступны: '+err.message+'. Остальные эффекты сохраняются.');
+      }
+    }
+    const output=await processImage(raw,seed,{cameraCapture:true,captureMasks:selectedMasks},'full');
+    const stamp=new Date();
+    const filename='CAM_'+stamp.getFullYear()+
+      String(stamp.getMonth()+1).padStart(2,'0')+
+      String(stamp.getDate()).padStart(2,'0')+'_'+
+      String(stamp.getHours()).padStart(2,'0')+
+      String(stamp.getMinutes()).padStart(2,'0')+
+      String(stamp.getSeconds()).padStart(2,'0');
+    original=raw;photoName=filename;state.seed=seed;
+    const id='camera:'+filename;
+    masks.faces=selectedMasks?.faces||[];
+    masks.strokes=[];
+    masks.originalId=id;
+    if(selectedMasks){
+      masks.mode='auto';masks.style=faceStyle;masks.enabled=true;
+    }
+    latestPreview=null;showingOriginal=false;mainSeedHistory=[];
+    updateMainUndoButtons();
+    const [pw,ph]=renderSize(output.width,output.height,String(PREVIEW_MAX));
+    const preview=newCanvas(pw,ph);
+    preview.getContext('2d').drawImage(output,0,0,pw,ph);
+    latestPreview=preview;
+    setCanvas($('previewCanvas'),preview);
+    $('emptyMsg').style.display='none';
+    $('photoLabel').textContent='📷 '+filename;
+    $('sizeLabel').textContent=raw.width+' × '+raw.height;
+    $('renderStatus').textContent='Готовый кадр · эффекты применены';
+    refreshDockVisibility();syncDockCanvas();
+    renderFilmPage();renderFavoritesPage();
+    photoExtrasUI?.refresh();photoPolaroidUI?.refresh();
+    persist();
+    return {processed:output,filename};
+  }
+  async function saveCameraOutput(canvas,filename){
+    const type=state.exportFormat||'image/jpeg';
+    const blob=await canvasBlob(canvas,type,.94);
+    const name=filename+'_VHS_FILM.'+(type==='image/png'?'png':'jpg');
+    let shared=false;
+    try{
+     const file=new File([blob],name,{type});
+     if(navigator.canShare?.({files:[file]})){
+      await navigator.share({files:[file],title:'VHS Studio · фото с эффектами'});
+      shared=true;
+     }
+    }catch(err){
+     if(err?.name==='AbortError'){
+      notify('Сохранение отменено — кадр остаётся в редакторе.');
+      return;
+     }
+     console.warn('Photo camera share unavailable',err);
+    }
+    if(!shared)saveBlob(blob,name);
+    notify(shared?'Выбери «Сохранить изображение» в меню iPhone.':
+     'Снимок '+name+' сохранён в Safari / Файлы.');
+  }
   async function init(){
     mountControls();bindEvents();initMainViewerEvents();mountEdgeBurnControls();initDockPreview();updateMainUndoButtons();
     $('allPhotoFxToggle').addEventListener('click',resetAllPhotoEffects);
@@ -1181,6 +1280,14 @@
       state,getOriginal:()=>original,onChange:schedulePreview
     });
     photoExtrasUI?.refresh();
+    photoLiveCamera=window.VHSPhotoCamera.mount({
+      renderFrame:(source,seed,opts,size)=>processImage(source,seed,opts,size),
+      onCaptured:onCameraCaptured,
+      onSave:saveCameraOutput,
+      getSeed:()=>randomSeed(),
+      getProfile:cameraCurrentProfile,
+      onConfigure:()=>showTab('vhs')
+    });
     try{Object.assign(looks,await (await fetch('./looks.json')).json());}catch(err){notify('Каталог плёнок не загрузился. Открой программу через HTTPS или локальный сервер.');}
     xmpProfiles=await dbAll('xmp');cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
     if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
