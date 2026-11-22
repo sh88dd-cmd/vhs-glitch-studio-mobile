@@ -105,7 +105,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
  };
  function applyVisual(){
   liveVisual=getVisualSettings()||{};
-  stage.classList.toggle('instant',!!liveVisual.polaroid?.enabled);
+  stage.classList.toggle('instant',!!liveVisual.polaroid?.enabled&&previewToggle.checked);
   video.style.filter=previewToggle.checked?liveFilter(liveVisual):'none';
  }
  function renderLive(token){
