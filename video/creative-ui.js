@@ -201,29 +201,44 @@ function create(opts){
  function resetTracking(){
   prevGray=null;tracked=[];trackedClip=-1;lastTrackTime=-1;
  }
+ const rawTrackCanvas=document.createElement('canvas');
+ const rawTrackCtx=rawTrackCanvas.getContext('2d',{willReadFrequently:true});
+ let lastAutoScanWall=-1000,faceIdSerial=0,modelStatus='';
+ function overlap(a,b){
+  const x1=Math.max(a.x,b.x),y1=Math.max(a.y,b.y);
+  const x2=Math.min(a.x+a.w,b.x+b.w),y2=Math.min(a.y+a.h,b.y+b.h);
+  const area=Math.max(0,x2-x1)*Math.max(0,y2-y1);
+  return area/(a.w*a.h+b.w*b.h-area+1e-8);
+ }
+ function distinctFaces(boxes,limit=10){
+  const unique=[];
+  for(const candidate of boxes){
+   if(!candidate||candidate.w<.016||candidate.h<.016)continue;
+   if(unique.some(box=>overlap(box,candidate)>.42))continue;
+   unique.push(candidate);
+   if(unique.length>=limit)break;
+  }
+  return unique;
+ }
  async function initFaceDetector(){
-  // Prefer native FaceDetector, fall back to bundled offline Haar cascade.
-  // A 140px-only scan misses many portrait-video faces: they shrink below
-  // the classifier's minimum detectable window.
-  let nativeDetector=null;
   if('FaceDetector' in root){
-   try{nativeDetector=new root.FaceDetector({fastMode:false,maxDetectedFaces:6});}catch{}
+   try{
+    const native=new root.FaceDetector({fastMode:false,maxDetectedFaces:10});
+    faceDetector={kind:'native',detect:video=>native.detect(video)};
+    return true;
+   }catch{}
   }
   const vision=root.tracking?.ViolaJones;
-  if(!nativeDetector&&!vision?.classifiers?.face)return false;
+  if(!vision?.classifiers?.face)return false;
   const work=document.createElement('canvas');
   const context=work.getContext('2d',{willReadFrequently:true});
   faceDetector={
+   kind:'haar',
    async detect(video){
-    if(nativeDetector){
-     try{
-      const native=await nativeDetector.detect(video);
-      if(native?.length)return native.slice(0,6);
-     }catch(err){console.warn('FaceDetector unavailable, trying offline Haar',err);}
-    }
-    if(!vision?.classifiers?.face)return[];
-    // Heavy scans occur only on explicit taps, not during playback.
-    for(const maxSide of [260,360]){
+    const candidates=[];
+    // Do not stop after the FIRST found face: group portraits often have
+    // other, smaller faces that require a different image scale.
+    for(const maxSide of [260,400]){
      const scale=Math.min(1,maxSide/Math.max(video.videoWidth||1,video.videoHeight||1));
      const w=Math.max(24,Math.round(video.videoWidth*scale));
      const h=Math.max(24,Math.round(video.videoHeight*scale));
@@ -231,71 +246,154 @@ function create(opts){
      if(work.height!==h)work.height=h;
      context.drawImage(video,0,0,w,h);
      const pixels=context.getImageData(0,0,w,h).data;
-     const found=vision.detect(pixels,w,h,1.1,1.22,2,.105,vision.classifiers.face);
+     const found=vision.detect(pixels,w,h,1.1,1.22,2,.105,vision.classifiers.face)||[];
      const sx=video.videoWidth/w,sy=video.videoHeight/h;
-     const boxes=(found||[]).filter(rect=>
-      rect.width>=18&&rect.height>=18&&rect.width<=w*.86&&rect.height<=h*.86)
-      .slice(0,6).map(rect=>({boundingBox:{
-       x:rect.x*sx,y:rect.y*sy,width:rect.width*sx,height:rect.height*sy
-      }}));
-     if(boxes.length)return boxes;
+     for(const r of found){
+      if(r.width<17||r.height<17||r.width>w*.85||r.height>h*.85)continue;
+      candidates.push({boundingBox:{x:r.x*sx,y:r.y*sy,
+       width:r.width*sx,height:r.height*sy}});
+     }
      await new Promise(resolve=>setTimeout(resolve,0));
     }
-    return[];
+    return candidates;
    }
   };
   return true;
  }
- async function detectFace(){
-  if(!faceDetector||faceBusy||!opts.hasVideo()||source.readyState<2)return 0;
-  const t=Number(source.currentTime)||0;
-  if(t-faceLast<.48&&t>=faceLast)return autoBoxes.length;
-  faceLast=t;faceBusy=true;
+ async function upgradeDetector(){
+  if(faceDetector?.kind==='mediapipe')return true;
+  if(!root.VHSVideoFaceAI?.create)return false;
   try{
-   // Yield one paint so the button responds before synchronous Haar scanning.
-   await new Promise(resolve=>setTimeout(resolve,0));
-   const found=await faceDetector.detect(source);
-   if(Math.abs(t-(Number(source.currentTime)||0))>.5)return 0;
-   const w=source.videoWidth,h=source.videoHeight;
-   autoBoxes=(found||[]).slice(0,6).map(item=>{
-    const r=item.boundingBox||item,x=clamp(r.x/w,0,1),y=clamp(r.y/h,0,1);
-    return{x,y,w:clamp(r.width/w,.03,1-x),h:clamp(r.height/h,.03,1-y),start:t};
-   }).filter(box=>box.w>.01&&box.h>.01);
-   autoClip=opts.getClip();
-   resetTracking();
-   callbacks.render();
-   return autoBoxes.length;
+   faceDetector=await root.VHSVideoFaceAI.create();
+   modelStatus='MediaPipe';
+   return true;
   }catch(err){
-   $('touchStatus').textContent='Автообнаружение лица недоступно для этого кадра: '+err.message+'; выдели лицо пальцем.';
-   return 0;
+   modelStatus='Офлайн-резерв: '+(err?.message||'модель недоступна');
+   console.warn('Optional multi-face detector not loaded',err);
+   return false;
+  }
+ }
+ function normalizedFaces(found,w,h){
+  const candidates=(found||[]).map(item=>{
+   const r=item.boundingBox||item;
+   const x=clamp((r.x??r.originX)/w,0,1),y=clamp((r.y??r.originY)/h,0,1);
+   return{x,y,w:clamp((r.width||0)/w,0,1-x),h:clamp((r.height||0)/h,0,1-y),
+    confidence:Number(item.confidence||1)};
+  }).filter(box=>box.w>.016&&box.h>.016);
+  candidates.sort((a,b)=>b.confidence-a.confidence);
+  return distinctFaces(candidates);
+ }
+ function reconcileDetections(faces,time,clip){
+  const previous=autoClip===clip?autoBoxes:[];
+  const used=new Set();
+  const next=faces.map(face=>{
+   let best=null,bestScore=-Infinity;
+   for(const old of previous){
+    if(used.has(old.id))continue;
+    const dist=Math.hypot(
+     (face.x+face.w*.5)-(old.x+old.w*.5),
+     (face.y+face.h*.5)-(old.y+old.h*.5));
+    const score=overlap(face,old)*2-dist/(Math.max(face.w,old.w,face.h,old.h)+.05);
+    if(score>bestScore&&dist<Math.max(.18,(face.w+old.w)*.8)){
+     best=old;bestScore=score;
+    }
+   }
+   const id=best?best.id:'auto-'+(++faceIdSerial);
+   if(best)used.add(best.id);
+   return {...face,id,clip,start:time};
+  });
+  autoBoxes=next;autoClip=clip;faceLast=time;
+  // Re-anchor the optical tracker to actual detector locations. This prevents
+  // accumulated drift after a turn, a camera pan or a partially hidden face.
+  if(trackedClip===clip){
+   for(const face of next){
+    const old=tracked.find(box=>box.id===face.id);
+    if(!old){tracked.push({...face});continue;}
+    const fresh=.80;
+    old.x=old.x*(1-fresh)+face.x*fresh;
+    old.y=old.y*(1-fresh)+face.y*fresh;
+    old.w=old.w*(1-fresh)+face.w*fresh;
+    old.h=old.h*(1-fresh)+face.h*fresh;
+   }
+   tracked=tracked.filter(box=>!box.id?.startsWith('auto-')||
+    next.some(face=>face.id===box.id));
+  }
+  prevGray=null;lastTrackTime=time;
+ }
+ async function detectFace(live=false){
+  if(!faceDetector||faceBusy||!opts.hasVideo()||source.readyState<2)return autoBoxes.length;
+  faceBusy=true;
+  try{
+   if(!live)await new Promise(resolve=>setTimeout(resolve,0));
+   const t=Number(source.currentTime)||0,clip=opts.getClip();
+   const found=await faceDetector.detect(source);
+   if(clip!==opts.getClip()||Math.abs(t-(Number(source.currentTime)||0))>.8)
+    return autoBoxes.length;
+   const boxes=normalizedFaces(found,source.videoWidth,source.videoHeight);
+   if(boxes.length)reconcileDetections(boxes,t,clip);
+   else if(!live){autoBoxes=[];autoClip=clip;faceLast=t;resetTracking();}
+   else if(t-faceLast>1.7){autoBoxes=[];resetTracking();}
+   if(!live)callbacks.render();
+   return boxes.length;
+  }catch(err){
+   if(!live)pulse('Ошибка поиска лиц: '+err.message+'. Можно выделить лицо пальцем.');
+   return autoBoxes.length;
   }finally{faceBusy=false;}
+ }
+ function frameGray(){
+  const w=240,h=Math.max(16,Math.round(w*source.videoHeight/Math.max(1,source.videoWidth)));
+  if(rawTrackCanvas.width!==w)rawTrackCanvas.width=w;
+  if(rawTrackCanvas.height!==h)rawTrackCanvas.height=h;
+  rawTrackCtx.drawImage(source,0,0,w,h);
+  return E.gray(rawTrackCtx,240);
  }
  function faceBoxes(ctx,time,clip){
   const cfg=c.touch;
   if(!cfg.facesEnabled)return[];
-  // Detection is requested once by the user; repeated main-thread Haar scans
-  // while decoding video caused severe frame stalls on iPhone Safari.
-  const manual=cfg.manualFaces.filter(face=>face.clip===clip&&time>=Number(face.start||0));
-  const auto=cfg.faceAutodetect&&faceDetector&&autoClip===clip?
-   autoBoxes.map((f,i)=>({...f,id:'auto-'+i,clip,start:faceLast})):[];
-  const anchors=[...manual,...auto].slice(-6);
-  const clipChanged=trackedClip!==clip;
-  if(clipChanged||time<lastTrackTime-.09||time-lastTrackTime>.8||tracked.length!==anchors.length||
-    tracked.some((x,i)=>x.id!==anchors[i].id)){
-   tracked=anchors.map(f=>({...f}));prevGray=null;lastTrackTime=time;trackedClip=clip;
-  }
-  // Preview and export use the same offline block matching; this is motion
-  // tracking, not a guarantee of successful identity detection after occlusion.
-  if(anchors.length&&time>lastTrackTime+.025&&time-lastTrackTime<.8){
-   const gray=E.gray(ctx,160);
-   if(prevGray&&prevGray.w===gray.w&&prevGray.h===gray.h){
-    tracked=E.trackBoxes(prevGray.data,gray.data,gray.w,gray.h,tracked);
+  const manual=cfg.manualFaces.filter(face=>face.clip===clip&&time>=Number(face.start||0)).slice(-10);
+  // On-device MediaPipe (or native FaceDetector) refreshes the detected faces
+  // throughout playback. Haar still runs only on demand (slow on iPhone).
+  const liveModel=faceDetector?.kind==='mediapipe'||faceDetector?.kind==='native';
+  const fresh=time>=faceLast-.25&&(!liveModel||time-faceLast<1.8);
+  const auto=cfg.faceAutodetect&&faceDetector&&autoClip===clip&&fresh?
+   autoBoxes.map(face=>({...face,clip})):[];
+  const anchors=[...manual,...auto].slice(-10);
+  if(anchors.length){
+   const clipChanged=trackedClip!==clip;
+   const changed=tracked.length!==anchors.length||
+    tracked.some((x,i)=>x.id!==anchors[i].id);
+   const discontinuity=time<lastTrackTime-.12||time-lastTrackTime>.7;
+   if(clipChanged||changed||discontinuity){
+    tracked=anchors.map(box=>({...box}));prevGray=null;
+    lastTrackTime=time;trackedClip=clip;
    }
-   prevGray=gray;lastTrackTime=time;
-  }else if(anchors.length&&!prevGray){
-   prevGray=E.gray(ctx,160);lastTrackTime=time;
+   if(time>lastTrackTime+.045&&time-lastTrackTime<.7&&source.readyState>=2){
+    const gray=frameGray();
+    if(prevGray&&prevGray.w===gray.w&&prevGray.h===gray.h)
+     tracked=E.trackBoxes(prevGray.data,gray.data,gray.w,gray.h,tracked);
+    prevGray=gray;lastTrackTime=time;
+   }else if(!prevGray&&source.readyState>=2){
+    prevGray=frameGray();lastTrackTime=time;
+   }
+  }else{
+   tracked=[];prevGray=null;trackedClip=clip;lastTrackTime=time;
   }
-  return tracked.slice(0,6);
+  // A live scan is independent of drawing and uses the original decoded
+  // video frame, never the pixelated preview.
+  if(cfg.faceAutodetect&&liveModel&&!source.paused&&!source.seeking&&
+   opts.hasVideo()&&!faceBusy&&
+   performance.now()-lastAutoScanWall>=520&&time>=0){
+   lastAutoScanWall=performance.now();
+   setTimeout(()=>{
+    if(!opts.hasVideo()||!c.touch.facesEnabled||!c.touch.faceAutodetect)return;
+    detectFace(true).then(count=>{
+     if(count&&$('panel-touch').classList.contains('active')){
+      editorDirty=true;updateOverlay();
+     }
+    }).catch(err=>console.warn('Live face refresh failed',err));
+   },0);
+  }
+  return tracked.slice(0,10);
  }
  function drawTouch(ctx,time,clip){
   if(c.touch.enabled)E.drawStrokes(ctx,c,clip,time);
