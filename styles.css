@@ -244,3 +244,84 @@ body.photoHelpVisible .extraHelpText.expanded{display:block!important}
  font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
  max-height:190px;overflow-y:auto;color:#b8d7d5;background:#101b23;
  padding:10px;border-radius:7px}
+
+/* Photo Studio 1.5 — native iPhone camera with live analog preview. */
+.cameraEntry{display:flex;align-items:center;gap:9px;
+ padding:8px 0 1px}
+.cameraEntry>.btn{min-height:47px;flex:0 0 auto;
+ background:linear-gradient(125deg,#85ebd9,#5dbbb0);
+ box-shadow:0 3px 14px rgba(44,175,158,.16)}
+.cameraEntry>span{font-size:10px;line-height:1.35;color:#a5c0bd;flex:1}
+@media(max-width:420px){
+ .cameraEntry{flex-direction:column;align-items:stretch;gap:4px}
+ .cameraEntry .btn{width:100%}
+ .cameraEntry>span{text-align:center;font-size:9px}
+}
+#liveCameraDialog{position:fixed;inset:0;margin:0;max-width:none;
+ max-height:none;width:100vw;height:100dvh;border:0;border-radius:0;
+ padding:calc(env(safe-area-inset-top) + 8px) 10px
+ calc(env(safe-area-inset-bottom) + 15px);
+ background:#090e15;color:#e7f5f5;overflow:auto;overscroll-behavior:contain}
+#liveCameraDialog[open]{display:flex;flex-direction:column;gap:10px}
+#liveCameraDialog::backdrop{background:#04080c}
+.liveCameraTop{display:flex;gap:9px;align-items:center;
+ justify-content:space-between;flex:0 0 auto;min-height:36px}
+.liveCameraTop strong{display:block;font-size:13px;letter-spacing:.55px;color:#8af5dc}
+.liveCameraTop small{display:block;font-size:10px;line-height:1.4;
+ color:#b8c9d1;margin-top:5px;max-width:75vw}
+.liveCameraTop>.btn{font-size:17px;min-width:40px}
+.liveCameraStage{position:relative;display:flex;align-items:center;
+ justify-content:center;flex:1 1 auto;min-height:145px;
+ background:#020609;border:1px solid #35535c;border-radius:15px;
+ overflow:hidden;isolation:isolate}
+.liveCameraStage>video,
+.liveCameraStage>canvas{position:absolute;left:0;top:0;width:100%;
+ height:100%;object-fit:contain;display:block;background:transparent}
+.liveCameraStage>video{z-index:1}
+.liveCameraStage>#liveCameraFx{z-index:2}
+.liveCameraStage>#liveCameraStill{z-index:3;background:#090e15}
+.liveCameraStage.selfie>video,
+.liveCameraStage.selfie>#liveCameraFx{transform:scaleX(-1)}
+#liveCameraBadge{position:absolute;z-index:4;top:12px;left:13px;
+ font-size:11px;letter-spacing:1.1px;color:#ffdad5;
+ padding:6px 8px;border:1px solid rgba(236,84,78,.6);
+ border-radius:6px;background:rgba(31,15,20,.72)}
+.liveCameraStatus{flex:0 0 auto;min-height:35px;color:#ccf4ec;
+ background:#1b3037;border-left:3px solid #80e7cc;
+ padding:10px 12px;border-radius:6px;font-size:11px;line-height:1.4}
+#liveCameraResolution{margin:0;padding:0 3px}
+.liveCameraOptions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:7px;flex:0 0 auto}
+.liveCameraOption{display:flex;flex-direction:column;
+ justify-content:center;min-width:0;gap:5px;
+ background:#17252d;padding:9px;border:1px solid #3b505b;
+ border-radius:10px;font-size:11px;color:#ddeeea}
+.liveCameraOption:first-child{flex-direction:row;align-items:center;gap:7px}
+.liveCameraOption input[type=checkbox]{flex:0 0 22px}
+.liveCameraOption select{min-height:37px;width:100%;margin:0;
+ font-size:11px;padding:7px 5px}
+.liveCameraActions{display:grid;grid-template-columns:1fr 86px 1fr;
+ gap:10px;align-items:center;justify-content:space-between;
+ flex:0 0 auto;margin-top:3px}
+.liveCameraActions .btn{min-height:50px;padding:8px 4px;
+ font-size:11px;line-height:1.2}
+.liveCameraShutter{display:flex;align-items:center;justify-content:center;
+ background:transparent;border:4px solid #e7f9f5;border-radius:50%;
+ width:78px;height:78px;padding:6px;margin:auto;
+ box-shadow:0 0 0 2px rgba(64,148,140,.8)}
+.liveCameraShutter>span{width:100%;height:100%;
+ background:#f6faf9;border-radius:50%;transition:transform .12s}
+.liveCameraShutter:active>span{transform:scale(.86)}
+.liveCameraShutter:disabled{opacity:.36;cursor:default}
+.liveCameraReviewActions{display:grid;grid-template-columns:1fr 1.25fr;
+ gap:8px;flex:0 0 auto}
+.liveCameraReviewActions .btn{min-height:47px;font-size:12px}
+.liveCameraNote{font-size:10px;color:#92a6af;
+ line-height:1.5;margin:3px 2px 0;flex:0 0 auto}
+@media(max-width:385px){
+ .liveCameraOptions{gap:4px}
+ .liveCameraOption{font-size:10px;padding:6px}
+ .liveCameraActions{grid-template-columns:1fr 74px 1fr;gap:5px}
+ .liveCameraShutter{width:67px;height:67px}
+ .liveCameraTop strong{font-size:11px}
+}
