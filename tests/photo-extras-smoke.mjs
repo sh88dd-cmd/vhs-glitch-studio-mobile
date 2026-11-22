@@ -1,4 +1,4 @@
-/* Regression tests for photo v1.3.0. No external network or test packages. */
+/* Regression tests for photo v1.5.0. No external network or test packages. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -6,21 +6,22 @@ const read=p=>fs.readFileSync(p,'utf8');
 const html=read('index.html'),css=read('styles.css'),app=read('app.js'),sw=read('sw.js');
 const core=read('photo-extras-core.js'),ui=read('photo-extras-ui.js');
 const paths=['photo-extras-core.js','photo-extras-ui.js',
- 'photo-polaroid.js','photo-polaroid-ui.js','photo-face-ai.js','photo-face-detect.js',
+ 'photo-polaroid.js','photo-polaroid-ui.js','photo-face-ai.js','photo-face-detect.js','photo-camera.js',
  'video/glitch-engine.js','video/film-damage.js','video/camera-osd.js','video/face-ai.js',
  'video/vendor/tracking-min.js','video/vendor/tracking-face-min.js'];
 for(const p of paths){
  const version=p.startsWith('video/vendor/')?(p.endsWith('tracking-min.js')?'1.1.3':'1.0.0'):
   p.startsWith('video/')?'1.2.0':
-  ['photo-extras-core.js','photo-extras-ui.js'].includes(p)?'1.3.0':'1.4.0';
+  ['photo-extras-core.js','photo-extras-ui.js'].includes(p)?'1.3.0':
+   p==='photo-camera.js'?'1.5.0':'1.4.0';
  assert.ok(html.includes('./'+p+'?v='+version),'Missing or stale script in photo HTML: '+p);
  assert.ok(sw.includes("'./"+p+"'"),'Not cached by photo service worker: '+p);
 }
-for(const name of ['glitch','cassettes','masks','correction','polaroid','batch','camera']){
+for(const name of ['glitch','cassettes','masks','correction','polaroid','shoot','batch','camera']){
  assert.ok(html.includes('id="panel-'+name+'"'),'Missing panel '+name);
  assert.ok(html.includes('data-tab="'+name+'"'),'Missing nav button '+name);
 }
-assert.ok(html.includes('STUDIO MOBILE · 1.4.0'));
+assert.ok(html.includes('STUDIO MOBILE · 1.5.0'));
 assert.ok(html.includes('id="allPhotoFxToggle"'));
 assert.ok(html.includes('id="photoHelpToggle"'));
 assert.ok(css.includes('.tabs{overflow-x:auto'),
@@ -41,10 +42,10 @@ assert.ok(app.includes('X.colorMatch(p,w,h,extras.colorCopy.target'),
  'Photo reference palette must transform actual pixels');
 assert.ok(app.includes('X.glitch(frame,extraGlitch,seed)'),
  'Glitch must run during preview and full export');
-assert.ok(app.includes('X.masks(frame,extras.masks)'),
+assert.ok(app.includes('X.masks(frame,imageMasks)'),
  'Finger paint/face masks must modify final image');
-assert.ok(app.includes('X.masks(frame,extras.masks)')&&app.includes('!opts.batch'),
- 'Masks must not leak onto other unrelated photos in batch');
+assert.ok(app.includes('opts.cameraCapture?(opts.captureMasks||null):opts.batch?null:extras.masks'),
+ 'Masks must not leak onto batch or live camera photos and must be applied to captured faces');
 assert.ok(app.includes('window.VHSVideoFilmDamage.apply('),
  'Video film damage must be applied to photo output');
 assert.ok(app.includes('batchIndex:i,batchCount:n'),
@@ -123,13 +124,25 @@ assert.ok(app.includes("'undoPhotoFxReset'")&&
 assert.ok(app.includes('syncLegacyControls()'),
  'Cassette selection must synchronize legacy VHS/FILM controls');
 assert.ok(css.includes('polaroidGrid'),'Polaroid must render a selectable gallery');
+assert.ok(html.includes('id="liveCameraDialog"')&&html.includes('id="liveCameraShot"')&&
+ html.includes('id="liveCameraFlip"')&&html.includes('id="liveCameraFaces"'),
+ 'App must present real shutter, front/back camera and static face masks');
+assert.ok(app.includes('async function onCameraCaptured(')&&
+ app.includes('await processImage(raw,seed,{cameraCapture:true,captureMasks:selectedMasks},\'full\')'),
+ 'Full camera photos must run the real editor pipeline with captured faces');
+assert.ok(app.includes('source,seed,opts,size')&&app.includes('processImage(source,seed,opts,size)'),
+ 'Live video preview must share the same filter pipeline as still images');
+assert.ok(app.includes('original=raw;photoName=filename;state.seed=seed;'),
+ 'Captured original source must remain editable in main editor');
+assert.ok(css.includes('#liveCameraDialog')&&sw.includes("'./photo-camera.js'"),
+ 'Local live camera must be styled and cached offline');
 assert.ok(app.includes('await window.VHSPhotoPolaroid.ensureHandFont('),
  'Actual export waits for the selected Cyrillic handwriting font');
 assert.ok(html.includes('./photo-face-ai.js?v=1.4.0'),
  'Photo app loads pinned on-device face runtime');
-assert.ok(sw.includes('vhs-mobile-v1.4.0')&&sw.includes('blaze_face_full_range.tflite'),
+assert.ok(sw.includes('vhs-mobile-v1.5.0')&&sw.includes('blaze_face_full_range.tflite'),
  'Offline worker must cache real face model binaries');
 assert.ok(!read('photo-face-detect.js').includes('Promise.race(['),
  'Old 8.5s CDN timeout must be removed from the photo detector');
 
-console.log('PASS: photo 1.3 integration, TRUE reset, Polaroid export, offline face fallback and real pixel effects');
+console.log('PASS: photo 1.5 live camera integration, real filtered shutter, editable original, masks and existing effects');
