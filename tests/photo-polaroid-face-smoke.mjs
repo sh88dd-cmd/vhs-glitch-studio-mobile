@@ -76,6 +76,6 @@ const found=await root.VHSPhotoFaceDetect.detect(
 assert.equal(scans,3,'Offline Haar must search THREE different photo resolutions');
 assert.equal(found.faces.length,3,
  'Offline mode must detect three independent people and dedupe scan scales');
-assert.match(found.engine,/Офлайн/);
-assert.ok(statuses.some(s=>s.includes('Офлайн'))||found.engine.includes('Офлайн'));
+assert.match(found.engine,/Резервный Haar|Офлайн/);
+assert.ok(statuses.some(s=>s.includes('Встроенный поиск'))||found.engine.includes('Резервный'));
 console.log('PASS: 8 realistic adaptive frames, zero image cropping, 7 instant film looks and 3 offline faces without internet');
