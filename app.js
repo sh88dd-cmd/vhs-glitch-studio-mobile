@@ -16,7 +16,11 @@
     edgeBurn:{"enabled":false,"side":"random","strength":90,"width":35,"roughness":75,"scratches":38,"seed":238711811},
     camera:{date:{on:false,text:'PM 10:28 | JUN 16 1995',position:'right-bottom',size:125},rec:{on:false,position:'left-top',size:125},play:{on:false,position:'left-top',size:125},battery:{on:false,position:'right-top',size:125,level:'LOW'}},
     singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[],previewDock:{enabled:true,collapsed:false},
-    extras:window.VHSPhotoExtras.defaults(),extraCamera:{counter:false,modeInfo:false,focus:false,frame:false}
+    extras:window.VHSPhotoExtras.defaults(),
+    extraCamera:{counter:false,modeInfo:false,focus:false,frame:false,
+      positions:{counter:'center-bottom',modeInfo:'center-top',focus:'right-top'},
+      sizes:{counter:90,modeInfo:80,focus:80},frameSize:100},
+    allFxOff:false
   };
   let state=clone(defaults);
   try{
@@ -34,7 +38,9 @@
   }catch(e){console.warn('Frame settings migration unavailable',e);}
   if(!Array.isArray(state.favoriteFilms))state.favoriteFilms=[];
   state.extras=window.VHSPhotoExtras.hydrate(state.extras);
-  state.extraCamera={...defaults.extraCamera,...(state.extraCamera||{})};
+  state.extraCamera={...defaults.extraCamera,...(state.extraCamera||{}),
+   positions:{...defaults.extraCamera.positions,...(state.extraCamera?.positions||{})},
+   sizes:{...defaults.extraCamera.sizes,...(state.extraCamera?.sizes||{})}};
   delete state.extraCamera.zoom; // ZOOM is not part of the photo camera OSD.
   let photoExtrasUI=null;
   state.previewDock={...defaults.previewDock,...(state.previewDock||{})};
@@ -55,7 +61,23 @@
   const power={"VHS 90s":1,"Camcorder 90s":.75,"VHS — мягкий":.4,"VHS — повреждённая кассета":1.25,"Dirty VHS Extreme":1.4,"Tracking Error":1.2,"Аналоговый шум":.8,"Цветные помехи":1.15,"RGB Split":1.0};
 
   function notify(message, alertToo=false){$('notice').textContent=message;if(alertToo)alert(message);}
-  function persist(){try{localStorage.setItem('vhs.mobile.settings',JSON.stringify(state));}catch(e){notify('Мало места для сохранения настроек: сделай резервную копию.');}}
+  function updateFxIndicators(){
+    const states={
+     vhs:state.vhsEnabled&&state.master>0,
+     film:state.filmEnabled,glitch:state.extras?.glitch?.enabled,
+     masks:!!(state.extras?.masks?.faces?.length||state.extras?.masks?.strokes?.length),
+     correction:window.VHSPhotoExtras.activeAdjustment(state.extras?.correction),
+     cassettes:!!(state.extras?.selectedCassetteId||state.extras?.glitch?.aging>0),
+     camera:!!(Object.values(state.camera||{}).some(x=>x?.on)||
+       ['counter','modeInfo','focus','frame'].some(x=>state.extraCamera?.[x]))
+    };
+    document.querySelectorAll('.tabs button[data-tab]').forEach(b=>
+     b.classList.toggle('hasActivePhotoFx',!!states[b.dataset.tab]&&!state.allFxOff));
+  }
+  function persist(){try{localStorage.setItem('vhs.mobile.settings',JSON.stringify(state));}
+   catch(e){notify('Мало места для сохранения настроек: сделай резервную копию.');}
+   updateFxIndicators();
+  }
   function rngFrom(seed,stage){let x=(seed^Math.imul(stage,0x9e3779b9))>>>0;return ()=>{x+=0x6D2B79F5;let t=x;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
   const ri=(r,a,b)=>Math.floor(r()*(b-a+1))+a;
   function randomSeed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
@@ -401,6 +423,7 @@
     const [w,h]=renderSize(im.naturalWidth||im.width, im.naturalHeight||im.height, sizeLimit==='full'?'full':String(sizeLimit));
     if(w*h>54e6)throw Error('Изображение слишком большое для мобильной памяти. Выбери экспорт до 3200 px.');
     const frame=newCanvas(w,h),ctx=frame.getContext('2d',{willReadFrequently:true});ctx.drawImage(im,0,0,w,h);
+    if(state.allFxOff)return frame;
     let img=ctx.getImageData(0,0,w,h),p=img.data;const fac=power[state.preset]||1;
     const X=window.VHSPhotoExtras,extras=state.extras;
     if(X.activeAdjustment(extras.correction)){
@@ -424,14 +447,14 @@
     // REC/PLAY/date/time/battery exactly as it hits the underlying pixels.
     drawCamera(frame,state.camera);
     // New viewfinder indicators never draw ZOOM, and are part of the VHS signal.
-    if(window.VHSVideoCameraOSD&&Object.values(state.extraCamera||{}).some(Boolean)){
+    if(window.VHSVideoCameraOSD&&['counter','modeInfo','focus','frame'].some(k=>state.extraCamera?.[k])){
       window.VHSVideoCameraOSD.draw(ctx,w,h,{
        counter:!!state.extraCamera.counter,modeInfo:!!state.extraCamera.modeInfo,
        focus:!!state.extraCamera.focus,frame:!!state.extraCamera.frame,
        zoom:false,rec:false,play:false,date:false,battery:false,
-       positions:{counter:'center-bottom',modeInfo:'center-top',focus:'right-top'},
-       sizes:{counter:90,modeInfo:80,focus:80},
-       frameSize:100,frameColor:'white'
+       positions:state.extraCamera.positions||{},
+       sizes:state.extraCamera.sizes||{},
+       frameSize:state.extraCamera.frameSize||100,frameColor:'white'
       },state.signal.tapeSpeed,0);
     }
     if(state.vhsEnabled && state.master>0){
@@ -1016,6 +1039,13 @@
   }
   async function init(){
     mountControls();bindEvents();initMainViewerEvents();mountEdgeBurnControls();initDockPreview();updateMainUndoButtons();
+    $('allPhotoFxToggle').addEventListener('click',()=>{
+     state.allFxOff=!state.allFxOff;
+     $('allPhotoFxToggle').textContent=state.allFxOff?'↶ ВЕРНУТЬ ЭФФЕКТЫ':'✕ ВЫКЛЮЧИТЬ ВСЁ';
+     schedulePreview();notify(state.allFxOff?'Эффекты временно отключены. Настройки сохранены.':
+      'Все настройки эффектов восстановлены.');
+    });
+    $('allPhotoFxToggle').textContent=state.allFxOff?'↶ ВЕРНУТЬ ЭФФЕКТЫ':'✕ ВЫКЛЮЧИТЬ ВСЁ';
     photoExtrasUI=window.VHSPhotoExtrasUI.mount({
      state,onChange:schedulePreview,getOriginal:()=>original,
      onMaskChange:schedulePreview,
@@ -1023,12 +1053,27 @@
      onSetSnapshot(snapshot){
       const rootKeys=['vhsEnabled','filmEnabled','master','preset','fx',
        'signal','film','camera','edgeBurn','extraCamera'];
-      for(const key of rootKeys)if(key in snapshot)
-       state[key]=JSON.parse(JSON.stringify(snapshot[key]));
+      for(const key of rootKeys)if(key in snapshot){
+       if(key==='extraCamera')Object.assign(state.extraCamera,
+        JSON.parse(JSON.stringify(snapshot[key])));
+       else state[key]=JSON.parse(JSON.stringify(snapshot[key]));
+      }
+      delete state.extraCamera.zoom;
       if(snapshot.extras)for(const key of ['correction','glitch','damage','colorCopy'])
        if(key in snapshot.extras)
         state.extras[key]=JSON.parse(JSON.stringify(snapshot.extras[key]));
       // Preserve active image masks and saved cassette collection.
+      $('vhsEnabled').checked=!!state.vhsEnabled;
+      $('filmEnabled').checked=!!state.filmEnabled;
+      $('vhsPreset').value=state.preset;
+      if($('cameraControls'))for(const key of ['date','rec','play','battery']){
+       const item=state.camera[key],card=[...document.querySelectorAll('.cameraSetting')]
+        .find(x=>x.querySelector('h3')?.textContent===
+         ({date:'Дата / время',rec:'REC + красная точка',
+           play:'PLAY',battery:'Батарейка'}[key]));
+       if(card){const check=card.querySelector('input[type=checkbox]');
+        if(check)check.checked=!!item.on;}
+      }
       schedulePreview();
      }
     });
