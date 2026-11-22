@@ -16,17 +16,19 @@ const defaults=()=>({
  masks:{enabled:true,brush:'pixel',radius:24,strength:85,
   strokes:[],faces:[],style:'pixel',faceSize:18,faceBlur:16,mode:'all',originalId:''},
  colorCopy:{enabled:false,strength:70,target:null},
+ polaroid:root.VHSPhotoPolaroid?.defaults?.()||{enabled:false},
  cassettes:[],selectedCassetteId:null,beforeCassette:null,
  batchAging:false,showHelp:false
 });
 function hydrate(raw){
  const d=defaults(),s=raw&&typeof raw==='object'?raw:{};
- for(const k of ['correction','glitch','damage','masks','colorCopy'])
+ for(const k of ['correction','glitch','damage','masks','colorCopy','polaroid'])
   if(s[k]&&typeof s[k]==='object')d[k]={...d[k],...s[k]};
  d.glitch.effects={...defaults().glitch.effects,...(s.glitch?.effects||{})};
  d.glitch.layers=Array.isArray(s.glitch?.layers)?s.glitch.layers.slice(0,25):[];
  d.masks.strokes=Array.isArray(s.masks?.strokes)?s.masks.strokes.slice(-140):[];
  d.masks.faces=Array.isArray(s.masks?.faces)?s.masks.faces.slice(0,16):[];
+ d.polaroid=root.VHSPhotoPolaroid?.hydrate?.(s.polaroid)||d.polaroid;
  d.cassettes=Array.isArray(s.cassettes)?s.cassettes.slice(0,60):[];
  d.selectedCassetteId=s.selectedCassetteId||null;
  d.beforeCassette=s.beforeCassette||null;
