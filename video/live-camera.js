@@ -50,7 +50,7 @@ function colorFilter(state={}){
   ') sepia('+(night?1:tint).toFixed(3)+') grayscale('+(monochrome?1:0)+
   ')'+(night?' hue-rotate(63deg) saturate(3.2) brightness(.78)':'');
 }
-function mount({getSettings,onImport}){
+function mount({getSettings,getFilmProfile,onImport}){
  const dialog=$('videoLiveCameraDialog'),stage=$('videoLiveStage');
  const video=$('videoLiveVideo'),fx=$('videoLiveOverlay'),processed=$('videoLiveCaptureCanvas');
  const review=$('videoLiveReview'),reviewPanel=$('videoLiveReviewActions');
@@ -62,9 +62,12 @@ function mount({getSettings,onImport}){
  const download=$('videoLiveDownload'),share=$('videoLiveShare');
  const importBtn=$('videoLiveImport'),again=$('videoLiveAgain');
  const openTop=$('videoLiveOpenTop'),openPanel=$('videoLiveOpenPanel');
+ const engine=root.VHSVideoLiveFX?.create?.();
+ if(!engine)throw Error('Реальный видеодвижок камеры не загружен');
  let active=false,ready=false,recording=false,stopping=false,holding=false;
  let cameraStream=null,recordStream=null,recorder=null,audioGraph=null;
- let session=0,overlayTimer=null,animation=0;
+ let session=0,overlayTimer=null,animation=0,cameraStartedAt=0;
+ let filmProfile=null,lastFxReport=null;
  let facing='environment',state={},seed=randSeed(),filmSeed=randSeed();
  let frameIndex=0,lastFrameTime=0,durationStart=0,secondsTimer=null;
  let chunks=[],recordMime='',resultBlob=null,resultURL='',resultFilename='';
@@ -154,7 +157,7 @@ function mount({getSettings,onImport}){
   badge.classList.toggle('recording',recording);
   reviewPanel.hidden=!resultBlob;
   stage.classList.toggle('review',!!resultBlob);
-  fx.hidden=!!resultBlob;
+  fx.hidden=!!resultBlob||!ready;
   video.hidden=!!resultBlob;
   review.hidden=!resultBlob;
  }
@@ -168,131 +171,76 @@ function mount({getSettings,onImport}){
    message('Останови запись кнопкой ■ СТОП, затем закрой камеру.');
    return;
   }
-  release();clearResult();
+  release();clearResult();engine.reset();
   if(dialog.open)dialog.close();
  }
- function initSize(){
-  const vw=video.videoWidth||640,vh=video.videoHeight||480;
-  const scale=Math.min(1,360/Math.max(vw,vh));
-  const w=Math.max(24,Math.round(vw*scale));
-  const h=Math.max(24,Math.round(vh*scale));
-  if(fx.width!==w||fx.height!==h){fx.width=w;fx.height=h;}
+ function fitStage(){
+  const w=video.videoWidth||720,h=video.videoHeight||1280;
+  const maxW=Math.max(180,Math.min(dialog.clientWidth-20,window.innerWidth-24));
+  const heightBudget=Math.max(340,window.innerHeight-280);
+  const size=Math.min(maxW,heightBudget*w/h);
+  stage.style.width=Math.round(size)+'px';
+  stage.style.height=Math.round(size*h/w)+'px';
+  stage.style.aspectRatio=w+' / '+h;
+  stage.dataset.frameRatio=(w/h).toFixed(5);
+  return[w,h];
  }
- function overlay(token){
-  if(!active||!ready||resultBlob||token!==session)return;
-  initSize();
-  const w=fx.width,h=fx.height;
-  const ctx=fx.getContext('2d',{alpha:true});
-  ctx.clearRect(0,0,w,h);
-  const base=state.masterBypass?{}:state;
-  const analog=!!base.vhsEnabled&&Number(base.master)>0;
-  const glitch=!!base.glitchEnabled&&Number(base.glitchStrength)>0;
-  const damage=!!base.filmDamage?.enabled;
-  const vhsStrength=analog?clamp(base.master,0,100)/100:0;
-  const glitchStrength=glitch?clamp(base.glitchStrength,0,100)/100:0;
-  const glitches=base.glitches||{};
-  const dropoutGain=clamp((Number(glitches.dropouts)||0)+(Number(glitches.vhold)||0),0,200)/200;
-  const rfGain=clamp((Number(glitches.rf)||0)+(Number(glitches.tapeChew)||0),0,200)/200;
-  const aged=base.creative?.aging?.enabled&&recording?
-   clamp(base.creative.aging.amount,0,100)/100*
-    clamp((performance.now()-durationStart)/60000,0,1):0;
-  const intensity=(holding?1.85:1)*(1+aged*.7);
-  const mode=String(base.mode||'vhs');
-  // Fresh animation for the same seed. NEW replaces this seed without
-  // affecting cassette selection, film color, or the other stored settings.
-  const r=random((seed^Math.imul(++frameIndex,0x9e3779b9))>>>0);
-  const waves=Math.round((analog?10*vhsStrength:0)+
-   (glitch?(7+dropoutGain*7+rfGain*5)*glitchStrength:0)+
-   (base.preset==='damaged'?7*vhsStrength:0)+aged*8+(holding?23:0));
-  for(let i=0;i<waves;i++){
-   const y=Math.floor(r()*h),band=1+Math.floor(r()*Math.max(2,h*.02*intensity));
-   const left=Math.floor(r()*w*.25);
-   const alpha=Math.min(.4,.02+r()*.15*intensity);
-   ctx.fillStyle='rgba(241,246,250,'+alpha.toFixed(3)+')';
-   ctx.fillRect(left,y,w-left,band);
-   if(r()>.5){
-    ctx.fillStyle=r()>.5?'rgba(235,48,82,.24)':'rgba(32,181,248,.24)';
-    ctx.fillRect(left,y+1,Math.round(w*(.12+r()*.66)),Math.max(1,Math.floor(intensity)));
-   }
-  }
-  if(analog||damage||glitch||holding||mode==='night'){
-   const grains=Math.min(300,Math.round(25*vhsStrength+
-    (damage?clamp(base.filmDamage.grain,0,100)*.5:0)+
-    (glitch?22*glitchStrength:0)+(holding?80:0)+aged*55));
-   for(let i=0;i<grains;i++){
-    const x=Math.floor(r()*w),y=Math.floor(r()*h);
-    ctx.fillStyle=r()>.52?'rgba(245,236,217,.14)':'rgba(8,12,18,.18)';
-    ctx.fillRect(x,y,1+(r()>.92?2:0),1);
-   }
-  }
-  if(mode==='crt'&&Number(base.modeStrength)>0){
-   ctx.fillStyle='rgba(0,0,0,'+(clamp(base.modeStrength,0,100)*.001)+')';
-   for(let line=0;line<h;line+=3)ctx.fillRect(0,line,w,1);
-  }
-  if(damage&&Number(base.filmDamage.scratches)>12){
-   const scratches=Math.min(6,Math.round(Number(base.filmDamage.scratches)/25));
-   for(let i=0;i<scratches;i++){
-    const x=Math.floor(r()*w);
-    ctx.fillStyle='rgba(252,250,237,'+(.04+r()*.14)+')';
-    ctx.fillRect(x,0,1,h);
-   }
-  }
-  if(holding){
-   for(let i=0;i<6;i++){
-    const y=Math.floor(r()*h);
-    ctx.fillStyle=i%2?'rgba(10,17,24,.65)':'rgba(248,238,220,.35)';
-    ctx.fillRect(0,y,w,Math.max(2,Math.round(h*(.015+r()*.045))));
-   }
-  }
-  if((base.camera?.rec||base.camera?.date||base.camera?.frame||
-      base.camera?.counter||base.camera?.battery||base.camera?.modeInfo)&&
-      root.VHSVideoCameraOSD?.draw){
-   ctx.save();
-   try{root.VHSVideoCameraOSD.draw(ctx,w,h,base.camera,
-    base.speed||'SP',(performance.now()-durationStart)/1000);}
-   catch(err){console.warn('Live OSD:',err);}
-   ctx.restore();
-  }
-  if(recording||holding)meta.textContent=recording?'Запись с эффектами · '+recordFrameCount+' кадров':'Зажми для усиления VHS';
-  overlayTimer=setTimeout(()=>{overlayTimer=null;overlay(token);},150);
- }
- function currentFilter(){
-  return colorFilter(state);
- }
- function captureSize(){
-  const sourceW=video.videoWidth||640,sourceH=video.videoHeight||480;
-  const limit=Number(quality.value)||480;
-  const scale=Math.min(1,limit/Math.min(sourceW,sourceH));
+ function ensureOutput(){
+  const sourceW=video.videoWidth||720,sourceH=video.videoHeight||1280;
+  const shortSide=Number(quality.value)||480;
+  const scale=Math.min(1,shortSide/Math.min(sourceW,sourceH));
   let w=Math.max(2,Math.round(sourceW*scale/2)*2);
   let h=Math.max(2,Math.round(sourceH*scale/2)*2);
   const cap=1280/Math.max(w,h);
-  if(cap<1){w=Math.max(2,Math.round(w*cap/2)*2);h=Math.max(2,Math.round(h*cap/2)*2);}
+  if(cap<1){
+   w=Math.max(2,Math.round(w*cap/2)*2);
+   h=Math.max(2,Math.round(h*cap/2)*2);
+  }
+  if(processed.width!==w||processed.height!==h){
+   processed.width=w;processed.height=h;
+   fx.width=w;fx.height=h;
+   engine.reset();
+  }
   return[w,h];
  }
- function composite(time){
-  if(!recording||!active)return;
-  const fps=recordFPS;
-  if(time-lastFrameTime>=1000/fps){
-   const c=processed.getContext('2d',{alpha:false});
-   const began=performance.now();
-   c.save();
-   try{
-    // ctx.filter applies the same color grade to RECORDED pixels.
-    // CSS video filter shown in the viewfinder is only for the live preview.
-    c.filter=currentFilter();
-    if(facing==='user'){
-     c.translate(processed.width,0);c.scale(-1,1);
-    }
-    c.drawImage(video,0,0,processed.width,processed.height);
-   }finally{c.restore();}
-   c.filter='none';
-   // Draw the ACTUAL visible moving interference into captured video.
-   c.drawImage(fx,0,0,processed.width,processed.height);
-   recordFrameCount++;
-   lastCompositorMs=performance.now()-began;
-   lastFrameTime=time;
+ function overlay(token){
+  if(!active||!ready||resultBlob||token!==session)return;
+  const started=performance.now();
+  try{
+   ensureOutput();
+   const time=Math.max(0,(started-cameraStartedAt)/1000);
+   lastFxReport=engine.render(video,processed,state,{
+    time,elapsed:time,seed,filmSeed,holding,
+    mirrored:facing==='user',filmProfile,agingDuration:60
+   });
+   const ctx=fx.getContext('2d',{alpha:false});
+   ctx.drawImage(processed,0,0,fx.width,fx.height);
+   fx.hidden=false;
+   if(recording)recordFrameCount++;
+   lastCompositorMs=lastFxReport.duration;
+   // Camera stream is never shown in a different color treatment from
+   // the recorded canvas: both surfaces get the same exact frame buffer.
+   if(recording)meta.textContent='REC · реальный VHS/FILM · '+recordFrameCount+
+    ' кадров · обработка '+Math.round(lastCompositorMs)+' мс';
+  }catch(err){
+   console.warn('Live camera FX render:',err);
+   fx.hidden=true;
+   message('Ошибка обработки выбранных эффектов: '+err.message);
   }
-  if(recording)animation=requestAnimationFrame(composite);
+  if(active&&ready&&!resultBlob&&token===session){
+   const elapsed=performance.now()-started;
+   const rate=recording?Number(frames.value)||20:15;
+   // Never accumulate delayed frames; drop when CPU is busy. On iPhone
+   // native video stays behind the processed layer for immediate recovery.
+   const delay=Math.max(12,Math.min(300,1000/rate-elapsed));
+   overlayTimer=setTimeout(()=>{overlayTimer=null;overlay(token);},delay);
+  }
+ }
+ function currentFilter(){return'none';}
+ function captureSize(){return ensureOutput();}
+ function composite(){
+  // Recording is fed by exactly the same processed canvas as the preview.
+  // This deliberately does not start a second expensive render loop.
  }
  function stopHold(){
   if(!holding)return;
@@ -316,7 +264,7 @@ function mount({getSettings,onImport}){
   if(!active||!ready||stopping||resultBlob)return;
   const previous=seed;seed=randSeed()>>>0;
   if(seed===previous)seed=(seed+1)>>>0;
-  frameIndex=0;
+  frameIndex=0;engine.reset();
   newBtn.classList.remove('flashed');void newBtn.offsetWidth;
   newBtn.classList.add('flashed');
   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
@@ -364,11 +312,9 @@ function mount({getSettings,onImport}){
    const mime=supported();
    clearResult();
    const[w,h]=captureSize();
-   processed.width=w;processed.height=h;
    recordFPS=Number(frames.value)||20;
-   const ctx=processed.getContext('2d',{alpha:false});
-   ctx.filter=currentFilter();ctx.drawImage(video,0,0,w,h);ctx.filter='none';
-   ctx.drawImage(fx,0,0,w,h);
+   // Current exact selected-FX frame is already present on processed.
+   // No raw frame or simplified CSS-only filter enters the encoder.
    stream=processed.captureStream(recordFPS);
    attachMicrophoneAudio(stream);
    const rec=new MediaRecorder(stream,{mimeType:mime,
@@ -380,13 +326,14 @@ function mount({getSettings,onImport}){
    durationStart=performance.now();lastFrameTime=0;recordFrameCount=0;
    recording=true;stopping=false;sync();
    rec.start(500);
-   animation=requestAnimationFrame(composite);
+   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
+   overlay(session);
    secondsTimer=setInterval(()=>{
     if(!recording)return;
     const seconds=Math.floor((performance.now()-durationStart)/1000);
     badge.textContent='● REC '+String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
    },1000);
-   message('Запись запущена — VHS, FILM и помехи записываются прямо в видео. ЗАЖМИ для сильных сбоев.');
+   message('REC · настоящие выбранные эффекты применяются к каждому кадру предпросмотра и видео. ЗАЖМИ — усиление.');
   }catch(err){
    if(stream)for(const track of stream.getVideoTracks())try{track.stop();}catch{}
    releaseAudioGraph();
@@ -400,7 +347,10 @@ function mount({getSettings,onImport}){
   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
   stopTracks();ready=false;recording=false;holding=false;clearResult();sync();
   state=getSettings()||{};
-  seed=randSeed();filmSeed=seed;frameIndex=0;
+  filmProfile=getFilmProfile?.()||null;
+  seed=randSeed();filmSeed=seed;frameIndex=0;engine.reset();
+  cameraStartedAt=performance.now();
+  fx.hidden=true;
   $('videoLiveProfile').textContent=[
    state.vhsEnabled?'VHS':null,state.filmEnabled?'FILM':null,
    state.glitchEnabled?'ГЛИТЧ':null,state.selectedCassetteId?'КАССЕТА':null
@@ -437,13 +387,15 @@ function mount({getSettings,onImport}){
      wait(5500).then(()=>{throw Error('Видео от камеры не поступает');})
     ]);
    if(token!==session||!active)return;
-   video.style.filter=currentFilter();
+   video.style.filter='none';
    stage.classList.toggle('selfie',facing==='user');
+   fitStage();
+   ensureOutput();
    meta.textContent=video.videoWidth+' × '+video.videoHeight+
     (media.getAudioTracks().length?' · микрофон':' · без звука');
    sound.textContent=media.getAudioTracks().length?'Микрофон включён':'Без звука';
    ready=true;sync();overlay(token);
-   message('Камера готова · движение без покадровой обработки. REC — запись, ЗАЖМИ — помехи, NEW — смена рисунка.');
+   message('Камера готова · настоящие эффекты VHS, FILM, GLITCH и индикаторы на живом изображении и записи.');
   }catch(err){
    if(token!==session)return;
    stopTracks();ready=false;sync();
@@ -499,6 +451,16 @@ function mount({getSettings,onImport}){
  micToggle.addEventListener('change',()=>{
   if(active&&!recording&&!stopping)startCamera();
  });
+ quality.addEventListener('change',()=>{
+  if(active&&ready&&!recording&&!stopping){
+   ensureOutput();
+   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
+   overlay(session);
+  }
+ });
+ window.addEventListener('resize',()=>{
+  if(active&&ready&&!resultBlob)fitStage();
+ });
  download.addEventListener('click',()=>{
   // Keep the blob until the user explicitly starts another recording.
  });
@@ -524,6 +486,8 @@ function mount({getSettings,onImport}){
  return Object.freeze({open,close,getState:()=>({
   active,ready,recording,holding,seed,filmSeed,recordFrameCount,
   hasResult:!!resultBlob,recordMime,lastCompositorMs,
+  fxReport:lastFxReport,streamRatio:video.videoWidth/video.videoHeight,
+  stageRatio:stage.clientWidth/stage.clientHeight,
   width:processed.width,height:processed.height
  })});
 }
