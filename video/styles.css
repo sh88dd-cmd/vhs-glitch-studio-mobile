@@ -820,3 +820,13 @@ body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){p
 }
 .touchStatusLive{border-left:3px solid #d6a46c;padding:7px 10px;background:#2c241b66}
 #touchEditStage.is-active{border-color:#ffbd6e;box-shadow:0 0 0 2px #ad753455}
+
+/* v0.8.6: scrolling is normal until the user activates brush/face selection.
+   While drawing, native page panning is disabled and touchstart/move are
+   intercepted by non-passive event listeners for iOS Safari. */
+#panel-touch .touchEditStage{touch-action:pan-y;-webkit-user-select:none;user-select:none}
+#panel-touch .touchEditStage.is-active{touch-action:none}
+#panel-touch .touchEditStage.is-active #touchOverlay{
+ touch-action:none;pointer-events:auto!important;
+ -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
