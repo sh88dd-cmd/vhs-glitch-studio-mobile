@@ -203,6 +203,10 @@ function mount(opts){
    row.append(checkbox('layer-'+layer.id,
     X.effects.find(([id])=>id===layer.effect)?.[1]||layer.effect,
     layer.enabled!==false,v=>{layer.enabled=v;changed();}));
+   row.append(control('layerStrength-'+layer.id,'Сила слоя',
+    clamp(layer.strength,0,100),0,100,1,v=>{
+     layer.strength=v;changed();
+    }));
    row.append(button('✕',()=>{
     extras.glitch.layers=extras.glitch.layers.filter(x=>x!==layer);
     renderLayers();changed();
