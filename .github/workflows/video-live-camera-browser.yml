@@ -10,6 +10,7 @@ on:
       - 'video/styles.css'
       - 'video/sw.js'
       - 'video/tests/live-camera-browser.mjs'
+      - 'video/tests/camera-cassette-smoke.mjs'
       - '.github/workflows/video-live-camera-browser.yml'
   workflow_dispatch:
 permissions:
