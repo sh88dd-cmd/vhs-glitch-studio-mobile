@@ -41,23 +41,41 @@ function control(id,title,value,min,max,step,change,tip){
  const head=document.createElement('span');head.className='photoFxHead';
  const label=document.createElement('span');label.textContent=title;
  const num=document.createElement('output');num.textContent=String(value);num.id='value-'+id;
- head.append(label,num);wrap.append(head);
+ head.append(label,num);
+ const helpButton=document.createElement('button');helpButton.type='button';
+ helpButton.className='photoHelpMark';helpButton.textContent='?';
+ helpButton.setAttribute('aria-label','Что делает '+title+'?');
+ const note=document.createElement('small');note.className='extraHelpText';
+ note.textContent=tip||('Регулирует параметр «'+title+'». При нулевом значении дополнительное влияние отключено.');
+ helpButton.addEventListener('click',event=>{
+  event.preventDefault();event.stopPropagation();note.classList.toggle('expanded');
+ });
+ head.append(helpButton);wrap.append(head);
  const input=document.createElement('input');input.type='range';input.id=id;
  input.min=String(min);input.max=String(max);input.step=String(step);input.value=String(value);
  input.addEventListener('input',()=>{
   const v=Number(input.value);num.textContent=String(v);change(v);
  });
- wrap.append(input);
- if(tip){const note=document.createElement('small');note.className='extraHelpText';
-  note.textContent=tip;wrap.append(note);}
+ wrap.append(input,note);
  return wrap;
+}
+function optsHelp(name){
+ const status=document.getElementById('extrasStatus');
+ if(status)status.textContent='Переключатель «'+name+'» включает или выключает соответствующий эффект. Изменения не затрагивают исходное фото.';
 }
 function checkbox(id,name,checked,change){
  const wrap=document.createElement('label');wrap.className='photoFxSwitch';
  const span=document.createElement('span');span.textContent=name;
  const input=document.createElement('input');input.type='checkbox';input.id=id;input.checked=!!checked;
  input.addEventListener('change',()=>change(input.checked));
- wrap.append(span,input);return wrap;
+ const help=document.createElement('button');help.type='button';
+ help.className='photoHelpMark';help.textContent='?';
+ help.setAttribute('aria-label','Что делает '+name+'?');
+ help.addEventListener('click',e=>{
+  e.preventDefault();e.stopPropagation();
+  optsHelp(name);
+ });
+ wrap.append(span,help,input);return wrap;
 }
 function button(text,click,cls='btn mini'){
  const b=document.createElement('button');b.type='button';b.className=cls;
@@ -520,11 +538,29 @@ function mount(opts){
  }
  // ── EXPANDED CAMERA OSD (never add ZOOM) ───────────────────────
  const camera=block($('panel-camera'),'ДОПОЛНИТЕЛЬНЫЕ ИНДИКАТОРЫ');
- const cameraMore=state.extraCamera||(state.extraCamera={counter:false,modeInfo:false,focus:false,frame:false});
- for(const [id,title] of camControls.filter(([id])=>id!=='zoom'))
-  camera.append(checkbox('photoCamera-'+id,title,!!cameraMore[id],v=>{
-   cameraMore[id]=v;changed();
-  }));
+ const cameraMore=state.extraCamera||
+  (state.extraCamera={counter:false,modeInfo:false,focus:false,frame:false});
+ cameraMore.positions=cameraMore.positions||{};
+ cameraMore.sizes=cameraMore.sizes||{};
+ const placement=[['left-top','Слева сверху'],['center-top','По центру сверху'],
+  ['right-top','Справа сверху'],['left-bottom','Слева снизу'],
+  ['center-bottom','По центру снизу'],['right-bottom','Справа снизу']];
+ for(const [id,title] of camControls.filter(([id])=>id!=='zoom')){
+  const group=block(camera,title);
+  group.append(checkbox('photoCamera-'+id,'Включить '+title,!!cameraMore[id],
+   v=>{cameraMore[id]=v;changed();}));
+  if(id!=='frame'){
+   group.append(select('photoCameraPosition-'+id,placement,
+    cameraMore.positions[id]||(id==='counter'?'center-bottom':id==='modeInfo'?'center-top':'right-top'),
+    v=>{cameraMore.positions[id]=v;changed();}));
+   group.append(control('photoCameraSize-'+id,'Размер',cameraMore.sizes[id]||100,60,240,1,
+    v=>{cameraMore.sizes[id]=v;changed();}));
+  }else{
+   group.append(control('photoCameraFrameSize','Размер уголков',
+    cameraMore.frameSize||100,60,160,1,
+    v=>{cameraMore.frameSize=v;changed();}));
+  }
+ }
  // ── BATCH AGING AND HELP TOGGLE ───────────────────────────────
  const batch=$('panel-batch');
  batch.append(checkbox('batchProgressiveAging','Усиливать старение от первого фото к последнему',
@@ -538,6 +574,30 @@ function mount(opts){
  syncHelp();
  function refresh(){
   refreshCorrection();renderLayers();renderCassetteShelf();
+  for(const [id] of X.effects){
+   const e=$('extraGlitch-'+id);
+   if(e){e.value=extras.glitch.effects[id];$('value-extraGlitch-'+id).textContent=extras.glitch.effects[id];}
+  }
+  for(const [id] of damageControls){
+   const e=$('photoDamage-'+id);
+   if(e){e.value=extras.damage[id];$('value-photoDamage-'+id).textContent=extras.damage[id];}
+  }
+  for(const [id,value] of [
+   ['extraModeStrength',extras.glitch.modeStrength],['photoCassetteAging',extras.glitch.aging],
+   ['photoColorCopyStrength',extras.colorCopy.strength]]){
+   if($(id)){$(id).value=value;$('value-'+id).textContent=value;}
+  }
+  for(const [id,value] of [
+   ['extraGlitchEnabled',extras.glitch.enabled],['photoDamageEnabled',extras.damage.enabled],
+   ['photoColorCopyEnabled',extras.colorCopy.enabled],
+   ['photoMaskEnabled',extras.masks.enabled],['photoBatchAging',extras.batchAging],
+   ['batchProgressiveAging',extras.batchAging]]){
+   if($(id))$(id).checked=!!value;
+  }
+  if($('extraCameraMode'))$('extraCameraMode').value=extras.glitch.mode;
+  for(const [id] of camControls.filter(([k])=>k!=='zoom')){
+   if($('photoCamera-'+id))$('photoCamera-'+id).checked=!!state.extraCamera[id];
+  }
   markDirty();
  }
  return Object.freeze({refresh,drawMaskEditor,markDirty,reroll,notice});
