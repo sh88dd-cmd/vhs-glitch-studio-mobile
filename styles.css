@@ -114,3 +114,57 @@ input[type="file"][hidden], [hidden]{display:none !important}
 #mainPreviewDialog #undoMainViewer{color:#b4f4e8;background:#344b51;border-color:#5b817a}
 #mainPreviewDialog #rerollMainViewer{color:#13282b;background:#78dfd1;border-color:#a3f6e9}
 #mainPreviewDialog #closeMainPreview{color:#f6f7f7;font-size:15px;border-radius:8px}
+
+/* Photo Studio 1.2 — expanded mobile editor: horizontally scrollable 8 tabs. */
+.tabs{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+ scroll-snap-type:x proximity;justify-content:flex-start;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;min-width:76px;max-width:138px;
+ padding-left:10px;padding-right:10px;scroll-snap-align:center}
+@media(max-width:430px){.tabs button{min-width:75px;font-size:10px}}
+.photoFxGroup{margin:14px 0;padding:13px 12px;
+ border:1px solid #3a5059;background:#1a252c;border-radius:12px}
+.photoFxGroup>h3{margin:0 0 13px;font-size:12px;color:#81e8d8;letter-spacing:.8px}
+.photoFxControl{display:block;padding:8px 0 13px;border-bottom:1px solid #2b424a}
+.photoFxControl:last-child{border-bottom:0}
+.photoFxHead{display:flex;align-items:center;justify-content:space-between;
+ gap:8px;color:#c8d8df;font-size:12px;font-weight:650;margin-bottom:8px}
+.photoFxHead output{font-size:12px;color:#89efe0;font-variant-numeric:tabular-nums;
+ font-weight:800;min-width:36px;text-align:right}
+.photoFxControl input[type=range]{display:block;width:100%;min-height:33px;margin:0}
+.photoFxSwitch{display:flex;align-items:center;justify-content:space-between;
+ gap:12px;padding:12px 8px;margin:9px 0;background:#202e38;
+ border:1px solid #3b535b;border-radius:10px;color:#ecf6f7;
+ line-height:1.35;font-size:12px}
+.photoFxSwitch input[type=checkbox]{flex:0 0 auto}
+.photoFxActions{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+.photoFxActions>.btn{flex:1;min-width:100px}
+.photoFxLayer{display:flex;align-items:center;gap:7px;margin:5px 0}
+.photoFxLayer .photoFxSwitch{flex:1}
+.photoFxLayer .btn{min-width:36px;padding:8px 10px}
+.photoCassetteShelf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.photoCassetteCard{background:linear-gradient(145deg,#2e3e44,#192429);
+ border:1px solid #415d64;border-radius:10px;padding:8px;
+ display:flex;align-items:center;gap:4px;min-height:94px}
+.photoCassetteCard .btn{flex:1;min-height:74px;padding:10px 7px;
+ background:linear-gradient(145deg,#384d51,#223238);color:#d6f6f1;
+ border:1px solid #5a8586;font-size:11px;line-height:1.4}
+.photoCassetteCard .btn.primary{background:#74d5ca;color:#10292a}
+.photoCassetteCard .btn:last-child:not(:first-child){flex:0 0 31px;padding:3px;min-width:31px}
+#panel-masks .photoMaskStage{position:relative;margin:10px auto 13px;
+ width:100%;max-width:690px;background:#06090c;border:2px solid #497d78;
+ border-radius:12px;overflow:hidden;touch-action:pan-y;
+ -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#panel-masks .photoMaskStage.drawing{touch-action:none;border-color:#91ebce}
+#photoMaskBase{display:block;width:100%;height:auto;object-fit:contain}
+#photoMaskOverlay{display:block;position:absolute;inset:0;
+ width:100%;height:100%;pointer-events:none}
+#panel-masks .photoMaskStage.drawing #photoMaskOverlay{pointer-events:auto;
+ touch-action:none;cursor:crosshair}
+#photoMaskStatus,#extrasStatus{margin:11px 15px 16px;padding:9px;
+ background:#1c3337;border-left:3px solid #77dccc;border-radius:4px}
+.extraHelpText{display:none;font-size:10px;line-height:1.4;
+ color:#a9c9cc;margin-top:4px}
+body.photoHelpVisible .extraHelpText{display:block}
+#photoHelpToggle{display:block;margin:8px 15px 0}
+#panel-correction .photoFxControl input[type=range] {accent-color:#78d7ca}
