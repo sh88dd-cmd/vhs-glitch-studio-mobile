@@ -157,31 +157,46 @@ function create(opts){
   prevGray=null;tracked=[];trackedClip=-1;lastTrackTime=-1;
  }
  async function initFaceDetector(){
-  // Prefer the browser's optimized detector, but NEVER require it. Safari
-  // receives our bundled BSD-licensed Haar face cascade instead (zero network).
+  // Prefer native FaceDetector, fall back to bundled offline Haar cascade.
+  // A 140px-only scan misses many portrait-video faces: they shrink below
+  // the classifier's minimum detectable window.
+  let nativeDetector=null;
   if('FaceDetector' in root){
-   try{faceDetector=new root.FaceDetector({fastMode:true,maxDetectedFaces:6});return true;}
-   catch{}
+   try{nativeDetector=new root.FaceDetector({fastMode:false,maxDetectedFaces:6});}catch{}
   }
   const vision=root.tracking?.ViolaJones;
-  if(!vision?.classifiers?.face)return false;
+  if(!nativeDetector&&!vision?.classifiers?.face)return false;
   const work=document.createElement('canvas');
   const context=work.getContext('2d',{willReadFrequently:true});
   faceDetector={
    async detect(video){
-    // Keep the blocking offline Haar scan small enough for mobile Safari.
-    const scale=Math.min(1,140/Math.max(video.videoWidth||1,video.videoHeight||1));
-    const w=Math.max(64,Math.round(video.videoWidth*scale));
-    const h=Math.max(48,Math.round(video.videoHeight*scale));
-    work.width=w;work.height=h;
-    context.drawImage(video,0,0,w,h);
-    const pixels=context.getImageData(0,0,w,h).data;
-    // Downscaled 200px frame + conservative scanning to protect iPhone memory.
-    const found=vision.detect(pixels,w,h,1.1,1.28,2,.13,vision.classifiers.face);
-    const sx=video.videoWidth/w,sy=video.videoHeight/h;
-    return found.filter(rect=>rect.width>=16&&rect.height>=16).slice(0,6).map(rect=>({
-     boundingBox:{x:rect.x*sx,y:rect.y*sy,width:rect.width*sx,height:rect.height*sy}
-    }));
+    if(nativeDetector){
+     try{
+      const native=await nativeDetector.detect(video);
+      if(native?.length)return native.slice(0,6);
+     }catch(err){console.warn('FaceDetector unavailable, trying offline Haar',err);}
+    }
+    if(!vision?.classifiers?.face)return[];
+    // Heavy scans occur only on explicit taps, not during playback.
+    for(const maxSide of [260,360]){
+     const scale=Math.min(1,maxSide/Math.max(video.videoWidth||1,video.videoHeight||1));
+     const w=Math.max(24,Math.round(video.videoWidth*scale));
+     const h=Math.max(24,Math.round(video.videoHeight*scale));
+     if(work.width!==w)work.width=w;
+     if(work.height!==h)work.height=h;
+     context.drawImage(video,0,0,w,h);
+     const pixels=context.getImageData(0,0,w,h).data;
+     const found=vision.detect(pixels,w,h,1.1,1.22,2,.105,vision.classifiers.face);
+     const sx=video.videoWidth/w,sy=video.videoHeight/h;
+     const boxes=(found||[]).filter(rect=>
+      rect.width>=18&&rect.height>=18&&rect.width<=w*.86&&rect.height<=h*.86)
+      .slice(0,6).map(rect=>({boundingBox:{
+       x:rect.x*sx,y:rect.y*sy,width:rect.width*sx,height:rect.height*sy
+      }}));
+     if(boxes.length)return boxes;
+     await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    return[];
    }
   };
   return true;
@@ -198,10 +213,9 @@ function create(opts){
    if(Math.abs(t-(Number(source.currentTime)||0))>.5)return 0;
    const w=source.videoWidth,h=source.videoHeight;
    autoBoxes=(found||[]).slice(0,6).map(item=>{
-    const r=item.boundingBox||item;
-    return{x:clamp(r.x/w,0,1),y:clamp(r.y/h,0,1),
-     w:clamp(r.width/w,.03,1),h:clamp(r.height/h,.03,1),start:t};
-   });
+    const r=item.boundingBox||item,x=clamp(r.x/w,0,1),y=clamp(r.y/h,0,1);
+    return{x,y,w:clamp(r.width/w,.03,1-x),h:clamp(r.height/h,.03,1-y),start:t};
+   }).filter(box=>box.w>.01&&box.h>.01);
    autoClip=opts.getClip();
    resetTracking();
    callbacks.render();
@@ -590,7 +604,9 @@ function create(opts){
   const can=!!opts.hasVideo()&&!opts.isRecording();
   for(const id of ['touchStartDrawing','faceAuto','faceMark'])$(id).disabled=!can;
   if(!can&&tool){tool='';drawing=null;}
-  if(opts.hasVideo()&&!editStage.hidden||tool||!overlay.hidden)updateOverlay();
+  if(!can&&!editStage.hidden){editStage.hidden=true;editorTime=-1;editorDirty=true;}
+  // Entering the Touch tab reveals the editor even before the first stroke.
+  if($('panel-touch').classList.contains('active')||tool||!editStage.hidden)updateOverlay();
  }
  function refresh(){
   refreshSpeed();refreshAging();refreshCassettes();
