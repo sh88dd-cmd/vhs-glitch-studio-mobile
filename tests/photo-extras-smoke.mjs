@@ -128,8 +128,8 @@ assert.ok(html.includes('id="liveCameraDialog"')&&html.includes('id="liveCameraS
  html.includes('id="liveCameraFlip"')&&html.includes('id="liveCameraFaces"'),
  'App must present real shutter, front/back camera and static face masks');
 assert.ok(app.includes('async function onCameraCaptured(')&&
- app.includes('await processImage(raw,seed,{cameraCapture:true,captureMasks:selectedMasks},\'full\')'),
- 'Full camera photos must run the real editor pipeline with captured faces');
+ app.includes('{cameraCapture:true,captureMasks:selectedMasks},state.singleSize'),
+ 'Camera photos must run the real editor pipeline with capture masks and chosen export size');
 assert.ok(app.includes('source,seed,opts,size')&&app.includes('processImage(source,seed,opts,size)'),
  'Live video preview must share the same filter pipeline as still images');
 assert.ok(app.includes('original=raw;photoName=filename;state.seed=seed;'),
