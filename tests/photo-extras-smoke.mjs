@@ -6,18 +6,21 @@ const read=p=>fs.readFileSync(p,'utf8');
 const html=read('index.html'),css=read('styles.css'),app=read('app.js'),sw=read('sw.js');
 const core=read('photo-extras-core.js'),ui=read('photo-extras-ui.js');
 const paths=['photo-extras-core.js','photo-extras-ui.js',
- 'photo-polaroid.js','photo-polaroid-ui.js','photo-face-detect.js',
+ 'photo-polaroid.js','photo-polaroid-ui.js','photo-face-ai.js','photo-face-detect.js',
  'video/glitch-engine.js','video/film-damage.js','video/camera-osd.js','video/face-ai.js',
  'video/vendor/tracking-min.js','video/vendor/tracking-face-min.js'];
 for(const p of paths){
- assert.ok(html.includes('./'+p+'?v='+(p.startsWith('video/vendor/')?p.endsWith('tracking-min.js')?'1.1.3':'1.0.0':p.startsWith('video/')?'1.2.0':'1.3.0')),'Missing or stale script in photo HTML: '+p);
+ const version=p.startsWith('video/vendor/')?(p.endsWith('tracking-min.js')?'1.1.3':'1.0.0'):
+  p.startsWith('video/')?'1.2.0':
+  ['photo-extras-core.js','photo-extras-ui.js'].includes(p)?'1.3.0':'1.4.0';
+ assert.ok(html.includes('./'+p+'?v='+version),'Missing or stale script in photo HTML: '+p);
  assert.ok(sw.includes("'./"+p+"'"),'Not cached by photo service worker: '+p);
 }
 for(const name of ['glitch','cassettes','masks','correction','polaroid','batch','camera']){
  assert.ok(html.includes('id="panel-'+name+'"'),'Missing panel '+name);
  assert.ok(html.includes('data-tab="'+name+'"'),'Missing nav button '+name);
 }
-assert.ok(html.includes('STUDIO MOBILE · 1.3.0'));
+assert.ok(html.includes('STUDIO MOBILE · 1.4.0'));
 assert.ok(html.includes('id="allPhotoFxToggle"'));
 assert.ok(html.includes('id="photoHelpToggle"'));
 assert.ok(css.includes('.tabs{overflow-x:auto'),
@@ -120,4 +123,13 @@ assert.ok(app.includes("'undoPhotoFxReset'")&&
 assert.ok(app.includes('syncLegacyControls()'),
  'Cassette selection must synchronize legacy VHS/FILM controls');
 assert.ok(css.includes('polaroidGrid'),'Polaroid must render a selectable gallery');
+assert.ok(app.includes('await window.VHSPhotoPolaroid.ensureHandFont('),
+ 'Actual export waits for the selected Cyrillic handwriting font');
+assert.ok(html.includes('./photo-face-ai.js?v=1.4.0'),
+ 'Photo app loads pinned on-device face runtime');
+assert.ok(sw.includes('vhs-mobile-v1.4.0')&&sw.includes('blaze_face_full_range.tflite'),
+ 'Offline worker must cache real face model binaries');
+assert.ok(!read('photo-face-detect.js').includes('Promise.race(['),
+ 'Old 8.5s CDN timeout must be removed from the photo detector');
+
 console.log('PASS: photo 1.3 integration, TRUE reset, Polaroid export, offline face fallback and real pixel effects');
