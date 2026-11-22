@@ -998,7 +998,7 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.5.0');
+      const cache=await caches.open('vhs-mobile-v1.6.0');
       const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js',
        './photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js',
        './photo-polaroid-ui.js','./photo-face-ai.js','./photo-face-detect.js',
@@ -1167,7 +1167,7 @@
     }
     return active.length?active.join(' · '):'Без фильтров — оригинал';
   }
-  async function onCameraCaptured(raw,seed,faceStyle,showProgress){
+  async function onCameraCaptured(raw,seed,faceStyle,showProgress,{filmSeed}={}){
     // The raw source canvas remains editable in the main photo editor.
     // A masked/colored preview from an unrelated opened photo is NOT reused.
     const masks=state.extras.masks;
@@ -1188,7 +1188,8 @@
     // Camera respects the user's existing JPEG/PNG export-size setting;
     // the raw camera frame remains in the editor for later re-export.
     const output=await processImage(raw,seed,
-     {cameraCapture:true,captureMasks:selectedMasks},state.singleSize||'3200');
+     {cameraCapture:true,captureMasks:selectedMasks,filmSeed:filmSeed??seed},
+     state.singleSize||'3200');
     const stamp=new Date();
     const filename='CAM_'+stamp.getFullYear()+
       String(stamp.getMonth()+1).padStart(2,'0')+
@@ -1284,7 +1285,14 @@
     });
     photoExtrasUI?.refresh();
     photoLiveCamera=window.VHSPhotoCamera.mount({
-      renderFrame:(source,seed,opts,size)=>processImage(source,seed,opts,size),
+      // Fast live camera reads settings only: no per-frame photo reprocessing.
+      // Full-res photo processing still happens when the shutter is pressed.
+      getVisualSettings:()=>({
+       vhsEnabled:state.vhsEnabled,master:state.master,
+       signal:state.signal,filmEnabled:state.filmEnabled,film:state.film,
+       correction:state.extras.correction,glitch:state.extras.glitch,
+       polaroid:state.extras.polaroid,damage:state.extras.damage
+      }),
       onCaptured:onCameraCaptured,
       onSave:saveCameraOutput,
       getSeed:()=>randomSeed(),
