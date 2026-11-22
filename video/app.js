@@ -212,6 +212,8 @@
   renderTimeline();
   renderKeyframes();
   creativeUI?.refresh();
+  creativeUI?.stopReverse();
+  try{source.playbackRate=1;source.defaultPlaybackRate=1;}catch{}
   renderCassetteShelf();
   resetFrameHistory();
   audioEngine.setMix(state.mix);
@@ -1496,7 +1498,10 @@
    touch:{...touch,enabled:false,facesEnabled:false}}};
   const localOnly=hasLocalEdits&&!window.VHSVideoCleanPath.hasVisualEffects(withoutLocal,holdVideo);
   if(canvas===preview){
-   const [width,height]=videoDimensions(clean||localOnly?1920:520);
+   // Full original quality is provided by the native video element, not a
+   // continuously redrawn 1080p canvas (too costly for mobile Safari).
+   $('videoStage').querySelector('.stageCanvas').classList.toggle('native-clean',clean);
+   const [width,height]=videoDimensions(clean?960:localOnly?1280:520);
    if(canvas.width!==width)canvas.width=width;
    if(canvas.height!==height)canvas.height=height;
   }
@@ -1589,10 +1594,18 @@
   finally{renderBusy=false;}
  }
  function tick(now){
-  creativeUI?.updateSpeed(now);
+  // Always schedule the next paint first. A broken speed plug-in must never
+  // kill video painting while the native audio clock continues running.
   loopId=requestAnimationFrame(tick);
+  try{creativeUI?.updateSpeed(now);}
+  catch(err){
+   console.error('Speed synchronization failed',err);
+   creativeUI?.stopReverse();
+   try{source.playbackRate=1;}catch{}
+  }
   if(!file||(source.paused&&!creativeUI?.isReverse())||source.ended)return;
-  const fps=recording?Number(state.fps):12;
+  const fps=recording?Number(state.fps):
+   $('videoStage').querySelector('.stageCanvas').classList.contains('native-clean')?6:12;
   if(now-lastDraw<1000/fps)return;
   lastDraw=now;
   try{
@@ -1813,7 +1826,7 @@
  function onLoaded(force=false){
   if((videoImportBusy&&!videoImportCommitted&&force!==true)||!source.videoWidth||!source.videoHeight)return;
   const renderState=window.VHSVideoKeyframes.effective(state,clipIndex,source.currentTime||0);
-  const [w,h]=videoDimensions(window.VHSVideoCleanPath.hasVisualEffects(renderState,holdStrengthsAt(source.currentTime||0,clipIndex).video)?520:1920);
+  const [w,h]=videoDimensions(window.VHSVideoCleanPath.hasVisualEffects(renderState,holdStrengthsAt(source.currentTime||0,clipIndex).video)?520:960);
   source.loop=!recording&&clips.length===1;
   preview.width=w;preview.height=h;
   if(clips[clipIndex])clips[clipIndex].duration=Number.isFinite(source.duration)?source.duration:0;
@@ -1844,8 +1857,16 @@
     if(source.currentTime<=.03)source.currentTime=Math.max(0,(source.duration||0)-.04);
     if(creativeUI.startReverse()){$('play').textContent='Ⅱ Пауза';return;}
    }
-   if(source.paused){try{await audioEngine.start();syncAudio(true);}catch(err){if(!audioErrorShown){textStatus('Звук недоступен: '+err.message);audioErrorShown=true;}}await source.play();$('play').textContent='Ⅱ Пауза';}
-   else{source.pause();$('play').textContent='▶ Просмотр';}
+   if(source.paused){
+    // source.play() must run during the original tap gesture. Awaiting an
+    // AudioContext first can prevent video from starting on iPhone Safari.
+    const playback=source.play();
+    audioEngine.start().then(()=>syncAudio(true)).catch(err=>{
+     if(!audioErrorShown){textStatus('Звук недоступен: '+err.message);audioErrorShown=true;}
+    });
+    await playback;
+    $('play').textContent='Ⅱ Пауза';
+   }else{source.pause();$('play').textContent='▶ Просмотр';}
   }catch(e){textStatus('Не удалось воспроизвести: '+e.message);}
  }
  function redrawAfterSeek(){updateTime();resetFrameHistory();syncAudio(!source.paused);renderCurrentFrame();}
