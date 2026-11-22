@@ -23,11 +23,13 @@ on:
       - 'video/tests/help-system-smoke.mjs'
       - 'video/creative-engine.js'
       - 'video/creative-ui.js'
+      - 'video/face-ai.js'
       - 'video/vendor/tracking-min.js'
       - 'video/vendor/tracking-face-min.js'
       - 'video/vendor/TRACKING_LICENSE.txt'
       - 'video/tests/creative-lab-smoke.mjs'
       - 'video/tests/touch-face-interaction-smoke.mjs'
+      - 'video/tests/face-motion-smoke.mjs'
       - 'video/styles.css'
       - 'video/index.html'
       - 'video/sw.js'
@@ -59,11 +61,13 @@ on:
       - 'video/tests/help-system-smoke.mjs'
       - 'video/creative-engine.js'
       - 'video/creative-ui.js'
+      - 'video/face-ai.js'
       - 'video/vendor/tracking-min.js'
       - 'video/vendor/tracking-face-min.js'
       - 'video/vendor/TRACKING_LICENSE.txt'
       - 'video/tests/creative-lab-smoke.mjs'
       - 'video/tests/touch-face-interaction-smoke.mjs'
+      - 'video/tests/face-motion-smoke.mjs'
       - 'video/styles.css'
       - 'video/index.html'
       - 'video/sw.js'
@@ -98,6 +102,7 @@ jobs:
           node --check video/help-ui.js
           node --check video/creative-engine.js
           node --check video/creative-ui.js
+          node --check video/face-ai.js
           node --check video/vendor/tracking-min.js
           node --check video/vendor/tracking-face-min.js
           node --check video/film-damage.js
@@ -128,6 +133,8 @@ jobs:
         run: node video/tests/creative-lab-smoke.mjs
       - name: Test actual finger drawing and face-button interactions
         run: node video/tests/touch-face-interaction-smoke.mjs
+      - name: Reject optical drift and track several faces independently
+        run: node video/tests/face-motion-smoke.mjs
       - name: Validate every contextual tip and animated offline GIF
         run: node video/tests/help-system-smoke.mjs
       - name: Test AAC extraction from real MP4 and MOV files
