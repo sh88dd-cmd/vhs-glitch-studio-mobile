@@ -1185,7 +1185,10 @@
        showProgress('Лица недоступны: '+err.message+'. Остальные эффекты сохраняются.');
       }
     }
-    const output=await processImage(raw,seed,{cameraCapture:true,captureMasks:selectedMasks},'full');
+    // Camera respects the user's existing JPEG/PNG export-size setting;
+    // the raw camera frame remains in the editor for later re-export.
+    const output=await processImage(raw,seed,
+     {cameraCapture:true,captureMasks:selectedMasks},state.singleSize||'3200');
     const stamp=new Date();
     const filename='CAM_'+stamp.getFullYear()+
       String(stamp.getMonth()+1).padStart(2,'0')+
