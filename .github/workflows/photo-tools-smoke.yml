@@ -18,6 +18,7 @@ on:
       - 'tests/photo-extras-smoke.mjs'
       - 'tests/photo-ui-interaction-smoke.mjs'
       - 'tests/photo-polaroid-face-smoke.mjs'
+      - 'tests/photo-reset-session-smoke.mjs'
       - '.github/workflows/photo-tools-smoke.yml'
   pull_request:
     paths:
@@ -37,6 +38,7 @@ on:
       - 'tests/photo-extras-smoke.mjs'
       - 'tests/photo-ui-interaction-smoke.mjs'
       - 'tests/photo-polaroid-face-smoke.mjs'
+      - 'tests/photo-reset-session-smoke.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -68,3 +70,5 @@ jobs:
         run: node tests/photo-ui-interaction-smoke.mjs
       - name: Test tactile Polaroid frames and offline multi-face inference
         run: node tests/photo-polaroid-face-smoke.mjs
+      - name: Verify real reset, cassette selection after reset and undo
+        run: node tests/photo-reset-session-smoke.mjs
