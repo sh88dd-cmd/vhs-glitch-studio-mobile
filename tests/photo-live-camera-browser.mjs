@@ -1,5 +1,5 @@
 /* Real Chromium fake-camera E2E: no server APIs, no external CDN.
-   Exercises actual MediaDevices.getUserMedia, live filters, shutter,
+   Exercises actual MediaDevices.getUserMedia, real live effects, shutter,
    processed instant-film output, iOS-style save/download, lens switch,
    and releasing the camera when closed. */
 import assert from 'node:assert/strict';
@@ -31,7 +31,7 @@ await page.addInitScript(()=>{
 try{
  await page.goto('http://127.0.0.1:8765/',{waitUntil:'domcontentloaded',timeout:45000});
  await page.waitForFunction(()=>document.querySelector('#filmGrid')?.children.length>0,null,{timeout:12000});
- // Check real photo processor is never called for every video frame.
+ // Confirm the actual VHS photo engine processes live frames before shutter.
  await page.evaluate(()=>{
   window.__capturedVhsSeeds=[];
   // The engine API is Object.freeze()'d; instrument its global binding,
@@ -63,13 +63,14 @@ try{
 
  await page.waitForFunction(()=>{
   const cv=document.getElementById('liveCameraFx');
-  return cv.width>20&&cv.height>20&&!cv.hidden;
- },null,{timeout:25000});
+  return cv.width>20&&cv.height>20&&!cv.hidden&&
+   window.__capturedVhsSeeds.length>0;
+ },null,{timeout:30000});
  const preview=await page.evaluate(()=>{
   const e=document.getElementById('liveCameraFx');
   return{width:e.width,height:e.height,visible:!e.hidden};
  });
- assert.ok(preview.visible,'Analog interference overlay must be visible above live camera stream');
+ assert.ok(preview.visible,'The actual VHS/FILM preview must cover the live camera stream');
  assert.ok(preview.width>0&&preview.height>0);
  const fast=await page.evaluate(()=>({
   appliedStills:window.__capturedVhsSeeds.length,
@@ -77,18 +78,27 @@ try{
   cameraStillVisible:!document.getElementById('liveCameraVideo').hidden,
   newButtonVisible:!document.getElementById('liveCameraNew').hidden
  }));
- assert.equal(fast.appliedStills,0,
-  'Full CPU VHS pixel processor MUST NOT run even once while moving the live camera');
- assert.match(fast.videoFilter,/brightness\(/,
-  'Native live video should receive light compositor color treatment');
+ assert.ok(fast.appliedStills>0,
+  'The real VHS photo processor must run in LIVE before shutter');
+ assert.equal(fast.videoFilter,'none',
+  'No approximate CSS-only treatment must replace the actual FILM/VHS engine');
+ const previewSeed=await page.evaluate(()=>window.__capturedVhsSeeds.at(-1));
+ assert.ok(Number.isFinite(previewSeed));
+ const geometry=await page.evaluate(()=>{
+  const st=document.getElementById('liveCameraStage');
+  const fx=document.getElementById('liveCameraFx');
+  return{stage:st.clientWidth/st.clientHeight,frame:fx.width/fx.height};
+ });
+ assert.ok(Math.abs(geometry.stage-geometry.frame)<0.02,
+  'Viewfinder stage must match processed Polaroid frame aspect ratio');
  assert.equal(fast.cameraStillVisible,true);
  assert.equal(fast.newButtonVisible,true);
  await page.locator('#liveCameraNew').click();
  const newStatus=await page.locator('#liveCameraStatus').textContent();
  assert.match(newStatus,/NEW · новые помехи созданы/);
- assert.equal(await page.evaluate(()=>window.__capturedVhsSeeds.length),0,
-  'NEW must not trigger heavy photo reprocessing in the live view');
- console.log('Selected VHS + Polaroid LIVE, NEW without lag:',preview,fast);
+ await page.waitForFunction(old=>window.__capturedVhsSeeds.some(seed=>seed!==old),
+  previewSeed,{timeout:15000});
+ console.log('Selected VHS + Polaroid LIVE, REAL NEW seed:',preview,fast);
 
  await page.locator('#liveCameraShot').click();
  await page.waitForFunction(()=>{
@@ -119,6 +129,8 @@ try{
  const seed1=await page.evaluate(()=>window.__capturedVhsSeeds.at(-1));
  assert.ok(Number.isFinite(seed1),
   'Photo shutter must pass NEW seed to actual VHS pixel engine');
+ assert.notEqual(seed1,previewSeed,
+  'NEW must change the real analog seed used by the saved photo');
  // Polaroid border expands saved resolution relative to the raw camera stream.
  assert.ok(taken.outputWidth>taken.rawWidth||taken.outputHeight>taken.rawHeight,
   'Captured real photo must include adaptive Polaroid paper border');
@@ -165,7 +177,7 @@ try{
  assert.equal(stopped.streamLeft,false,'Closing camera must stop and release MediaStream');
  assert.ok(stopped.editorLabel.includes('CAM_'),'Photo remains editable after camera closes');
  assert.equal(pageErrors.length,0,'Camera page must not throw unhandled JS exceptions: '+pageErrors.join('; '));
- console.log('PASS: low-latency compositor live camera, zero heavy pre-shutter processing, NEW real VHS seed, save JPG, front/back and release');
+ console.log('PASS: exact photo effects visible live, correct frame ratio, NEW reroll, saved shot, front/back and release');
 }finally{
  await context.close();
  await browser.close();
