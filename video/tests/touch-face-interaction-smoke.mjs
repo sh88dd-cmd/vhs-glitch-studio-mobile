@@ -52,7 +52,7 @@ const touched=[];
 const E={
  defaults:()=>({}),forwardFactor:()=>1,speedAt:()=>1,agingAt:()=>0,
  drawStrokes(ctx,creative,clip,time){touched.push(['stroke',clip,time]);},
- drawFaces(ctx,boxes){touched.push(['face',boxes.length]);},
+ drawFaces(ctx,boxes){touched.push(['face',boxes.length,boxes.map(x=>({...x}))]);},
  gray(ctx){return{data:new Uint8Array(160*90),w:160,h:90};},
  trackBoxes(previous,current,w,h,boxes){return boxes;}
 };
@@ -123,4 +123,20 @@ assert.match($('touchStatus').textContent,/Найдено лиц: 3/,
 assert.equal($('faceAuto').disabled,false,'Face button should unlock after detection');
 assert.ok(touched.some(item=>item[0]==='face'&&item[1]>=3),
  'Auto-detected face must be forwarded to the visible mask renderer');
-console.log('PASS: iOS finger drawing, saved strokes, manual rectangle, 3 independently detected faces and model masks');
+// A subsequent decoded frame triggers a fresh detector pass that moves the
+// SAME face ID instead of leaving it stuck at the first frame coordinates.
+const previous=touched.filter(x=>x[0]==='face').at(-1)[2]
+ .find(x=>String(x.id).startsWith('auto-'));
+assert.ok(previous);
+faces[0].boundingBox.x+=54;
+source.paused=false;source.currentTime=2.3;
+const frame=element('tracking-frame').getContext('2d');
+ui.drawTouch(frame,source.currentTime,0);
+await new Promise(resolve=>setTimeout(resolve,15));
+source.currentTime=2.45;
+ui.drawTouch(frame,source.currentTime,0);
+const latest=touched.filter(x=>x[0]==='face').at(-1)[2]
+ .find(x=>x.id===previous.id);
+assert.ok(latest&&latest.x>previous.x+.025,
+ 'Live face detector must periodically re-anchor the same face as it moves');
+console.log('PASS: native iPhone touch drawing, three simultaneous faces, periodic ID-stable re-detection and moving masks');
