@@ -211,8 +211,11 @@ function region(ctx,x,y,w,h,mode='pixel',power=20,blur=12){
  // Both paths work without ctx.filter, which is unreliable in old Safari.
  const block=mode==='blur'?Math.max(2,Number(blur)||12)/3:
   Math.max(3,(Number(power)||20)/4.5);
- scratch.width=Math.max(2,Math.round(pw/Math.max(2,block)));
- scratch.height=Math.max(2,Math.round(ph/Math.max(2,block)));
+ const sw=Math.max(2,Math.round(pw/Math.max(2,block)));
+ const sh=Math.max(2,Math.round(ph/Math.max(2,block)));
+ // Resizing canvas on every stamp reallocates its backing store on iOS.
+ if(scratch.width!==sw)scratch.width=sw;
+ if(scratch.height!==sh)scratch.height=sh;
  const sctx=scratch.getContext('2d',{willReadFrequently:false});
  sctx.imageSmoothingEnabled=mode==='blur';
  sctx.clearRect(0,0,scratch.width,scratch.height);
