@@ -169,6 +169,14 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
    schedule(token,500);
   }
  }
+ // Still-photo review uses the same lossless source dimensions as before.
+ // Only this single completed capture is downscaled for the display.
+ const drawResult=(target,source,maxSize=1300)=>{
+  const scale=Math.min(1,maxSize/Math.max(source.width,source.height));
+  target.width=Math.max(1,Math.round(source.width*scale));
+  target.height=Math.max(1,Math.round(source.height*scale));
+  target.getContext('2d').drawImage(source,0,0,target.width,target.height);
+ };
  async function start(){
   const token=++session;
   clearJobs();stopTracks();
