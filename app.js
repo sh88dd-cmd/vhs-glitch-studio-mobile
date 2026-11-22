@@ -501,7 +501,12 @@
     // accidentally stacking two paper frames.
     if(extras.polaroid?.enabled){
       window.VHSPhotoPolaroid.look(frame,extras.polaroid);
-      return window.VHSPhotoPolaroid.render(frame,extras.polaroid);
+      // JPEG has no alpha. Never let a transparent instant-print
+      // background turn black on Safari's JPEG encoder or in BATCH.
+      const paperCfg=extras.polaroid.background==='transparent'&&
+       (opts.batch||state.exportFormat!=='image/png')?
+       {...extras.polaroid,background:'white'}:extras.polaroid;
+      return window.VHSPhotoPolaroid.render(frame,paperCfg);
     }
     return drawBorder(frame,state.film);
   }
