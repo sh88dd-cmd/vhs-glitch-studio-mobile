@@ -120,38 +120,83 @@ function create(opts){
   drawing=null;editorDirty=true;save();updateOverlay();
  }
  function startOverlay(){
-  overlay.addEventListener('pointerdown',event=>{
-   if(!tool||opts.isRecording()||!opts.hasVideo())return;
-   event.preventDefault();event.stopPropagation();
-   const [x,y]=position(event);
+  // iOS Safari can cancel Pointer Events when it tries to scroll/zoom.
+  // Handle real Touch Events (non-passive) as the primary finger channel;
+  // Pointer Events remain for mouse/stylus and desktop browsers.
+  let activePointer=null;
+  const begin=point=>{
+   if(!tool||opts.isRecording()||!opts.hasVideo()||drawing)return;
+   const [x,y]=position(point);
    if(tool==='brush'){
     c.touch.enabled=true;$('touchEnabled').checked=true;
-    const start=Number(source.currentTime)||0;
-    const duration=clamp(c.touch.duration,.2,120);
-    drawing={id:'touch-'+Date.now().toString(36),clip:opts.getClip(),start,end:start+duration,
-     duration,mode:c.touch.brush,radius:Number(c.touch.radius),
-     strength:Number(c.touch.strength),points:[[x,y]]};
-   }else drawing={x,y,w:0,h:0,anchorX:x,anchorY:y};
-   try{overlay.setPointerCapture(event.pointerId);}catch{}
+    const start=Number(source.currentTime)||0,duration=clamp(c.touch.duration,.2,120);
+    drawing={id:'touch-'+Date.now().toString(36),clip:opts.getClip(),
+     start,end:start+duration,duration,mode:c.touch.brush,
+     radius:Number(c.touch.radius),strength:Number(c.touch.strength),points:[[x,y]]};
+    pulse('Рисую… отпусти палец для сохранения.');
+   }else{
+    drawing={x,y,w:0,h:0,anchorX:x,anchorY:y};
+    pulse('Выделяю лицо… протяни прямоугольник и отпусти палец.');
+   }
+   editorDirty=false;
    updateOverlay();
-  });
-  overlay.addEventListener('pointermove',event=>{
+  };
+  const move=point=>{
    if(!drawing)return;
-   event.preventDefault();
-   const [x,y]=position(event);
+   const [x,y]=position(point);
    if(tool==='brush'){
     const pts=drawing.points,last=pts[pts.length-1];
-    if(Math.hypot(last[0]-x,last[1]-y)>.008&&pts.length<240)pts.push([x,y]);
+    if(Math.hypot(last[0]-x,last[1]-y)>.0035&&pts.length<400)pts.push([x,y]);
    }else{
     const ax=drawing.anchorX,ay=drawing.anchorY;
     drawing.x=Math.min(ax,x);drawing.y=Math.min(ay,y);
     drawing.w=Math.abs(ax-x);drawing.h=Math.abs(ay-y);
    }
    updateOverlay();
+  };
+  const prevent=e=>{if(tool){e.preventDefault();e.stopPropagation();}};
+  // Attach to the whole stage, not just the overlay canvas, so mobile
+  // WebKit hit-testing quirks cannot silently disable drawing.
+  editStage.addEventListener('touchstart',e=>{
+   if(!tool||!e.touches||e.touches.length!==1)return;
+   prevent(e);
+   activePointer='touch';
+   begin(e.changedTouches[0]);
+  },{passive:false});
+  editStage.addEventListener('touchmove',e=>{
+   if(activePointer!=='touch'||!drawing)return;
+   prevent(e);move(e.changedTouches[0]);
+  },{passive:false});
+  editStage.addEventListener('touchend',e=>{
+   if(activePointer!=='touch')return;
+   prevent(e);
+   if(e.changedTouches?.length)move(e.changedTouches[0]);
+   activePointer=null;finishDrawing();
+  },{passive:false});
+  editStage.addEventListener('touchcancel',e=>{
+   if(activePointer!=='touch')return;
+   prevent(e);activePointer=null;finishDrawing();
+  },{passive:false});
+  editStage.addEventListener('pointerdown',e=>{
+   if(e.pointerType==='touch'||!tool||e.button>0)return;
+   prevent(e);activePointer=e.pointerId;
+   begin(e);
+   try{editStage.setPointerCapture(e.pointerId);}catch{}
   });
-  overlay.addEventListener('pointerup',finishDrawing);
-  overlay.addEventListener('pointercancel',finishDrawing);
-  overlay.addEventListener('lostpointercapture',()=>{if(drawing)finishDrawing();});
+  editStage.addEventListener('pointermove',e=>{
+   if(activePointer!==e.pointerId||!drawing)return;
+   prevent(e);move(e);
+  });
+  const finishPointer=e=>{
+   if(e.pointerType==='touch'||activePointer!==e.pointerId)return;
+   prevent(e);if(drawing)move(e);
+   activePointer=null;finishDrawing();
+  };
+  editStage.addEventListener('pointerup',finishPointer);
+  editStage.addEventListener('pointercancel',finishPointer);
+  editStage.addEventListener('lostpointercapture',e=>{
+   if(activePointer===e.pointerId){activePointer=null;finishDrawing();}
+  });
  }
  function resetTracking(){
   prevGray=null;tracked=[];trackedClip=-1;lastTrackTime=-1;
