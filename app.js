@@ -38,11 +38,14 @@
   }catch(e){console.warn('Frame settings migration unavailable',e);}
   if(!Array.isArray(state.favoriteFilms))state.favoriteFilms=[];
   state.extras=window.VHSPhotoExtras.hydrate(state.extras);
+  // 1.2.0 persisted an 'effects bypass' which blocked all future presets.
+  // No bypass exists in 1.3: restore normal processing on every launch.
+  state.allFxOff=false;
   state.extraCamera={...defaults.extraCamera,...(state.extraCamera||{}),
    positions:{...defaults.extraCamera.positions,...(state.extraCamera?.positions||{})},
    sizes:{...defaults.extraCamera.sizes,...(state.extraCamera?.sizes||{})}};
   delete state.extraCamera.zoom; // ZOOM is not part of the photo camera OSD.
-  let photoExtrasUI=null;
+  let photoExtrasUI=null,photoPolaroidUI=null,resetUndo=null;
   state.previewDock={...defaults.previewDock,...(state.previewDock||{})};
   // Discard obsolete color, warm-halo and shape settings from previous releases.
   state.edgeBurn=Object.fromEntries(Object.keys(defaults.edgeBurn).map(key=>[key,state.edgeBurn?.[key]??defaults.edgeBurn[key]]));
@@ -67,6 +70,7 @@
      film:state.filmEnabled,glitch:state.extras?.glitch?.enabled,
      masks:!!(state.extras?.masks?.faces?.length||state.extras?.masks?.strokes?.length),
      correction:window.VHSPhotoExtras.activeAdjustment(state.extras?.correction),
+     polaroid:!!state.extras?.polaroid?.enabled,
      cassettes:!!(state.extras?.selectedCassetteId||state.extras?.glitch?.aging>0),
      camera:!!(Object.values(state.camera||{}).some(x=>x?.on)||
        ['counter','modeInfo','focus','frame'].some(x=>state.extraCamera?.[x]))
@@ -423,7 +427,6 @@
     const [w,h]=renderSize(im.naturalWidth||im.width, im.naturalHeight||im.height, sizeLimit==='full'?'full':String(sizeLimit));
     if(w*h>54e6)throw Error('Изображение слишком большое для мобильной памяти. Выбери экспорт до 3200 px.');
     const frame=newCanvas(w,h),ctx=frame.getContext('2d',{willReadFrequently:true});ctx.drawImage(im,0,0,w,h);
-    if(state.allFxOff)return frame;
     let img=ctx.getImageData(0,0,w,h),p=img.data;const fac=power[state.preset]||1;
     const X=window.VHSPhotoExtras,extras=state.extras;
     if(X.activeAdjustment(extras.correction)){
@@ -493,6 +496,13 @@
     if(!opts.batch&&extras.masks?.enabled&&
        (extras.masks.strokes?.length||extras.masks.faces?.length))
        X.masks(frame,extras.masks);
+    // The instant-print border wraps the *entire uncropped photo*. When it
+    // is selected, the old FILM white/black border is omitted to avoid
+    // accidentally stacking two paper frames.
+    if(extras.polaroid?.enabled){
+      window.VHSPhotoPolaroid.look(frame,extras.polaroid);
+      return window.VHSPhotoPolaroid.render(frame,extras.polaroid);
+    }
     return drawBorder(frame,state.film);
   }
   // Catalogue: local recipes plus XMP imports persisted in IndexedDB.
@@ -662,7 +672,7 @@
       state.extras.masks.originalId=id;
     }
     state.seed=randomSeed();mainSeedHistory=[];updateMainUndoButtons();renderFilmPage();renderFavoritesPage();schedulePreview();$('fileSingle').value='';
-    photoExtrasUI?.refresh();}
+    photoExtrasUI?.refresh();photoPolaroidUI?.refresh();}
 
   // Main-photo viewer uses its own dialog; it must not interfere with the batch viewer.
   function clampMainViewerPan(){
@@ -958,6 +968,7 @@
     else{document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+id));document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));}
     if(id==='film')renderFilmPage();
     if(id==='masks')photoExtrasUI?.drawMaskEditor();
+    if(id==='polaroid')photoPolaroidUI?.renderStyles();
     const destination=document.getElementById('panel-'+id);if(destination)destination.scrollIntoView({block:'start',behavior:'smooth'});
   }
   async function exportBackup(){const payload={kind:'VHS_STUDIO_MOBILE_BACKUP',version:1,created:new Date().toISOString(),settings:state,xmpProfiles:await dbAll('xmp'),lut:await dbAll('assets')};
@@ -1037,46 +1048,122 @@
     $('installHelp').addEventListener('click',()=>$('helpDialog').showModal());
     $('closeHelp').addEventListener('click',()=>$('helpDialog').close());
   }
+  function syncLegacyControls(){
+    // Rebuild the old dynamic sliders so their shown values match the newly
+    // applied cassette or the real reset. All event handlers refer to state.
+    for(const id of ['masterControl','signalControls','legacyVhsControls',
+      'effectsControls','filmControls','cameraControls'])
+      $(id).replaceChildren();
+    mountControls();
+    $('vhsEnabled').checked=!!state.vhsEnabled;
+    $('filmEnabled').checked=!!state.filmEnabled;
+    $('vhsPreset').value=state.preset;
+    $('edgeBurnEnabled').checked=!!state.edgeBurn.enabled;
+    $('edgeBurnSide').value=state.edgeBurn.side;
+    const order=['strength','width','roughness','scratches'];
+    const inputs=$('edgeBurnControls').querySelectorAll('.control');
+    inputs.forEach((row,i)=>{
+      const val=state.edgeBurn[order[i]],input=row.querySelector('input');
+      const label=row.querySelector('em');
+      if(input)input.value=val;if(label)label.textContent=val+'%';
+    });
+    renderFilmPage();renderFavoritesPage();
+    photoPolaroidUI?.refresh();
+    persist();
+  }
+  function applySessionSettings(snapshot){
+    // Maintain stable objects: both the Cassette and Polaroid UIs keep direct
+    // references to these object instances.
+    const copy=clone(snapshot);
+    for(const key of ['vhsEnabled','filmEnabled','preset','master','fx',
+      'signal','film','camera','legacyVhs','extraCamera'])
+      if(key in copy)state[key]=clone(copy[key]);
+    if(copy.edgeBurn)Object.assign(state.edgeBurn,copy.edgeBurn);
+    const polaroid=state.extras.polaroid;
+    const oldMasks=state.extras.masks;
+    const library=state.extras.cassettes;
+    const fresh=window.VHSPhotoExtras.hydrate(copy.extras);
+    Object.assign(state.extras,fresh);
+    state.extras.polaroid=polaroid;
+    Object.assign(polaroid,window.VHSPhotoPolaroid.hydrate(fresh.polaroid));
+    state.extras.cassettes=library;
+    state.extras.masks=fresh.masks||oldMasks;
+    state.allFxOff=false;
+    delete state.extraCamera.zoom;
+    activeLook=state.film?.profileId?
+      xmpProfiles.find(x=>x.id===state.film.profileId)||null:null;
+    syncLegacyControls();
+    photoExtrasUI?.refresh();
+  }
+  function resetAllPhotoEffects(){
+    resetUndo=clone(state);
+    // Keep original photograph, favorite films, user's own cassettes, XMP
+    // imports, export settings and local database untouched.
+    const neutral=clone(defaults);
+    neutral.vhsEnabled=false;neutral.filmEnabled=false;neutral.master=0;
+    neutral.legacyVhs=false;neutral.allFxOff=false;
+    neutral.extras=window.VHSPhotoExtras.defaults();
+    applySessionSettings(neutral);
+    state.extras.selectedCassetteId=null;
+    state.extras.beforeCassette=null;
+    state.extras.masks.originalId=resetUndo.extras?.masks?.originalId||'';
+    // Photographic film borders, camera indicators and local brush masks
+    // must be disabled; new effects can be applied immediately.
+    state.edgeBurn.enabled=false;
+    $('undoPhotoFxReset').disabled=false;
+    schedulePreview();
+    notify('Эффекты сброшены. Теперь можно сразу выбирать новую кассету, рамку или фильтр.');
+  }
+  function undoAllPhotoReset(){
+    if(!resetUndo)return;
+    const before=resetUndo;resetUndo=null;
+    applySessionSettings(before);
+    state.extras.selectedCassetteId=before.extras?.selectedCassetteId||null;
+    state.extras.beforeCassette=before.extras?.beforeCassette||null;
+    $('undoPhotoFxReset').disabled=true;
+    photoExtrasUI?.refresh();photoPolaroidUI?.refresh();schedulePreview();
+    notify('Настройки до сброса восстановлены.');
+  }
   async function init(){
     mountControls();bindEvents();initMainViewerEvents();mountEdgeBurnControls();initDockPreview();updateMainUndoButtons();
-    $('allPhotoFxToggle').addEventListener('click',()=>{
-     state.allFxOff=!state.allFxOff;
-     $('allPhotoFxToggle').textContent=state.allFxOff?'↶ ВЕРНУТЬ ЭФФЕКТЫ':'✕ ВЫКЛЮЧИТЬ ВСЁ';
-     schedulePreview();notify(state.allFxOff?'Эффекты временно отключены. Настройки сохранены.':
-      'Все настройки эффектов восстановлены.');
-    });
-    $('allPhotoFxToggle').textContent=state.allFxOff?'↶ ВЕРНУТЬ ЭФФЕКТЫ':'✕ ВЫКЛЮЧИТЬ ВСЁ';
+    $('allPhotoFxToggle').addEventListener('click',resetAllPhotoEffects);
+    $('undoPhotoFxReset').addEventListener('click',undoAllPhotoReset);
+    $('allPhotoFxToggle').textContent='✕ СБРОСИТЬ ВСЁ';
     photoExtrasUI=window.VHSPhotoExtrasUI.mount({
      state,onChange:schedulePreview,getOriginal:()=>original,
+     factoryDefaults:clone(defaults),
      onMaskChange:schedulePreview,
      saveFile:saveBlob,
      onSetSnapshot(snapshot){
+      state.allFxOff=false; // Never allow a stale bypass to block a cassette.
       const rootKeys=['vhsEnabled','filmEnabled','master','preset','fx',
        'signal','film','camera','edgeBurn','extraCamera'];
       for(const key of rootKeys)if(key in snapshot){
        if(key==='extraCamera')Object.assign(state.extraCamera,
         JSON.parse(JSON.stringify(snapshot[key])));
+       else if(key==='edgeBurn')Object.assign(state.edgeBurn,
+        JSON.parse(JSON.stringify(snapshot[key])));
        else state[key]=JSON.parse(JSON.stringify(snapshot[key]));
       }
       delete state.extraCamera.zoom;
-      if(snapshot.extras)for(const key of ['correction','glitch','damage','colorCopy'])
-       if(key in snapshot.extras)
-        state.extras[key]=JSON.parse(JSON.stringify(snapshot.extras[key]));
+      if(snapshot.extras)for(const key of ['correction','glitch','damage','colorCopy','polaroid'])
+       if(key in snapshot.extras){
+        const value=JSON.parse(JSON.stringify(snapshot.extras[key]));
+        if(key==='polaroid')Object.assign(state.extras.polaroid,value);
+        else state.extras[key]=value;
+       }
       // Preserve active image masks and saved cassette collection.
-      $('vhsEnabled').checked=!!state.vhsEnabled;
-      $('filmEnabled').checked=!!state.filmEnabled;
-      $('vhsPreset').value=state.preset;
-      if($('cameraControls'))for(const key of ['date','rec','play','battery']){
-       const item=state.camera[key],card=[...document.querySelectorAll('.cameraSetting')]
-        .find(x=>x.querySelector('h3')?.textContent===
-         ({date:'Дата / время',rec:'REC + красная точка',
-           play:'PLAY',battery:'Батарейка'}[key]));
-       if(card){const check=card.querySelector('input[type=checkbox]');
-        if(check)check.checked=!!item.on;}
-      }
+      activeLook=state.film?.profileId?
+       xmpProfiles.find(x=>x.id===state.film.profileId)||null:null;
+      syncLegacyControls();
+      photoPolaroidUI?.refresh();
       schedulePreview();
      }
     });
+    photoPolaroidUI=window.VHSPhotoPolaroidUI.mount({
+      state,getOriginal:()=>original,onChange:schedulePreview
+    });
+    photoExtrasUI?.refresh();
     try{Object.assign(looks,await (await fetch('./looks.json')).json());}catch(err){notify('Каталог плёнок не загрузился. Открой программу через HTTPS или локальный сервер.');}
     xmpProfiles=await dbAll('xmp');cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
     if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
