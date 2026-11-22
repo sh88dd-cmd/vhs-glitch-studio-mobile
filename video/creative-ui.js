@@ -11,7 +11,10 @@ function create(opts){
  let tool='',drawing=null,tracked=[],trackedClip=-1,lastTrackTime=-1,prevGray=null;
  let faceDetector=null,faceBusy=false,faceLast=-1,autoBoxes=[],autoClip=-1;
  let lastReverseFrame=0,reversePlaying=false;
- const overlay=$('touchOverlay');
+ const overlay=$('touchOverlay'),editStage=$('touchEditStage'),
+  editPreview=$('touchEditPreview'),editLabel=$('touchEditLabel');
+ let editorTime=-1,editorDirty=true,editorClip=-1;
+ const redrawEditor=()=>{editorDirty=true;updateOverlay();};
  function save(){callbacks.save();callbacks.render();}
  function updateInput(id,v){if($(id))$(id).value=String(v);}
  function pulse(message){$('touchStatus').textContent=message;}
@@ -33,25 +36,44 @@ function create(opts){
   updateInput(id,obj[key]);if(label)$(label).textContent=Math.round(obj[key])+(id==='touchRadius'||id==='facePixelSize'||id==='faceBlurSize'?'':'%');
  }
  function updateOverlay(){
-  const active=!!tool&&!!opts.hasVideo()&&!opts.isRecording();
-  overlay.hidden=!active;
+  const can=!!opts.hasVideo()&&!opts.isRecording();
+  editStage.hidden=!can;
+  const active=!!tool&&can;
+  editStage.classList.toggle('is-active',active);
   overlay.classList.toggle('is-drawing',active);
-  // The overlay is hidden during normal playback: never allocate/clear a
-  // full-resolution transparent canvas 12 times a second when unused.
-  if(!active)return;
-  const frame=preview.getBoundingClientRect(),host=overlay.parentElement.getBoundingClientRect();
-  overlay.style.left=Math.max(0,frame.left-host.left)+'px';
-  overlay.style.top=Math.max(0,frame.top-host.top)+'px';
-  overlay.style.width=frame.width+'px';
-  overlay.style.height=frame.height+'px';
-  // Coordinates track the visible video, including correct letterboxing.
-  const w=Math.max(2,Math.min(960,preview.width||480));
-  const h=Math.max(2,Math.round(w*(preview.height||270)/Math.max(1,preview.width||480)));
+  overlay.hidden=!can;
+  editLabel.textContent=tool==='brush'?'РИСУЙ ПАЛЬЦЕМ ПО КАДРУ · мазок сохранится после отпускания':
+   tool==='face'?'ОБВЕДИ ЛИЦО ПАЛЬЦЕМ · прямоугольник сохранится':
+   'Нажми «Рисовать» или «Обвести лицо», затем проведи пальцем по этому кадру';
+  if(!can)return;
+  // The editing surface follows the SOURCE aspect ratio without video
+  // letterboxing or offsets. No overlay over the sticky/hidden main monitor.
+  const vw=Math.max(2,source.videoWidth||preview.width||480);
+  const vh=Math.max(2,source.videoHeight||preview.height||270);
+  const w=Math.max(2,Math.min(720,vw)),h=Math.max(2,Math.round(w*vh/vw));
+  const resized=editPreview.width!==w||editPreview.height!==h;
+  if(resized){editPreview.width=w;editPreview.height=h;editorDirty=true;}
   if(overlay.width!==w)overlay.width=w;
   if(overlay.height!==h)overlay.height=h;
-  const ctx=overlay.getContext('2d');ctx.clearRect(0,0,w,h);
-  ctx.save();ctx.lineWidth=Math.max(1,w/260);ctx.strokeStyle='#f5b365';
-  ctx.setLineDash([5,4]);
+  const t=Number(source.currentTime)||0,clip=opts.getClip();
+  // Reuse the frame while the video is paused or a finger is moving; avoid
+  // decoding/redrawing a large canvas on every pointer movement.
+  if(editorDirty||editorClip!==clip||Math.abs(t-editorTime)>.025){
+   const frame=editPreview.getContext('2d');
+   frame.clearRect(0,0,w,h);
+   frame.drawImage(source,0,0,w,h);
+   if(c.touch.enabled)E.drawStrokes(frame,c,clip,t);
+   if(c.touch.facesEnabled){
+    const boxes=faceBoxes(frame,t,clip);
+    E.drawFaces(frame,boxes,c);
+   }
+   editorTime=t;editorClip=clip;editorDirty=false;
+  }
+  const ctx=overlay.getContext('2d');
+  ctx.clearRect(0,0,w,h);
+  ctx.save();
+  ctx.lineWidth=Math.max(2,w/200);ctx.strokeStyle='#ffb75c';
+  ctx.fillStyle='#ffb75c';ctx.setLineDash([7,4]);
   if(drawing&&tool==='face'){
    const r=drawing;ctx.strokeRect(r.x*w,r.y*h,r.w*w,r.h*h);
   }
@@ -60,7 +82,17 @@ function create(opts){
    for(let i=0;i<pts.length;i++){
     const [x,y]=pts[i];if(i===0)ctx.moveTo(x*w,y*h);else ctx.lineTo(x*w,y*h);
    }
-   ctx.stroke();
+   if(pts.length===1){
+    ctx.beginPath();ctx.arc(pts[0][0]*w,pts[0][1]*h,Math.max(7,w/130),0,Math.PI*2);ctx.fill();
+   }else ctx.stroke();
+  }
+  if(!drawing&&c.touch.facesEnabled){
+   ctx.setLineDash([]);
+   const boxes=faceBoxes(editPreview.getContext('2d'),t,clip);
+   for(const r of boxes){
+    ctx.strokeStyle='#88e9b1';ctx.lineWidth=Math.max(2,w/250);
+    ctx.strokeRect(r.x*w,r.y*h,r.w*w,r.h*h);
+   }
   }
   ctx.restore();
  }
@@ -85,7 +117,7 @@ function create(opts){
     pulse('Лицо выделено. Маска будет двигаться при воспроизведении благодаря локальному отслеживанию кадров.');
    }
   }
-  drawing=null;save();updateOverlay();
+  drawing=null;editorDirty=true;save();updateOverlay();
  }
  function startOverlay(){
   overlay.addEventListener('pointerdown',event=>{
@@ -118,7 +150,7 @@ function create(opts){
    updateOverlay();
   });
   overlay.addEventListener('pointerup',finishDrawing);
-  overlay.addEventListener('pointercancel',()=>{drawing=null;updateOverlay();});
+  overlay.addEventListener('pointercancel',finishDrawing);
   overlay.addEventListener('lostpointercapture',()=>{if(drawing)finishDrawing();});
  }
  function resetTracking(){
@@ -492,10 +524,10 @@ function create(opts){
   if(all.length>1&&$('morphB').selectedIndex<=0)$('morphB').selectedIndex=1;
  }
  function mountTouch(){
-  $('touchBrushTab').onclick=()=>showSubnav([['touchBrushTab','touchBrushPage'],['touchFaceTab','touchFacePage']],'touchBrushTab');
-  $('touchFaceTab').onclick=()=>showSubnav([['touchBrushTab','touchBrushPage'],['touchFaceTab','touchFacePage']],'touchFaceTab');
+  $('touchBrushTab').onclick=()=>{showSubnav([['touchBrushTab','touchBrushPage'],['touchFaceTab','touchFacePage']],'touchBrushTab');tool='';editorDirty=true;updateOverlay();};
+  $('touchFaceTab').onclick=()=>{showSubnav([['touchBrushTab','touchBrushPage'],['touchFaceTab','touchFacePage']],'touchFaceTab');tool='';editorDirty=true;updateOverlay();};
   $('touchEnabled').checked=!!c.touch.enabled;
-  $('touchEnabled').onchange=()=>{c.touch.enabled=$('touchEnabled').checked;save();};
+  $('touchEnabled').onchange=()=>{c.touch.enabled=$('touchEnabled').checked;editorDirty=true;save();updateOverlay();};
   $('touchBrush').value=c.touch.brush;
   $('touchBrush').onchange=()=>{c.touch.brush=$('touchBrush').value;save();};
   for(const [id,key,label] of [
@@ -505,47 +537,60 @@ function create(opts){
   $('touchDuration').value=String(c.touch.duration);
   $('touchDuration').onchange=()=>{c.touch.duration=clamp($('touchDuration').value,.2,120);save();};
   $('touchStartDrawing').onclick=()=>{
-   tool=tool==='brush'?'':'brush';$('touchStartDrawing').textContent=tool?'✓ Закончить рисование':'✎ Рисовать на видеокадре';
-   updateOverlay();pulse(tool?'Проводи пальцем по основному видеокадру вверху страницы.':'Рисование выключено.');
-   if(tool)window.scrollTo({top:0,behavior:'smooth'});
+   if(tool!=='brush'&&!source.paused)source.pause();
+   tool=tool==='brush'?'':'brush';
+   $('touchStartDrawing').textContent=tool==='brush'?'✓ Закончить рисование':'✎ Начать рисовать на кадре ниже';
+   $('faceMark').textContent='＋ Обвести лицо на кадре выше';
+   editorDirty=true;updateOverlay();
+   pulse(tool?'Проводи пальцем по кадру прямо в этом разделе. Мазок сохраняется при отпускании.':'Рисование выключено.');
+   if(tool)editStage.scrollIntoView({behavior:'smooth',block:'center'});
   };
-  $('touchUndo').onclick=()=>{c.touch.strokes.pop();save();pulse('Последнее касание удалено.');};
-  $('touchClear').onclick=()=>{c.touch.strokes=[];save();pulse('Все нарисованные помехи очищены.');};
+  $('touchUndo').onclick=()=>{c.touch.strokes.pop();editorDirty=true;save();updateOverlay();pulse('Последнее касание удалено.');};
+  $('touchClear').onclick=()=>{c.touch.strokes=[];editorDirty=true;save();updateOverlay();pulse('Все нарисованные помехи очищены.');};
   $('faceEnabled').checked=!!c.touch.facesEnabled;
-  $('faceEnabled').onchange=()=>{c.touch.facesEnabled=$('faceEnabled').checked;save();};
+  $('faceEnabled').onchange=()=>{c.touch.facesEnabled=$('faceEnabled').checked;editorDirty=true;save();updateOverlay();};
   $('faceStyle').value=c.touch.faceStyle;
   $('faceStyle').onchange=()=>{c.touch.faceStyle=$('faceStyle').value;save();};
   $('faceAuto').onclick=async()=>{
-   if(!faceDetector){pulse('Детектор недоступен. Выдели лицо пальцем — дальше маска будет отслеживаться локально.');return;}
+   if(!faceDetector){pulse('Детектор недоступен. Можно обвести лицо пальцем прямо на кадре ниже.');return;}
    if(faceBusy)return;
+   if(!source.paused)source.pause();
    c.touch.facesEnabled=true;c.touch.faceAutodetect=true;
    $('faceEnabled').checked=true;
-   autoBoxes=[];autoClip=-1;faceLast=-1;resetTracking();
-   pulse('Ищу лица на текущем кадре…');
-   const count=await detectFace();
-   save();
-   pulse(count?'Найдено лиц: '+count+'. Маски движутся вслед за лицами. Для другой сцены повтори поиск.':
-    'На текущем кадре лица не распознаны. Останови видео на чётком лице и повтори поиск или выдели лицо пальцем.');
+   autoBoxes=[];autoClip=-1;faceLast=-1;resetTracking();editorDirty=true;
+   $('faceAuto').disabled=true;
+   pulse('Ищу лица на остановленном кадре…');
+   editStage.scrollIntoView({behavior:'smooth',block:'center'});
+   try{
+    const count=await detectFace();
+    editorDirty=true;save();updateOverlay();
+    pulse(count?'Найдено лиц: '+count+'. Зелёные рамки показывают области обработки; для другой сцены повтори поиск.':
+     'На этом кадре модель не распознала лицо. Нажми «Обвести лицо» и выдели его пальцем прямо здесь.');
+   }finally{$('faceAuto').disabled=false;}
   };
   $('faceMark').onclick=()=>{
-   tool=tool==='face'?'':'face';$('faceMark').textContent=tool?'✓ Закончить выделение':'＋ Выделить лицо пальцем';
-   updateOverlay();pulse(tool?'Обведи лицо прямоугольником на основном кадре вверху.':'Режим выделения выключен.');
-   if(tool)window.scrollTo({top:0,behavior:'smooth'});
+   if(tool!=='face'&&!source.paused)source.pause();
+   tool=tool==='face'?'':'face';
+   $('faceMark').textContent=tool==='face'?'✓ Закончить выделение':'＋ Обвести лицо на кадре выше';
+   $('touchStartDrawing').textContent='✎ Начать рисовать на кадре ниже';
+   editorDirty=true;updateOverlay();
+   pulse(tool?'Обведи лицо прямоугольником прямо на кадре в этом разделе.':'Выделение выключено.');
+   if(tool)editStage.scrollIntoView({behavior:'smooth',block:'center'});
   };
   $('faceClear').onclick=()=>{
-   c.touch.manualFaces=[];c.touch.faceAutodetect=false;autoBoxes=[];autoClip=-1;faceLast=-1;resetTracking();save();
+   c.touch.manualFaces=[];c.touch.faceAutodetect=false;autoBoxes=[];autoClip=-1;faceLast=-1;resetTracking();editorDirty=true;save();updateOverlay();
    pulse('Все маски лиц убраны.');
   };
   startOverlay();initFaceDetector().then(ok=>{
-   pulse(ok?'Автоматический поиск лиц работает локально; доступно и ручное выделение с трекингом.':
-    'В Safari доступно ручное выделение лица с отслеживанием движения по кадрам.');
+   pulse(ok?'Видео можно рисовать и обрабатывать здесь. Поиск лиц доступен локально; при ошибке обведи лицо пальцем.':
+    'Рисование доступно, но автопоиск лиц не загружен. Можно обвести лицо пальцем.');
   });
  }
  function syncButtons(){
   const can=!!opts.hasVideo()&&!opts.isRecording();
   for(const id of ['touchStartDrawing','faceAuto','faceMark'])$(id).disabled=!can;
   if(!can&&tool){tool='';drawing=null;}
-  if(tool||!overlay.hidden)updateOverlay();
+  if(opts.hasVideo()&&!editStage.hidden||tool||!overlay.hidden)updateOverlay();
  }
  function refresh(){
   refreshSpeed();refreshAging();refreshCassettes();
