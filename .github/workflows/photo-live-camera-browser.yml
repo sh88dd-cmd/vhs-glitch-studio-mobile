@@ -1,4 +1,4 @@
-name: Photo 1.5 live camera browser test
+name: Photo 1.6 fast live camera + NEW browser test
 on:
   push:
     paths:
