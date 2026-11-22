@@ -59,6 +59,18 @@ const centered=root.VHSVideoCameraOSD.layout(ctx,1280,720,options,'SP',6);
 assert.equal(centered.items.find(x=>x.key==='date').slot,'center-top');
 assert.equal(centered.items.find(x=>x.key==='rec').slot,'center-bottom');
 assert.equal(root.VHSVideoCameraOSD.timestamp('1995-06-16T22:28:08',60)[1],'22:29:08');
+const isolatedDate={date:true,frame:true,clockStart:'1995-06-16T22:28:08',
+ positions:{date:'right-bottom'},sizes:{date:20}};
+const tinyDate=root.VHSVideoCameraOSD.layout(ctx,720,1280,isolatedDate,'SP',8);
+const normalDate=root.VHSVideoCameraOSD.layout(ctx,720,1280,
+ {...isolatedDate,sizes:{date:125}},'SP',8);
+const small=tinyDate.items.find(v=>v.key==='date'),
+ large=normalDate.items.find(v=>v.key==='date');
+assert.ok(small&&large,'20% and 125% dates must both fit in portrait camera');
+assert.ok(small.size<large.size*.35,
+ '20% date must be meaningfully smaller than 125%, not clamped by an old minimum');
+assert.ok(small.rect.x>=tinyDate.safe.left&&small.rect.y>=tinyDate.safe.top,
+ 'Tiny date must remain inside portrait viewfinder frame');
 
 const start=app.indexOf(' const CASSETTE_FIELDS=');
 const end=app.indexOf(' function setControlByTitle(',start);
