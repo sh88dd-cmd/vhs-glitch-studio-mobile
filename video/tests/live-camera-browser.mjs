@@ -104,7 +104,7 @@ try{
   document.getElementById('videoLiveStatus').textContent.includes('Запись недоступна'),
   null,{timeout:14000});
  const recordingStatus=await page.locator('#videoLiveStatus').textContent();
- assert.match(recordingStatus,/Запись запущена/,
+ assert.match(recordingStatus,/REC · настоящие выбранные эффекты/,
   'Real CanvasCaptureStream MediaRecorder must be operating: '+recordingStatus);
  await page.waitForTimeout(850);
  const encoded=await page.evaluate(()=>{
