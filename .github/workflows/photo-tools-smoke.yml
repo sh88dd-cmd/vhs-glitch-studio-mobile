@@ -1,4 +1,4 @@
-name: Photo Studio 1.5 regression
+name: Photo Studio 1.6 regression
 on:
   push:
     paths:
