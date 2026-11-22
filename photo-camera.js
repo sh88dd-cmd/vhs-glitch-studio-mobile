@@ -115,8 +115,9 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   try{
    // One exact processed frame at a time. No decorative stripe overlay,
    // no fake CSS FILM lookup, and no backlog of stale camera frames.
-   const result=await onPreview(video,liveSeed,filmSeed,viewLongSide);
-   if(token!==session||!active||review||capturing||!previewToggle.checked)return;
+   const renderingSeed=liveSeed;
+   const result=await onPreview(video,renderingSeed,filmSeed,viewLongSide);
+   if(token!==session||renderingSeed!==liveSeed||!active||review||capturing||!previewToggle.checked)return;
    if(!result||result.width<2||result.height<2)
     throw Error('Не получен обработанный кадр');
    fx.width=result.width;fx.height=result.height;
@@ -136,9 +137,9 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
     '. Обычная камера продолжает работать.');
   }finally{
    previewBusy=false;
-   if(token===session&&active&&ready&&!review&&!capturing&&previewToggle.checked){
+   if(active&&ready&&!review&&!capturing&&previewToggle.checked){
     const delay=Math.max(100,Math.min(600,(performance.now()-start)*.85));
-    schedule(token,delay);
+    schedule(session,delay);
    }
   }
  }
