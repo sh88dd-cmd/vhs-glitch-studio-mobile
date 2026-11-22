@@ -2200,6 +2200,20 @@
   $('play').onclick=togglePlay;
   $('regenerate').onclick=regenerateSeed;
   $('undoGlitch').onclick=undoSeed;
+  $('filmOnlyMode').onclick=()=>{
+   if(recording)return;
+   state.vhsEnabled=false;
+   state.glitchEnabled=false;
+   state.fxMode='classic';
+   state.mode='vhs';
+   state.filmEnabled=true;
+   if(state.filmStrength===0)state.filmStrength=85;
+   syncCassetteUI();
+   renderCassetteShelf();
+   persist();resetFrameHistory();renderCurrentFrame();
+   filmGallery?.refreshSelection();
+   textStatus('Только FILM: VHS и GLITCH отключены. Детализация плёнки сохранена.');
+  };
   $('filmSearch').oninput=()=>{
    renderFilmSelect();
    filmGallery?.resetPage();
