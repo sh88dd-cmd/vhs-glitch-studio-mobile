@@ -1,4 +1,4 @@
-name: Photo Studio 1.3 regression
+name: Photo Studio 1.4 regression
 on:
   push:
     paths:
@@ -10,6 +10,7 @@ on:
       - 'photo-extras-ui.js'
       - 'photo-polaroid.js'
       - 'photo-polaroid-ui.js'
+      - 'photo-face-ai.js'
       - 'photo-face-detect.js'
       - 'video/glitch-engine.js'
       - 'video/film-damage.js'
@@ -30,6 +31,7 @@ on:
       - 'photo-extras-ui.js'
       - 'photo-polaroid.js'
       - 'photo-polaroid-ui.js'
+      - 'photo-face-ai.js'
       - 'photo-face-detect.js'
       - 'video/glitch-engine.js'
       - 'video/film-damage.js'
@@ -58,6 +60,7 @@ jobs:
           node --check photo-extras-ui.js
           node --check photo-polaroid.js
           node --check photo-polaroid-ui.js
+          node --check photo-face-ai.js
           node --check photo-face-detect.js
           node --check sw.js
           node --check video/glitch-engine.js
