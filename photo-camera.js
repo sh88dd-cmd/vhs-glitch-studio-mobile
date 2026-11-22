@@ -38,6 +38,7 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   again.disabled=capturing;
   save.disabled=capturing||!lastRendered;
   reviewButtons.hidden=!review;
+  dialog.classList.toggle('is-review',review);
   fx.hidden=review||!previewToggle.checked||!fxReady;
   newFx.hidden=review;
   newFx.disabled=!ready||capturing||review;
@@ -51,6 +52,9 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   clearJobs();stopTracks();
   lastRendered=null;lastFilename='';
   if(dialog.open)dialog.close();
+  document.documentElement.classList.remove('photoCameraLock');
+  document.body.classList.remove('photoCameraLock');
+  dialog.classList.remove('is-review');
   stage.style.width='';stage.style.height='';stage.style.aspectRatio='';stage.style.flex='';
   refreshButtons();
  };
@@ -67,11 +71,15 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
  // nor an instant-print frame may be stretched to fill a landscape box.
  function fitStage(w,h){
   if(!(w>1&&h>1))return;
-  const maxWidth=Math.max(180,Math.min(window.innerWidth-24,dialog.clientWidth-20));
-  const maxHeight=Math.max(190,window.innerHeight-350);
-  const width=Math.min(maxWidth,maxHeight*w/h);
-  stage.style.width=Math.round(width)+'px';
-  stage.style.height=Math.round(width*h/w)+'px';
+  const viewport=$('liveCameraViewport');
+  // The remaining space excludes all controls and iPhone safe areas.
+  // Never use the old fixed window height offset that hid the shutter.
+  const maxWidth=Math.max(1,viewport.clientWidth||dialog.clientWidth-20);
+  const maxHeight=Math.max(1,viewport.clientHeight);
+  const width=Math.max(1,Math.min(maxWidth,maxHeight*w/h));
+  const height=Math.max(1,Math.min(maxHeight,width*h/w));
+  stage.style.width=width+'px';
+  stage.style.height=height+'px';
   stage.style.aspectRatio=w+' / '+h;
   stage.style.flex='0 0 auto';
  }
@@ -187,14 +195,13 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
    const [w,h]=getDims();
    if(w<2||h<2)throw Error('Камера не передаёт кадры');
    const setting=acquired.getVideoTracks()[0]?.getSettings?.()||{};
-   res.textContent='Поток камеры: '+w+' × '+h+
-    (setting.facingMode?' · '+(setting.facingMode==='user'?'передняя':'задняя'):'')+
-    '. Для снимка используется максимальное разрешение, доступное браузеру.';
+   res.textContent='Поток: '+w+' × '+h+
+    (setting.facingMode?' · '+(setting.facingMode==='user'?'передняя':'задняя'):'');
    liveSeed=getSeed();filmSeed=liveSeed;previewDraws=0;
    applyVisual();
    fitStage(w,h);
    ready=true;refreshButtons();
-   setStatus('Камера готова · реальные выбранные эффекты в видоискателе. Снимок сохраняется отдельно в высоком разрешении.');
+   setStatus('Камера готова · реальные эффекты LIVE. Фото в высоком разрешении.');
    schedule(token,50);
   }catch(err){
    if(token!==session)return;
@@ -211,6 +218,8 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   if(active)return;
   active=true;review=false;capturing=false;
   if(!dialog.open)dialog.showModal();
+  document.documentElement.classList.add('photoCameraLock');
+  document.body.classList.add('photoCameraLock');
   await start();
  }
  async function flipLens(){
@@ -369,12 +378,17 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   else if(active&&!review&&ready)schedule(session,40);
   refreshButtons();
  });
- window.addEventListener('resize',()=>{
+ function fitCurrentStage(){
   if(!active)return;
   if(review&&still.width>2&&still.height>2)fitStage(still.width,still.height);
   else if(fxReady)fitStage(fx.width,fx.height);
   else{const [w,h]=getDims();fitStage(w,h);}
- });
+ }
+ window.addEventListener('resize',fitCurrentStage);
+ if(window.ResizeObserver){
+  const observer=new ResizeObserver(fitCurrentStage);
+  observer.observe($('liveCameraViewport'));
+ }
  dialog.addEventListener('cancel',e=>{e.preventDefault();close();});
  document.addEventListener('visibilitychange',()=>{
   // A background page must never keep the iPhone camera running.
