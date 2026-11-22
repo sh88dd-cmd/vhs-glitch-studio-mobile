@@ -141,9 +141,13 @@ function mount({state,getOriginal,onChange}){
  randomPlacement.id='polaroidRerollHandwriting';
  randomPlacement.textContent='↻ Новый почерк и положение';
  randomPlacement.addEventListener('click',()=>{
-  cfg.notePlacementSeed=crypto.getRandomValues(new Uint32Array(1))[0];
-  // In random-font mode, a fresh click selects a different handwritten font.
-  // Explicitly chosen fonts stay fixed, while angle, spacing and position vary.
+  const previous=P.resolvedHandFont(cfg).id;
+  for(let attempt=0;attempt<8;attempt++){
+   cfg.notePlacementSeed=crypto.getRandomValues(new Uint32Array(1))[0];
+   if(cfg.noteFont!=='random'||P.resolvedHandFont(cfg).id!==previous)break;
+  }
+  // The automatic mode chooses a different handwriting font where possible.
+  // Fixed styles preserve the chosen font but vary the angle and placement.
   onChange();
  });
  inscription.append(randomPlacement);
