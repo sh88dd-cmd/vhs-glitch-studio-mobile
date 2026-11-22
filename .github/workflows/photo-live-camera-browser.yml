@@ -1,0 +1,35 @@
+name: Photo 1.5 live camera browser test
+on:
+  push:
+    paths:
+      - 'photo-camera.js'
+      - 'app.js'
+      - 'index.html'
+      - 'styles.css'
+      - 'sw.js'
+      - 'tests/photo-live-camera-browser.mjs'
+      - '.github/workflows/photo-live-camera-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-photo-camera:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium headless on supported Ubuntu
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.65.1
+          npx playwright install --with-deps chromium-headless-shell
+      - name: Test real browser camera permission, live filters and saved photo
+        shell: bash
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/photo-camera-web.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          sleep 2
+          node tests/photo-live-camera-browser.mjs
