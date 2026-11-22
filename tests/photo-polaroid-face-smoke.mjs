@@ -10,7 +10,9 @@ function mockCanvas(){
   canvas:can,
   fillRect(){},clearRect(){},strokeRect(){},beginPath(){},rect(){},
   clip(){},save(){},restore(){},translate(){},rotate(){},
-  stroke(){},arc(){},fill(){},fillText(){},createPattern(){return{}},
+  stroke(){},arc(){},fill(){},fillText(){},strokeText(){},
+  measureText(t){return{width:String(t).length*11}},
+  createPattern(){return{}},
   createLinearGradient(){return{addColorStop(){}}},
   createImageData(w,h){return{data:new Uint8ClampedArray(w*h*4)}},
   getImageData(x,y,w,h){return{data:new Uint8ClampedArray((w||can.width)*(h||can.height)*4)}},
@@ -26,6 +28,12 @@ vm.runInNewContext(read('photo-polaroid.js'),context);
 const P=root.VHSPhotoPolaroid;
 assert.equal(P.styles.length,8,'Eight independent tactile paper frame designs required');
 assert.equal(P.looks.length,7,'Seven instant film color looks required');
+assert.equal(P.handFonts.length,6,'Six actual Cyrillic handwritten font choices');
+assert.equal(P.inkTools.length,6,'Blue, black and red pens and markers');
+assert.equal(P.noteLines({note:'а\\nб\\nв\\nг\\nд\\nе'}).length,5,
+ 'Five-line handwritten caption must never include a sixth line');
+assert.equal(P.hydrate({note:'А\\nБ\\nВ\\nГ\\nД\\nЕ'}).note.split('\\n').length,5,
+ 'Persistence must clamp handwritten captions to five lines');
 for(const [w,h] of [[800,800],[1300,650],[600,1100]]){
  const geo=P.geometry(w,h,P.defaults());
  assert.equal(geo.imageW,w);assert.equal(geo.imageH,h);
