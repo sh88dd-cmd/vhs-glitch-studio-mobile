@@ -106,7 +106,7 @@ assert.ok(Array.isArray(faceRects),'The bundled offline cascade must process pix
 const html=fs.readFileSync('video/index.html','utf8'),app=fs.readFileSync('video/app.js','utf8');
 const ui=fs.readFileSync('video/creative-ui.js','utf8'),sw=fs.readFileSync('video/sw.js','utf8');
 for(const id of [
- 'panel-touch','touchOverlay','faceAuto','faceMark','faceEnabled','faceStyle',
+ 'panel-touch','touchOverlay','touchEditStage','touchEditPreview','faceAuto','faceMark','faceEnabled','faceStyle',
  'panel-speed','speedRate','speedReverse','speedCurveEnabled','speedAddPoint',
  'panel-live','morphA','morphB','morphSlider','agingEnabled','agingAmount',
  'cassetteAgingPage','cassetteLibraryPage','audioArea-devices','audioDevice',
@@ -127,9 +127,10 @@ assert.ok(app.includes('window.VHSVideoCreative.agingAt(') &&
 assert.ok(app.includes('const localOnly=hasLocalEdits') &&
  app.includes('if(clean||localOnly)'),
  'Face and brush edits must not force the entire source through a low-resolution VHS buffer');
-assert.ok(ui.includes('if(!active)return;') &&
- ui.includes("if(tool||!overlay.hidden)updateOverlay();"),
- 'Inactive drawing canvas must not be cleared during regular playback');
+assert.ok(ui.includes("const overlay=$('touchOverlay'),editStage=$('touchEditStage')") &&
+ ui.includes("editStage.hidden=!can") &&
+ ui.includes("editStage.scrollIntoView("),
+ 'Touch editing must appear next to its controls, not on a distant top-of-page canvas');
 assert.ok(ui.includes("const count=await detectFace();"),
  'Face detection must be requested explicitly and report its actual result');
 assert.ok(app.includes('creativeUI?.updateSpeed(now)'),'Speed controls must drive playback');
