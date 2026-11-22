@@ -3,10 +3,10 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#11151c"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="VHS Studio">
 <meta name="description" content="Офлайн редактор фотографий: VHS, FILM, REC, batch до 50 изображений">
-<link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icons/icon-180.png"><link rel="icon" type="image/png" href="./icons/icon-192.png"><link rel="stylesheet" href="./styles.css?v=1.2.0">
+<link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icons/icon-180.png"><link rel="icon" type="image/png" href="./icons/icon-192.png"><link rel="stylesheet" href="./styles.css?v=1.3.0">
 <title>VHS Glitch Studio Mobile</title>
 </head><body>
-<header class="top"><div class="brand"><span class="mark">▥</span><div>VHS <b>GLITCH</b><small>STUDIO MOBILE · 1.2.0</small></div></div><span class="status" id="onlineState">ПРОВЕРКА…</span></header>
+<header class="top"><div class="brand"><span class="mark">▥</span><div>VHS <b>GLITCH</b><small>STUDIO MOBILE · 1.3.0</small></div></div><span class="status" id="onlineState">ПРОВЕРКА…</span></header>
 <aside id="floatingPreview" class="floatingPreview" aria-label="Закреплённый предпросмотр фотографии" hidden>
   <div class="floatingPreviewBar">
     <span class="floatingPreviewTitle">▣ КАДР ПРИ НАСТРОЙКЕ</span>
@@ -20,10 +20,10 @@
 <main>
 <section class="preview" aria-label="Предпросмотр"><div class="previewHead"><span id="photoLabel">Фотография не выбрана</span><span id="sizeLabel">—</span></div><div class="canvasWrap" id="mainPreviewTap" role="button" tabindex="0" aria-label="Открыть основную фотографию крупно"><canvas id="previewCanvas" width="640" height="480"></canvas><div id="emptyMsg"><b>VHS / FILM</b><span>Выбери фотографию для обработки</span></div></div>
 <div class="previewActions"><label class="btn primary">＋ Открыть фото<input id="fileSingle" type="file" accept="image/*" hidden></label><button class="btn" id="reroll">↻ Новые помехи</button><button class="btn" type="button" id="undoMain" aria-label="Вернуть предыдущие помехи основного фото" title="Назад: предыдущие помехи" disabled>↶</button><button class="btn" id="saveOne">↓ Сохранить</button></div>
-<div class="row slim"><button class="btn mini" id="allPhotoFxToggle" type="button">✕ ВЫКЛЮЧИТЬ ВСЁ</button><button class="btn mini" id="compare">◩ До / После</button><button class="btn mini" id="openMainPreview">⛶ Открыть крупно</button><button class="btn mini" id="dockEnable" aria-pressed="true">▣ Превью: вкл</button><span id="renderStatus" class="muted">Локальная обработка · фото не загружаются на сервер</span><span id="renderTime" class="muted"></span></div></section>
+<div class="row slim"><button class="btn mini" id="allPhotoFxToggle" type="button">✕ СБРОСИТЬ ВСЁ</button><button class="btn mini" id="undoPhotoFxReset" type="button" disabled>↶ Отменить сброс</button><button class="btn mini" id="compare">◩ До / После</button><button class="btn mini" id="openMainPreview">⛶ Открыть крупно</button><button class="btn mini" id="dockEnable" aria-pressed="true">▣ Превью: вкл</button><span id="renderStatus" class="muted">Локальная обработка · фото не загружаются на сервер</span><span id="renderTime" class="muted"></span></div></section>
 <details id="favoritesStrip" class="favoriteStrip"><summary><span>★ ИЗБРАННЫЕ ПЛЁНКИ</span><span id="favoritesCount" class="muted" role="status">Пока пусто</span></summary><p class="hint">Нажми ☆ у понравившейся плёнки в разделе FILM. Коснись карточки здесь, чтобы сразу применить её к фото.</p><div id="favoritesGrid" class="filmGrid"></div><div class="row"><button class="btn mini" id="prevFavoritesPage">← Назад</button><span id="favoritesPageLabel" class="muted"></span><button class="btn mini" id="nextFavoritesPage">Вперёд →</button></div></details>
 
-<nav class="tabs" aria-label="Разделы"><button data-tab="vhs" class="active">VHS</button><button data-tab="film">FILM</button><button data-tab="glitch">GLITCH</button><button data-tab="cassettes">КАССЕТЫ</button><button data-tab="masks">МАСКИ</button><button data-tab="correction">КОРРЕКЦИЯ</button><button data-tab="batch">BATCH</button><button data-tab="camera">КАМЕРА</button></nav>
+<nav class="tabs" aria-label="Разделы"><button data-tab="vhs" class="active">VHS</button><button data-tab="film">FILM</button><button data-tab="glitch">GLITCH</button><button data-tab="cassettes">КАССЕТЫ</button><button data-tab="masks">МАСКИ</button><button data-tab="correction">КОРРЕКЦИЯ</button><button data-tab="polaroid">POLAROID</button><button data-tab="batch">BATCH</button><button data-tab="camera">КАМЕРА</button></nav>
 <section class="panel active" id="panel-vhs"><h2>VHS / ANALOG TAPE</h2><div class="row switch"><span>Включить VHS</span><input id="vhsEnabled" type="checkbox" checked></div>
 <label>Стиль записи<select id="vhsPreset"><option>VHS 90s</option><option>Camcorder 90s</option><option>VHS — мягкий</option><option>VHS — повреждённая кассета</option><option>Dirty VHS Extreme</option><option>Tracking Error</option><option>Аналоговый шум</option><option>Цветные помехи</option><option>RGB Split</option></select></label>
 <div id="masterControl"></div><p class="hint">Аналоговая обработка фотографии по принципам ntsc-rs (самостоятельная офлайн-реализация). Все параметры сохраняются.</p>
@@ -51,7 +51,7 @@
 <section class="panel" id="panel-cassettes"><h2>КАССЕТЫ / МОИ СТИЛИ</h2><p class="hint">Готовые кассеты, собственные пресеты, старение и плавное смешивание. Повторное нажатие возвращает исходные настройки.</p></section>
 <section class="panel" id="panel-masks"><h2>МАСКИ / РИСОВАНИЕ / ЛИЦА</h2><p class="hint">Рисуй пикселизацию и размытие пальцем, находи несколько лиц и сохраняй результат в полном разрешении.</p></section>
 <section class="panel" id="panel-correction"><h2>КОРРЕКЦИЯ / СВЕТ · ЦВЕТ · ДЕТАЛИ</h2></section>
-<section class="panel" id="panel-batch"><h2>BATCH / ДО 50 ФОТОГРАФИЙ</h2><p class="hint">Один стиль VHS + FILM + КАМЕРА для серии. Маленькая ↻ под фото обновляет только его помехи, ↶ возвращает предыдущий вариант. Общая ↻ — сразу для всех. Шесть превью на странице.</p>
+<section class="panel" id="panel-polaroid"><h2>POLAROID / МОМЕНТАЛЬНЫЕ ОТПЕЧАТКИ</h2><p class="hint">Реалистичная бумажная рамка: без обрезки фотографии, подходит для горизонтального, квадратного и вертикального кадра.</p></section><section class="panel" id="panel-batch"><h2>BATCH / ДО 50 ФОТОГРАФИЙ</h2><p class="hint">Один стиль VHS + FILM + КАМЕРА для серии. Маленькая ↻ под фото обновляет только его помехи, ↶ возвращает предыдущий вариант. Общая ↻ — сразу для всех. Шесть превью на странице.</p>
 <label class="btn primary full">＋ Выбрать до 50 фото<input type="file" id="batchFiles" accept="image/*" multiple hidden></label>
 <div class="row"><span id="batchStatus">Фотографии не выбраны</span><button id="batchRegen" class="btn mini">↻ Новые помехи</button></div><div class="batchGrid" id="batchGrid"></div>
 <div class="row"><button class="btn mini" id="prevPage">← Назад</button><span id="pageCount">—</span><button class="btn mini" id="nextPage">Вперёд →</button></div>
@@ -62,7 +62,7 @@
 <section class="panel" id="panel-settings"><h2>НАСТРОЙКИ И РЕЗЕРВНАЯ КОПИЯ</h2><p class="hint">Для надёжного восстановления сохрани файл резервной копии в «Файлы» на iPhone или на компьютере. Он содержит твои настройки и импортированные XMP/LUT, но не личные фотографии.</p>
 <button class="btn primary full" id="backupExport">↓ Скачать резервную копию настроек и плёнок</button><label class="btn full">↑ Восстановить из резервной копии<input type="file" id="backupImport" accept=".json,application/json" hidden></label>
 <label>Формат отдельной фотографии<select id="exportFormat"><option value="image/jpeg">JPEG — меньший размер</option><option value="image/png">PNG — без JPEG-сжатия</option></select></label><label>Размер экспорта отдельной фотографии<select id="singleSize"><option value="3200">До 3200 px (рекомендуется)</option><option value="full">Исходный размер (больше памяти)</option><option value="2000">До 2000 px</option></select></label>
-<div class="row"><span>Версия приложения</span><span class="muted">Mobile 1.2.0</span></div><p class="hint" id="offlineDetail">Проверка офлайн-ресурсов…</p>
+<div class="row"><span>Версия приложения</span><span class="muted">Mobile 1.3.0</span></div><p class="hint" id="offlineDetail">Проверка офлайн-ресурсов…</p>
 <button class="btn primary full" id="checkForUpdates" type="button">↻ Обновить приложение без удаления данных</button>
 <button class="btn mini full" id="protectStorage">Попробовать защитить данные от очистки iOS</button><button class="btn mini full" id="installHelp">Как установить через Safari?</button></section>
 <p class="hint" id="extrasStatus" role="status" aria-live="polite">Новые функции сохраняются вместе с настройками. Исходная фотография не изменяется.</p><footer class="footer"><button type="button" id="photoHelpToggle" class="btn mini">? Показать объяснения</button><p id="notice">Все фотографии обрабатываются на устройстве без отправки на сервер.</p><button class="btn mini" id="openSettings">Резервная копия · Настройки</button></footer>
@@ -86,6 +86,11 @@
 <script src="./video/film-damage.js?v=1.2.0" defer></script>
 <script src="./video/camera-osd.js?v=1.2.0" defer></script>
 <script src="./video/face-ai.js?v=1.2.0" defer></script>
-<script src="./photo-extras-core.js?v=1.2.0" defer></script>
-<script src="./photo-extras-ui.js?v=1.2.0" defer></script>
-<script src="./app.js?v=1.2.0" defer></script></body></html>
+<script src="./video/vendor/tracking-min.js?v=1.1.3" defer></script>
+<script src="./video/vendor/tracking-face-min.js?v=1.0.0" defer></script>
+<script src="./photo-polaroid.js?v=1.3.0" defer></script>
+<script src="./photo-face-detect.js?v=1.3.0" defer></script>
+<script src="./photo-extras-core.js?v=1.3.0" defer></script>
+<script src="./photo-extras-ui.js?v=1.3.0" defer></script>
+<script src="./photo-polaroid-ui.js?v=1.3.0" defer></script>
+<script src="./app.js?v=1.3.0" defer></script></body></html>
