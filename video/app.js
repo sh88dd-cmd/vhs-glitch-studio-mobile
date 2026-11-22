@@ -1531,11 +1531,23 @@
   const withoutLocal={...frameState,creative:{...frameState.creative,
    touch:{...touch,enabled:false,facesEnabled:false}}};
   const localOnly=hasLocalEdits&&!window.VHSVideoCleanPath.hasVisualEffects(withoutLocal,holdVideo);
+  // Color-only FILM and photographic damage must retain fine detail in
+  // BOTH the imported-video editor and the new live camera. Downsample
+  // only when an actual low-bandwidth VHS or temporal glitch is active.
+  const lossySignal=!state.masterBypass&&(
+   (frameState.fxMode==='classic'&&frameState.vhsEnabled&&frameState.master>0)||
+   frameState.fxMode!=='classic'||
+   (frameState.glitchEnabled&&frameState.glitchStrength>0&&
+    Object.values(frameState.glitches||{}).some(v=>Number(v)>0))||
+   (frameState.mode!=='vhs'&&frameState.modeStrength>0)||
+   holdVideo>0
+  );
   if(canvas===preview){
    // Full original quality is provided by the native video element, not a
    // continuously redrawn 1080p canvas (too costly for mobile Safari).
    $('videoStage').querySelector('.stageCanvas').classList.toggle('native-clean',clean);
-   const [width,height]=videoDimensions(clean?960:localOnly?1280:520);
+   const [width,height]=videoDimensions(clean?960:localOnly?1280:
+    lossySignal?520:960);
    if(canvas.width!==width)canvas.width=width;
    if(canvas.height!==height)canvas.height=height;
   }
@@ -1544,7 +1556,10 @@
    if(localOnly&&!comparisonHeld)creativeUI?.drawTouch(canvas.getContext('2d'),atTime,clipIndex);
    return;
   }
-  const limit=state.signalWidth==='auto'?(forExport||recording?adaptiveExportWidth:adaptivePreviewWidth):Number(state.signalWidth);
+  const limit=lossySignal?
+   (state.signalWidth==='auto'?
+    (forExport||recording?adaptiveExportWidth:adaptivePreviewWidth):Number(state.signalWidth)):
+   Math.max(canvas.width,canvas.height);
   const ratio=CFinite(Math.min(1,limit/Math.max(canvas.width,canvas.height)),.1,1);
   const iw=Math.max(2,Math.round(canvas.width*ratio/2)*2),ih=Math.max(2,Math.round(canvas.height*ratio/2)*2);
   if(signalCanvas.width!==iw)signalCanvas.width=iw;
