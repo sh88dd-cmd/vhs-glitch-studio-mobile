@@ -874,3 +874,44 @@ body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){p
 .videoLiveReviewActions #videoLiveImport{grid-column:1 / 3}
 .videoLiveNote{color:#9d9d9d;font-size:10px;line-height:1.55;margin:3px 1px 0;flex:0 0 auto}
 @media(max-width:380px){.videoLiveButtons{grid-template-columns:1fr 82px 1fr;gap:5px}.videoLiveRecord{width:72px;height:72px}.videoLiveButtons .button{font-size:10px}.videoLiveControls{gap:4px}.videoLiveControls label{padding:5px}}
+
+/* Video 0.9.1: the stream and its processed preview share EXACT native
+   pixel aspect, never stretch an upright 9:16 image over a 16:9 canvas. */
+#videoLiveStage.videoLiveStage{
+ flex:0 0 auto;
+ min-height:0;
+ min-width:0;
+ max-height:none;
+ align-self:center;
+ width:auto;
+ height:auto;
+ position:relative
+}
+#videoLiveStage>#videoLiveOverlay,
+#videoLiveStage>#videoLiveReview,
+#videoLiveStage>#videoLiveVideo{
+ width:100%;height:100%;inset:0;
+ object-fit:fill;
+}
+#videoLiveStage>#videoLiveOverlay{
+ z-index:3;background:#030405;
+}
+#videoLiveStage>#videoLiveOverlay[hidden]{display:none!important}
+#videoLiveStage>#videoLiveVideo{z-index:1}
+#videoLiveStage>#videoLiveReview{z-index:4}
+#videoLiveStage.selfie>#videoLiveVideo{transform:scaleX(-1)}
+.videoLiveConnecting{
+ position:absolute;z-index:4;inset:0;
+ display:flex;align-items:center;justify-content:center;
+ background:linear-gradient(125deg,#090a0c,#16191e);
+ font-size:12px;letter-spacing:.3px;color:#d9e2e2;
+ pointer-events:none;
+}
+.videoLiveConnecting:before{
+ content:"";display:inline-block;width:16px;height:16px;
+ border:2px solid #737373;border-top-color:#fff;
+ border-radius:50%;margin-right:10px;
+ animation:videoConnectSpin .8s linear infinite;
+}
+@keyframes videoConnectSpin{to{transform:rotate(360deg)}}
+.videoLiveConnecting[hidden]{display:none!important}
