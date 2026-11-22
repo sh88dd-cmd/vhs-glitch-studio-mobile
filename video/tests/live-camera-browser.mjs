@@ -80,7 +80,19 @@ try{
  assert.equal(opened.videoFilter,'none',
   'Raw CSS recolor must be disabled; actual selected effects applied in video frame pipeline');
  assert.ok(Math.abs(opened.aspect.stage-opened.aspect.source)<.006,
-  '9:16 camera picture, date and VHS must match native image aspect ratio; no 16:9 stretching');
+  'Camera picture, date and VHS must match native image aspect ratio; no stretching');
+ const geometry=await page.evaluate(()=>{
+  const fit=window.VHSVideoLiveCamera.fitGeometry;
+  return{portrait:fit(720,1280,360,820),
+   landscape:fit(1280,720,360,820)};
+ });
+ assert.ok(geometry.portrait.portrait&&!geometry.landscape.portrait);
+ assert.ok(Math.abs(geometry.portrait.width/geometry.portrait.height-720/1280)<.004,
+  'Actual iPhone 720x1280 portrait camera must fit as 9:16, not narrow strip on 16:9 preview');
+ assert.ok(geometry.portrait.width>250,
+  'Portrait camera should fill available width within safe viewport height');
+ assert.ok(Math.abs(geometry.landscape.width/geometry.landscape.height-1280/720)<.02);
+ console.log('Correct native portrait and landscape framing:',geometry);
  assert.equal(opened.loading,false,'Camera readiness must dismiss startup overlay');
  await page.waitForFunction(()=>window.__actualCameraFx?.vhs>1&&
   window.__actualCameraFx?.film>1,null,{timeout:12000});
