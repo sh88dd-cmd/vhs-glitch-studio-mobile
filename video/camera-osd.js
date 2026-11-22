@@ -53,10 +53,10 @@ function layout(ctx,w,h,c={},speed='SP',elapsed=0){
  }
  function place(key,lines,factor,type='text'){
   const preferred=positions[key]||'left-top';
-  const baseSize=Math.max(5.8,base*factor*clamp((Number(sizes[key])||125)/100,.45,2.8));
+  const baseSize=Math.max(2.5,base*factor*clamp((Number(sizes[key])||125)/100,.12,2.8));
   const maxW=safe.right-safe.left,maxH=safe.bottom-safe.top;
   for(const scale of [1,.89,.78,.68,.58,.49,.39,.31]){
-   const size=Math.max(4,baseSize*scale);
+   const size=Math.max(2.5,baseSize*scale);
    const shape=measure(lines,size,type);
    if(shape.w>maxW||shape.h>maxH)continue;
    for(const slot of candidateSlots(preferred)){
