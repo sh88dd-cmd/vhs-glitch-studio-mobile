@@ -19,13 +19,19 @@ function normalize(detected,w,h){
 function intersection(a,b){
  const x=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x));
  const y=Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
- return x*y/(a.w*a.h+b.w*b.h-x*y+1e-8);
+ const overlap=x*y;
+ const areaA=a.w*a.h,areaB=b.w*b.h;
+ const iou=overlap/(areaA+areaB-overlap+1e-8);
+ const contained=overlap/(Math.min(areaA,areaB)+1e-8);
+ // Cropped searches often detect the SAME face with a larger bounding box.
+ // Containment is more robust than IoU alone for this specific situation.
+ return Math.max(iou,contained*.70);
 }
 function dedupe(raw,limit=16){
  const sorted=[...raw].sort((a,b)=>b.confidence-a.confidence);
  const found=[];
  for(const r of sorted){
-  if(found.some(f=>intersection(f,r)>.36))continue;
+  if(found.some(f=>intersection(f,r)>.42))continue;
   found.push(r);if(found.length>=limit)break;
  }
  return found.map(({confidence,...f})=>f);
@@ -141,7 +147,7 @@ async function detect(source,onStatus=()=>{}){
  }
  // Native Safari FaceDetector is not consistently available on iOS, but
  // use it as a second route where supported.
- if(faces.length<3){
+ if(!faces.length){
   try{
    const found=await native(source,report);
    report('Системный детектор: найдено лиц '+found.length);
@@ -153,7 +159,7 @@ async function detect(source,onStatus=()=>{}){
  }
  // Third route: truly offline 3-scale Haar with checked bundled classifiers.
  // Its results are also normalized to the original photo.
- if(faces.length<4){
+ if(!faces.length){
   try{
    const found=await haar(source,report);
    report('Резервный Haar: найдено лиц '+found.length);
