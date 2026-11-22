@@ -1285,14 +1285,18 @@
     });
     photoExtrasUI?.refresh();
     photoLiveCamera=window.VHSPhotoCamera.mount({
-      // Fast live camera reads settings only: no per-frame photo reprocessing.
-      // Full-res photo processing still happens when the shutter is pressed.
+      // One real processing pipeline for both LIVE and saved photo.
+      // Only the viewfinder resolution changes with performance.
       getVisualSettings:()=>({
        vhsEnabled:state.vhsEnabled,master:state.master,
        signal:state.signal,filmEnabled:state.filmEnabled,film:state.film,
        correction:state.extras.correction,glitch:state.extras.glitch,
-       polaroid:state.extras.polaroid,damage:state.extras.damage
+       polaroid:state.extras.polaroid,damage:state.extras.damage,
+       colorCopy:state.extras.colorCopy,edgeBurn:state.edgeBurn,
+       camera:state.camera,extraCamera:state.extraCamera
       }),
+      onPreview:(source,seed,filmSeed,size)=>processImage(source,seed,
+       {cameraLive:true,filmSeed},String(size)),
       onCaptured:onCameraCaptured,
       onSave:saveCameraOutput,
       getSeed:()=>randomSeed(),
