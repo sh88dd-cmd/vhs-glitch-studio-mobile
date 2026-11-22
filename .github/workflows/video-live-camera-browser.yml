@@ -1,9 +1,12 @@
-name: Video 0.9.1 exact live VHS and FILM / portrait / iPhone camera regression
+name: Video 0.9.2 native film quality and 3-column gallery browser regression
 on:
   push:
     paths:
       - 'video/live-camera.js'
       - 'video/live-fx.js'
+      - 'video/film-core.js'
+      - 'video/film-gallery.js'
+      - 'video/tests/film-gallery-browser.mjs'
       - 'video/camera-osd.js'
       - 'video/index.html'
       - 'video/app.js'
@@ -29,6 +32,8 @@ jobs:
         run: |
           node --check video/live-camera.js
           node --check video/live-fx.js
+          node --check video/film-core.js
+          node --check video/film-gallery.js
           node --check video/app.js
           node --check video/sw.js
           node video/tests/studio-core-smoke.mjs
@@ -47,3 +52,4 @@ jobs:
           trap 'kill $server_pid || true' EXIT
           sleep 2
           node video/tests/live-camera-browser.mjs
+          node video/tests/film-gallery-browser.mjs
