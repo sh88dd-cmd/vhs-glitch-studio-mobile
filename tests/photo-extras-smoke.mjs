@@ -81,4 +81,30 @@ assert.ok(warm.data[0]>warm.data[2],'Warmth should increase red relative to blue
 const p=X.palette(warm.data,2,2);
 assert.equal(p.mean.length,3);assert.equal(p.spread.length,3);
 assert.equal(X.mix({v:0,inner:{strength:10}},{v:100,inner:{strength:70}},.5).inner.strength,40);
-console.log('PASS: photo app integration, 15 glitch effects, camera without zoom, BATCH, correction pixels and help UI');
+// Use the ACTUAL video glitch implementation on a synthetic photograph.
+vm.runInNewContext(read('video/glitch-engine.js'),context);
+vm.runInNewContext(read('video/film-damage.js'),context);
+const w=180,h=120,source=new Uint8ClampedArray(w*h*4);
+for(let i=0;i<source.length;i+=4){
+ source[i]=110;source[i+1]=145;source[i+2]=190;source[i+3]=255;
+}
+let output=new Uint8ClampedArray(source),putCount=0;
+const canvas={width:w,height:h,getContext(){return{
+ getImageData:()=>({width:w,height:h,data:new Uint8ClampedArray(output)}),
+ putImageData(im){output=new Uint8ClampedArray(im.data);putCount++;}
+}}};
+const settings=X.defaults().glitch;
+settings.enabled=true;settings.mode='night';settings.modeStrength=85;
+settings.effects.rf=75;settings.effects.dropouts=70;
+X.glitch(canvas,settings,9217);
+assert.ok(putCount>=1,'The glitch processor must commit its pixels back to the canvas');
+assert.ok(output.some((v,i)=>i%4!==3&&v!==source[i]),
+ 'Night vision and VHS damage must change actual photographic color channels');
+const damaged=new Uint8ClampedArray(source);
+context.window.VHSVideoFilmDamage.apply(damaged,w,h,{
+ enabled:true,type:'both',leak:95,dust:40,grain:45,
+ scratches:35,flicker:20,halation:15,seed:42,time:.9
+});
+assert.ok(damaged.some((v,i)=>i%4!==3&&v!==source[i]),
+ 'Imported film damage must affect real photo pixels');
+console.log('PASS: photo integration, camera without ZOOM, correction, true glitch pixel output and film damage');
