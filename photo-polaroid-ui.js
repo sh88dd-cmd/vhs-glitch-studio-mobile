@@ -34,14 +34,17 @@ function mount({state,getOriginal,onChange}){
  selected.append(styles);
  const styleButtons=[];
  function sample(){
-  const im=getOriginal(),w=110,h=90;
+  const im=getOriginal(),maxSide=108;
+  const iw=im?(im.naturalWidth||im.width):110;
+  const ih=im?(im.naturalHeight||im.height):90;
+  const scl=Math.min(1,maxSide/Math.max(1,iw,ih));
+  const w=Math.max(10,Math.round(iw*scl)),h=Math.max(10,Math.round(ih*scl));
   const c=doc.createElement('canvas');c.width=w;c.height=h;
   const ctx=c.getContext('2d');
   if(im){
-   const iw=im.naturalWidth||im.width,ih=im.naturalHeight||im.height;
-   const scl=Math.min(w/iw,h/ih),sw=iw*scl,sh=ih*scl;
-   ctx.fillStyle='#343f44';ctx.fillRect(0,0,w,h);
-   ctx.drawImage(im,(w-sw)/2,(h-sh)/2,sw,sh);
+   // Thumbnail previews must keep the original orientation too:
+   // no black sidebars or 110x90 fake image windows.
+   ctx.drawImage(im,0,0,w,h);
   }else{
    const gradient=ctx.createLinearGradient(0,0,w,h);
    gradient.addColorStop(0,'#b2c0b7');gradient.addColorStop(.5,'#7b948d');
