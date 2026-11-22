@@ -434,16 +434,28 @@ function mount(opts){
  maskGroup.append(select('photoMaskMode',[['all','Все обнаруженные и вручную выбранные лица'],
   ['auto','Только автоматически найденные'],['manual','Только нарисованные вручную']],
   extras.masks.mode,v=>{extras.masks.mode=v;changed();markDirty();}));
+ const faceDiagnostics=document.createElement('details');
+ faceDiagnostics.id='photoFaceDiagnostics';faceDiagnostics.className='photoFaceDiagnostics';
+ const diagSummary=document.createElement('summary');
+ diagSummary.textContent='Диагностика поиска лиц';
+ const faceTrace=document.createElement('pre');faceTrace.id='photoFaceTrace';
+ faceTrace.textContent='Поиск ещё не запускался.';
+ faceDiagnostics.append(diagSummary,faceTrace);
  maskPanel.append(button('◎ Найти все лица на фото',async()=>{
   const im=getOriginal();
   if(!im){status.textContent='Сначала открой фото.';return;}
   const button=$('photoDetectFaces');
   if(button)button.disabled=true;
-  status.textContent='Ищу лица. Сначала проверяю точную модель, затем встроенный поиск…';
+  status.textContent='Проверяю две локальные модели и резервный поиск…';
+  faceTrace.textContent='Начало распознавания…';
   try{
    const search=root.VHSPhotoFaceDetect;
    if(!search?.detect)throw Error('Детектор не загрузился. Обнови приложение.');
-   const result=await search.detect(im,msg=>{status.textContent=msg;});
+   const result=await search.detect(im,msg=>{
+    status.textContent=msg;
+    faceTrace.textContent+=(msg+'\n');
+   });
+   faceTrace.textContent=result.diagnostics.join('\n');
    if(getOriginal()!==im)return; // Never apply old faces to a new photo.
    const manual=extras.masks.faces.filter(x=>!x.auto);
    extras.masks.faces=[...manual,...result.faces].slice(0,16);
@@ -452,12 +464,16 @@ function mount(opts){
    changed();markDirty();
    status.textContent=result.faces.length?
     'Найдено лиц: '+result.faces.length+' · '+result.engine+'. Маски применены.':
-    'Лица автоматически не обнаружены. Обведи их вручную на кадре.';
+    'Автопоиск: 0 лиц. '+(result.error?
+      'Причина: '+result.error.slice(0,105)+'. ':'')+
+      'Раскрой «Диагностика поиска» ниже. Можно выделить вручную.';
   }catch(e){
    status.textContent='Поиск не сработал: '+e.message+'. Обведи лица пальцем.';
+   faceTrace.textContent+='Ошибка: '+e.message;
   }finally{if(button)button.disabled=false;}
  },'btn primary full'));
-  maskPanel.append(button('↶ Удалить последний мазок',()=>{
+  maskPanel.append(faceDiagnostics);
+ maskPanel.append(button('↶ Удалить последний мазок',()=>{
   extras.masks.strokes.pop();changed();markDirty();
  },'btn full'));
  maskPanel.append(button('✕ Очистить рисунки и лица',()=>{
