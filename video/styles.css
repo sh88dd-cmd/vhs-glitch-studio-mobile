@@ -782,3 +782,16 @@ body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){p
 .speedPointMarker{height:27px;width:27px;min-height:27px;min-width:27px;touch-action:none;cursor:grab;box-shadow:0 0 0 3px #251b17,0 0 9px #e9aa6caa}
 .speedPointMarker:active{cursor:grabbing}
 .speedGraphLabel{position:absolute;left:8px;transform:translateY(-50%);font-size:10px;font-weight:700;pointer-events:none;color:#efc6a0;text-shadow:0 1px 2px #090909}
+
+/* v0.8.3: keep the source video composited onscreen in iPhone Safari.
+   When all effects are off, the source is the real full-quality player.
+   The canvas remains available for dock mirroring and processed effects. */
+.stageCanvas>#source{
+ position:absolute;inset:0;left:0;top:0;
+ display:block;width:100%;height:100%;
+ object-fit:contain;opacity:.015;
+ pointer-events:none;z-index:0;
+}
+.stageCanvas>#preview{position:relative;z-index:1}
+.stageCanvas.native-clean>#source{opacity:1}
+.stageCanvas.native-clean>#preview{opacity:0}
