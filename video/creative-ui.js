@@ -111,7 +111,7 @@ function create(opts){
   }else if(tool==='face'){
    if(drawing.w>.025&&drawing.h>.025){
     c.touch.manualFaces.push({...drawing,id:'face-'+Date.now().toString(36),clip:opts.getClip(),start:Number(source.currentTime)||0});
-    c.touch.manualFaces=c.touch.manualFaces.slice(-6);
+    c.touch.manualFaces=c.touch.manualFaces.slice(-10);
     c.touch.facesEnabled=true;$('faceEnabled').checked=true;
     resetTracking();
     pulse('Лицо выделено. Маска будет двигаться при воспроизведении благодаря локальному отслеживанию кадров.');
@@ -315,6 +315,27 @@ function create(opts){
     old.w=old.w*(1-fresh)+face.w*fresh;
     old.h=old.h*(1-fresh)+face.h*fresh;
    }
+   // Correct manually selected face masks too, without adding other people.
+   const usedManual=new Set();
+   for(const manual of tracked.filter(box=>box.id?.startsWith('face-'))){
+    let best=null,bestDist=Infinity;
+    for(const candidate of next){
+     if(usedManual.has(candidate.id))continue;
+     const dist=Math.hypot(
+      (manual.x+manual.w*.5)-(candidate.x+candidate.w*.5),
+      (manual.y+manual.h*.5)-(candidate.y+candidate.h*.5));
+     if(dist<bestDist&&dist<Math.max(.12,manual.w,manual.h)){
+      best=candidate;bestDist=dist;
+     }
+    }
+    if(best){
+     usedManual.add(best.id);
+     manual.x=manual.x*.24+best.x*.76;
+     manual.y=manual.y*.24+best.y*.76;
+     manual.w=manual.w*.24+best.w*.76;
+     manual.h=manual.h*.24+best.h*.76;
+    }
+   }
    tracked=tracked.filter(box=>!box.id?.startsWith('auto-')||
     next.some(face=>face.id===box.id));
   }
@@ -380,12 +401,13 @@ function create(opts){
   }
   // A live scan is independent of drawing and uses the original decoded
   // video frame, never the pixelated preview.
-  if(cfg.faceAutodetect&&liveModel&&!source.paused&&!source.seeking&&
+  if((cfg.faceAutodetect||manual.length>0)&&liveModel&&!source.paused&&!source.seeking&&
    opts.hasVideo()&&!faceBusy&&
    performance.now()-lastAutoScanWall>=520&&time>=0){
    lastAutoScanWall=performance.now();
    setTimeout(()=>{
-    if(!opts.hasVideo()||!c.touch.facesEnabled||!c.touch.faceAutodetect)return;
+    if(!opts.hasVideo()||!c.touch.facesEnabled||
+     (!c.touch.faceAutodetect&&!c.touch.manualFaces.length))return;
     detectFace(true).then(count=>{
      if(count&&$('panel-touch').classList.contains('active')){
       editorDirty=true;updateOverlay();
@@ -709,33 +731,45 @@ function create(opts){
   $('faceStyle').value=c.touch.faceStyle;
   $('faceStyle').onchange=()=>{c.touch.faceStyle=$('faceStyle').value;save();};
   $('faceAuto').onclick=async()=>{
-   if(!faceDetector){pulse('Детектор недоступен. Можно обвести лицо пальцем прямо на кадре ниже.');return;}
    if(faceBusy)return;
    if(!source.paused)source.pause();
-   tool=''; // Search results should not be hidden by an active brush mode.
+   tool='';
    c.touch.facesEnabled=true;c.touch.faceAutodetect=true;
    $('faceEnabled').checked=true;
-   autoBoxes=[];autoClip=-1;faceLast=-1;resetTracking();editorDirty=true;
    $('faceAuto').disabled=true;
-   pulse('Ищу лица на остановленном кадре…');
+   pulse('Загружаю улучшенную модель нескольких лиц (бесплатно, прямо на устройстве)…');
    editStage.scrollIntoView({behavior:'smooth',block:'center'});
    try{
-    const count=await detectFace();
-    if(!count){
-     // A failed scan must not leave face autodetect switched on with no
-     // usable mask. Offer direct finger selection on this same visible frame.
-     c.touch.faceAutodetect=false;
-     tool='face';
+    const better=await upgradeDetector();
+    if(!faceDetector){
+     pulse('Автоматический детектор недоступен. Нажми «Обвести лицо» и выдели его на кадре.');
+     tool='face';editorDirty=true;updateOverlay();return;
+    }
+    pulse(better?'MediaPipe готов. Проверяю все лица на кадре…':
+     'Улучшенная модель недоступна. Пробую встроенный офлайн-детектор…');
+    autoBoxes=[];autoClip=-1;faceLast=-1;resetTracking();editorDirty=true;
+    const count=await detectFace(false);
+    if(!count&&faceDetector?.kind==='haar'){
+     c.touch.faceAutodetect=false;tool='face';
      $('faceMark').textContent='✓ Закончить выделение';
     }
     editorDirty=true;save();updateOverlay();
-    pulse(count?'Найдено лиц: '+count+'. Зелёные рамки показывают области обработки; для другой сцены повтори поиск.':
-     'Модель не распознала лицо. Ручное выделение уже включено: обведи лицо пальцем по кадру выше.');
+    pulse(count?'Найдено лиц: '+count+'. Зелёные рамки показывают маски; при проигрывании модель перепроверяет лица.':
+     faceDetector?.kind==='haar'?
+      'Офлайн-детектор не распознал лица. Режим обводки включён: выдели их пальцем прямо на кадре.':
+      'На этом кадре лиц нет. Запусти видео: модель будет искать их дальше. Можно также обвести лица пальцем.');
+   }catch(err){
+    pulse('Ошибка поиска: '+err.message+'. Можно обвести лица пальцем.');
    }finally{$('faceAuto').disabled=false;}
   };
   $('faceMark').onclick=()=>{
    if(tool!=='face'&&!source.paused)source.pause();
    tool=tool==='face'?'':'face';
+   if(tool&&faceDetector?.kind!=='mediapipe'&&root.VHSVideoFaceAI?.create){
+    upgradeDetector().then(ok=>{
+     if(ok)pulse('Точная модель лиц готова. Ручные рамки будут корректироваться при просмотре.');
+    });
+   }
    $('faceMark').textContent=tool==='face'?'✓ Закончить выделение':'＋ Обвести лицо на кадре выше';
    $('touchStartDrawing').textContent='✎ Начать рисовать на кадре ниже';
    editorDirty=true;updateOverlay();
