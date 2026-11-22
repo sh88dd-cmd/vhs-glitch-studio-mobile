@@ -113,8 +113,8 @@ for(const id of [
  'autoBeatGenerate','lookFile','lookStrength','liveStatus']){
  assert.ok(html.includes('id="'+id+'"'),'Missing UI '+id);
 }
-for(const script of ['creative-engine.js','creative-ui.js']){
- assert.ok(html.includes(script+'?v=0.8.5'),'Missing browser JS '+script);
+for(const script of ['face-ai.js','creative-engine.js','creative-ui.js']){
+ assert.ok(html.includes(script+'?v=0.8.6'),'Missing browser JS '+script);
  assert.ok(sw.includes("'./"+script+"'"),'Missing offline precache '+script);
 }
 assert.ok(app.includes('window.VHSVideoCreative.transfer(image.data,iw,ih'),
@@ -131,7 +131,7 @@ assert.ok(ui.includes("const overlay=$('touchOverlay'),editStage=$('touchEditSta
  ui.includes("editStage.hidden=!can") &&
  ui.includes("editStage.scrollIntoView("),
  'Touch editing must appear next to its controls, not on a distant top-of-page canvas');
-assert.ok(ui.includes("const count=await detectFace();"),
+assert.ok(ui.includes("const count=await detectFace(false);"),
  'Face detection must be requested explicitly and report its actual result');
 assert.ok(app.includes('creativeUI?.updateSpeed(now)'),'Speed controls must drive playback');
 assert.ok(app.includes('creativeUI.mount()'),'New UI must be mounted');
@@ -140,5 +140,5 @@ assert.ok(ui.includes('vision.detect(pixels,w,h,1.1,1.22,2,.105,vision.classifie
 assert.ok(ui.includes("source.currentTime=clamp(source.currentTime+rate*dt"),'Negative speed must seek real video frames');
 assert.ok(ui.includes('opts.onBeat(events)'),'Beat output must be committed to timeline');
 assert.ok(ui.includes('opts.onLive(ev)'),'Live pads must record timeline events');
-assert.ok(html.includes('БЕТА 0.8.5'));
+assert.ok(html.includes('БЕТА 0.8.6'));
 console.log('PASS: eight creative studio workflows, actual pixel change, face motion tracking, beat onsets, signed speed, UI and offline cache');
