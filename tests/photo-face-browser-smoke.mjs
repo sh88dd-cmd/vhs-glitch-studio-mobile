@@ -37,7 +37,51 @@ try{
  assert.ok(result.ready.ready,'Real MediaPipe must be in ready state');
  assert.ok(!result.stages.join(' ').includes('https://cdn.jsdelivr.net'),
   'Runtime cannot fetch external CDN JS');
- console.log('PASS: real browser successfully detects an actual face using local ML, no CDN or uploaded image');
+ const group=await page.evaluate(async()=>{
+  const original=new Image();
+  original.src='/tests/fixtures/portrait.jpg';
+  await original.decode();
+  const triptych=document.createElement('canvas');
+  triptych.width=original.naturalWidth*3;
+  triptych.height=original.naturalHeight;
+  const ctx=triptych.getContext('2d');
+  for(let i=0;i<3;i++)ctx.drawImage(original,original.naturalWidth*i,0);
+  const details=await window.VHSPhotoFaceDetect.detect(triptych,()=>{});
+  return {count:details.faces.length,faces:details.faces,engine:details.engine};
+ });
+ console.log('Real multi-face panorama:',JSON.stringify(group));
+ assert.ok(group.count>=3,
+  'Full photo detector must find all 3 faces in a repeated real portrait triptych');
+ const handwriting=await page.evaluate(async()=>{
+  const P=window.VHSPhotoPolaroid;
+  const source=document.createElement('canvas');
+  source.width=600;source.height=450;
+  const ctx=source.getContext('2d');
+  ctx.fillStyle='#477a6c';ctx.fillRect(0,0,600,450);
+  const caption=['Привет из лета','1997 год','На берегу моря','Всегда рядом','До скорой встречи'].join('\n');
+  const cfg={...P.defaults(),enabled:true,note:caption,
+   noteFont:'badscript',noteInk:'red-marker',notePlacementSeed:61932};
+  await P.ensureHandFont(cfg);
+  const signed=P.render(source,cfg),clear=P.render(source,{...cfg,note:''});
+  const g=P.geometry(source.width,source.height,cfg);
+  const y=g.imageY+g.imageH+2;
+  const height=Math.min(g.bottom-3,signed.height-y);
+  const ink=signed.getContext('2d').getImageData(0,y,signed.width,height).data;
+  const clean=clear.getContext('2d').getImageData(0,y,signed.width,height).data;
+  let changes=0;
+  for(let i=0;i<ink.length;i+=4)
+   if(Math.abs(ink[i]-clean[i])+Math.abs(ink[i+1]-clean[i+1])+
+      Math.abs(ink[i+2]-clean[i+2])>40)changes++;
+  return {lines:P.noteLines(cfg).length,inkPixels:changes,
+   fontLoaded:document.fonts.check('22px "PhotoBadScript"','Привет'),
+   width:signed.width,height:signed.height};
+ });
+ console.log('Real Polaroid handwriting:',JSON.stringify(handwriting));
+ assert.equal(handwriting.lines,5,'Caption keeps all five handwritten lines');
+ assert.ok(handwriting.inkPixels>80,
+  'Five-line marker inscription must actually change pixels on paper');
+ assert.equal(handwriting.fontLoaded,true,'Real Cyrillic font must load without CDN');
+ console.log('PASS: local browser model finds real faces including 3-photo group; Cyrillic handwriting ink changes paper pixels');
 }finally{
  await browser.close();
 }
