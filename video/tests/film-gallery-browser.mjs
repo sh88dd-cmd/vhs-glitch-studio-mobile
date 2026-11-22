@@ -116,7 +116,10 @@ try{
  await page.locator('button[data-tab="film"]').click();
  await page.locator('.filmFamilyChip',{hasText:'Kodak'}).first().click();
  await page.locator('.filmGalleryPick').filter({hasText:'Kodak Portra 400'}).first().click();
- await page.locator('#videoLiveMicrophone').uncheck();
+ // The microphone checkbox is inside the closed camera dialog.
+ // Configure the synthetic camera before opening instead of waiting
+ // for a hidden element to become clickable.
+ await page.evaluate(()=>{document.querySelector('#videoLiveMicrophone').checked=false;});
  await page.locator('#videoLiveOpenTop').click();
  await page.waitForFunction(()=>document.querySelector('#videoLiveStatus').textContent.includes('Камера готова'),
   null,{timeout:17000});
