@@ -1,4 +1,4 @@
-/* Regression tests for photo v1.2.0. No external network or test packages. */
+/* Regression tests for photo v1.3.0. No external network or test packages. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -6,16 +6,18 @@ const read=p=>fs.readFileSync(p,'utf8');
 const html=read('index.html'),css=read('styles.css'),app=read('app.js'),sw=read('sw.js');
 const core=read('photo-extras-core.js'),ui=read('photo-extras-ui.js');
 const paths=['photo-extras-core.js','photo-extras-ui.js',
- 'video/glitch-engine.js','video/film-damage.js','video/camera-osd.js','video/face-ai.js'];
+ 'photo-polaroid.js','photo-polaroid-ui.js','photo-face-detect.js',
+ 'video/glitch-engine.js','video/film-damage.js','video/camera-osd.js','video/face-ai.js',
+ 'video/vendor/tracking-min.js','video/vendor/tracking-face-min.js'];
 for(const p of paths){
- assert.ok(html.includes('./'+p+'?v=1.2.0'),'Missing or stale script in photo HTML: '+p);
+ assert.ok(html.includes('./'+p+'?v='+(p.startsWith('video/vendor/')?p.endsWith('tracking-min.js')?'1.1.3':'1.0.0':p.startsWith('video/')?'1.2.0':'1.3.0')),'Missing or stale script in photo HTML: '+p);
  assert.ok(sw.includes("'./"+p+"'"),'Not cached by photo service worker: '+p);
 }
-for(const name of ['glitch','cassettes','masks','correction','batch','camera']){
+for(const name of ['glitch','cassettes','masks','correction','polaroid','batch','camera']){
  assert.ok(html.includes('id="panel-'+name+'"'),'Missing panel '+name);
  assert.ok(html.includes('data-tab="'+name+'"'),'Missing nav button '+name);
 }
-assert.ok(html.includes('STUDIO MOBILE · 1.2.0'));
+assert.ok(html.includes('STUDIO MOBILE · 1.3.0'));
 assert.ok(html.includes('id="allPhotoFxToggle"'));
 assert.ok(html.includes('id="photoHelpToggle"'));
 assert.ok(css.includes('.tabs{overflow-x:auto'),
@@ -27,8 +29,9 @@ assert.ok(!ui.includes("['zoom','ZOOM']")&&
  'ZOOM must be removed from photo camera settings completely');
 assert.ok(app.includes('zoom:false,rec:false,play:false,date:false,battery:false'),
  'Photo camera must never draw ZOOM');
-assert.ok(app.includes('if(state.allFxOff)return frame'),
- 'Effect bypass must really return the untouched source pixels');
+assert.ok(!app.includes('if(state.allFxOff)return frame')&&
+ app.includes('state.allFxOff=false')&&app.includes('resetAllPhotoEffects'),
+ 'Reset must remove the old persistent bypass and restore normal processing');
 assert.ok(app.includes('X.adjustment(img,extras.correction)'),
  'Real preview and export must apply professional adjustment');
 assert.ok(app.includes('X.colorMatch(p,w,h,extras.colorCopy.target'),
@@ -47,8 +50,9 @@ assert.ok(ui.includes("maskStage.addEventListener('touchstart'"),
  'iPhone touch painting must use native touch events');
 assert.ok(ui.includes("maskStage.addEventListener('touchmove'"));
 assert.ok(ui.includes("maskStage.addEventListener('touchend'"));
-assert.ok(ui.includes('const engine=await root.VHSVideoFaceAI.create()'),
- 'Face finder must start on explicit user request');
+assert.ok(ui.includes('root.VHSPhotoFaceDetect')&&
+ read('photo-face-detect.js').includes('async function haar('),
+ 'Photo face search must have an actually bundled offline backup');
 const context={window:{},document:{createElement:()=>({})},
  Uint8ClampedArray,Uint8Array,Math,Date,Number,Object,Array,Blob};
 vm.runInNewContext(core,context);
@@ -107,4 +111,13 @@ context.window.VHSVideoFilmDamage.apply(damaged,w,h,{
 });
 assert.ok(damaged.some((v,i)=>i%4!==3&&v!==source[i]),
  'Imported film damage must affect real photo pixels');
-console.log('PASS: photo integration, camera without ZOOM, correction, true glitch pixel output and film damage');
+assert.ok(app.includes('VHSPhotoPolaroid.look(frame,extras.polaroid)')&&
+ app.includes('VHSPhotoPolaroid.render(frame,extras.polaroid)'),
+ 'Polaroid appearance and frame must be saved by the real image export pipeline');
+assert.ok(app.includes("'undoPhotoFxReset'")&&
+ app.includes("state.extras.selectedCassetteId=null"),
+ 'Reset/undo must be wired and clear an active cassette');
+assert.ok(app.includes('syncLegacyControls()'),
+ 'Cassette selection must synchronize legacy VHS/FILM controls');
+assert.ok(css.includes('polaroidGrid'),'Polaroid must render a selectable gallery');
+console.log('PASS: photo 1.3 integration, TRUE reset, Polaroid export, offline face fallback and real pixel effects');
