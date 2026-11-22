@@ -270,21 +270,50 @@ function drawFaces(ctx,boxes,creative){
 // Block matching displacement on small luminance buffers between neighboring
 // frames; manual rectangles remain usable on devices without FaceDetector.
 function trackBoxes(previous,current,w,h,boxes){
- if(!previous||!current||previous.length!==current.length)return boxes;
+ if(!previous||!current||previous.length!==current.length||w<16||h<16)return boxes;
  const result=[];
- for(const box of (boxes||[]).slice(0,6)){
-  const cx=Math.round((box.x+box.w*.5)*w),cy=Math.round((box.y+box.h*.5)*h);
-  let best=Infinity,bx=0,by=0;
-  for(let dy=-9;dy<=9;dy+=3)for(let dx=-9;dx<=9;dx+=3){
-   let error=0,samples=0;
-   for(let yy=-5;yy<=5;yy+=2)for(let xx=-5;xx<=5;xx+=2){
-    const sx=cx+xx,sy=cy+yy,tx=sx+dx,ty=sy+dy;
-    if(sx<0||sy<0||tx<0||ty<0||sx>=w||sy>=h||tx>=w||ty>=h)continue;
-    error+=Math.abs(previous[sy*w+sx]-current[ty*w+tx]);samples++;
-   }
-   if(samples&&error/samples<best){best=error/samples;bx=dx;by=dy;}
+ for(const face of (boxes||[]).slice(0,10)){
+  if(!face||!(face.w>0&&face.h>0)){result.push(face);continue;}
+  const cx=(face.x+face.w*.5)*w,cy=(face.y+face.h*.5)*h;
+  // Match a textured grid across the *inside* of each face, not a single
+  // 11px center patch. A tiny center patch easily snaps to the background.
+  const samples=[];
+  for(let iy=-2;iy<=2;iy++)for(let ix=-2;ix<=2;ix++){
+   const x=Math.round(cx+ix*Math.max(2,face.w*w*.14));
+   const y=Math.round(cy+iy*Math.max(2,face.h*h*.14));
+   if(x>1&&y>1&&x<w-2&&y<h-2)
+    samples.push([x,y,previous[y*w+x]]);
   }
-  result.push({...box,x:clamp(box.x+bx/w,0,1-box.w),y:clamp(box.y+by/h,0,1-box.h)});
+  if(samples.length<12){result.push({...face});continue;}
+  const radius=Math.min(13,Math.max(3,Math.round(Math.max(face.w*w,face.h*h)*.30)));
+  let bestError=Infinity,bestX=0,bestY=0,stationary=Infinity;
+  // Dense ±radius search: separate face masks have independent movement.
+  for(let dy=-radius;dy<=radius;dy+=2)for(let dx=-radius;dx<=radius;dx+=2){
+   let error=0,n=0;
+   for(const [x,y,reference] of samples){
+    const tx=x+dx,ty=y+dy;
+    if(tx<0||ty<0||tx>=w||ty>=h)continue;
+    error+=Math.abs(reference-current[ty*w+tx]);n++;
+   }
+   if(n<samples.length*.8)continue;
+   const avg=error/n;
+   if(dx===0&&dy===0)stationary=avg;
+   // Small motion bias prevents arbitrary jumps between similar textures.
+   const score=avg+Math.hypot(dx,dy)*.16;
+   if(score<bestError){bestError=score;bestX=dx;bestY=dy;}
+  }
+  if(!Number.isFinite(stationary)){
+   let error=0;for(const [x,y,val] of samples)error+=Math.abs(val-current[y*w+x]);
+   stationary=error/samples.length;
+  }
+  // If matching is ambiguous, KEEP the last known position instead of
+  // randomly shifting the mask to unrelated scenery.
+  const improvement=stationary-bestError;
+  const confident=bestError<30&&improvement>Math.max(1.5,stationary*.10);
+  const dx=confident?bestX:0,dy=confident?bestY:0;
+  result.push({...face,
+   x:clamp(face.x+dx/w,0,Math.max(0,1-face.w)),
+   y:clamp(face.y+dy/h,0,Math.max(0,1-face.h))});
  }
  return result;
 }
