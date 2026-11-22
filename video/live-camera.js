@@ -55,7 +55,7 @@ function mount({getSettings,onImport}){
  const importBtn=$('videoLiveImport'),again=$('videoLiveAgain');
  const openTop=$('videoLiveOpenTop'),openPanel=$('videoLiveOpenPanel');
  let active=false,ready=false,recording=false,stopping=false,holding=false;
- let cameraStream=null,recordStream=null,recorder=null;
+ let cameraStream=null,recordStream=null,recorder=null,audioGraph=null;
  let session=0,overlayTimer=null,animation=0;
  let facing='environment',state={},seed=randSeed(),filmSeed=randSeed();
  let frameIndex=0,lastFrameTime=0,durationStart=0,secondsTimer=null;
@@ -79,11 +79,55 @@ function mount({getSettings,onImport}){
   }
   if(video.srcObject){video.pause();video.srcObject=null;}
  }
+ function releaseAudioGraph(){
+  const graph=audioGraph;audioGraph=null;
+  if(!graph)return;
+  try{graph.oscillator?.stop();}catch{}
+  try{graph.out?.stream?.getAudioTracks()?.forEach(t=>t.stop());}catch{}
+  try{graph.ctx?.close();}catch{}
+ }
+ function setHoldAudio(active){
+  const graph=audioGraph;if(!graph)return;
+  const t=graph.ctx.currentTime;
+  // While held: bandwidth-limited microphone, flutter and low analog hum.
+  // This is recorded but never sent to the speaker (no mic feedback).
+  graph.lowpass.frequency.setTargetAtTime(active?850:19000,t,.025);
+  graph.volume.gain.setTargetAtTime(active?.52:1,t,.02);
+  graph.hum.gain.setTargetAtTime(active?.035:0,t,.02);
+ }
+ function attachMicrophoneAudio(stream){
+  const microphones=cameraStream?.getAudioTracks()||[];
+  if(!microphones.length)return;
+  const Ctx=root.AudioContext||root.webkitAudioContext;
+  if(!Ctx){for(const tr of microphones)stream.addTrack(tr);return;}
+  try{
+   const ctx=new Ctx();
+   const input=ctx.createMediaStreamSource(cameraStream);
+   const lowpass=ctx.createBiquadFilter();
+   lowpass.type='lowpass';lowpass.frequency.value=19000;
+   const volume=ctx.createGain();volume.gain.value=1;
+   const out=ctx.createMediaStreamDestination();
+   input.connect(lowpass);lowpass.connect(volume);volume.connect(out);
+   const oscillator=ctx.createOscillator();
+   oscillator.type='sawtooth';oscillator.frequency.value=53;
+   const hum=ctx.createGain();hum.gain.value=0;
+   oscillator.connect(hum);hum.connect(out);oscillator.start();
+   audioGraph={ctx,lowpass,volume,oscillator,hum,out};
+   for(const tr of out.stream.getAudioTracks())stream.addTrack(tr);
+   void ctx.resume().catch(err=>console.warn('Live tape audio:',err));
+   setHoldAudio(holding);
+  }catch(err){
+   console.warn('Microphone effect fallback:',err);
+   releaseAudioGraph();
+   for(const tr of microphones)stream.addTrack(tr);
+  }
+ }
  function releaseRecordStream(){
   if(recordStream){
    for(const track of recordStream.getVideoTracks()){try{track.stop();}catch{}}
    recordStream=null;
   }
+  releaseAudioGraph();
  }
  function sync(){
   recordBtn.disabled=!ready||stopping;
@@ -225,6 +269,8 @@ function mount({getSettings,onImport}){
   if(!holding)return;
   holding=false;holdBtn.classList.remove('held');
   holdBtn.setAttribute('aria-pressed','false');
+  setHoldAudio(false);
+  if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
   if(active&&ready&&!resultBlob)overlay(session);
  }
  function beginHold(event){
@@ -233,6 +279,7 @@ function mount({getSettings,onImport}){
   event?.preventDefault?.();
   if(event?.pointerId!=null)try{holdBtn.setPointerCapture(event.pointerId);}catch{}
   holding=true;holdBtn.classList.add('held');holdBtn.setAttribute('aria-pressed','true');
+  setHoldAudio(true);
   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
   overlay(session);
  }
@@ -294,7 +341,7 @@ function mount({getSettings,onImport}){
    ctx.filter=currentFilter();ctx.drawImage(video,0,0,w,h);ctx.filter='none';
    ctx.drawImage(fx,0,0,w,h);
    stream=processed.captureStream(recordFPS);
-   for(const track of cameraStream?.getAudioTracks()||[])stream.addTrack(track);
+   attachMicrophoneAudio(stream);
    const rec=new MediaRecorder(stream,{mimeType:mime,
     videoBitsPerSecond:quality.value==='720'?3000000:1650000});
    recorder=rec;recordStream=stream;chunks=[];recordMime=mime;
@@ -313,6 +360,7 @@ function mount({getSettings,onImport}){
    message('Запись запущена — VHS, FILM и помехи записываются прямо в видео. ЗАЖМИ для сильных сбоев.');
   }catch(err){
    if(stream)for(const track of stream.getVideoTracks())try{track.stop();}catch{}
+   releaseAudioGraph();
    recording=false;stopping=false;recorder=null;recordStream=null;
    sync();message('Запись недоступна: '+(err?.message||err));
   }
