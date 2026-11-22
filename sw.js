@@ -1,5 +1,5 @@
-const VERSION='vhs-mobile-v1.2.0';
-const APP_FILES=['./','./index.html','./styles.css','./app.js','./ntsc-photo.js','./photo-extras-core.js','./photo-extras-ui.js','./video/glitch-engine.js','./video/film-damage.js','./video/camera-osd.js','./video/face-ai.js','./looks.json','./jszip.min.js','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png'];
+const VERSION='vhs-mobile-v1.3.0';
+const APP_FILES=['./','./index.html','./styles.css','./app.js','./ntsc-photo.js','./photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js','./photo-polaroid-ui.js','./photo-face-detect.js','./video/vendor/tracking-min.js','./video/vendor/tracking-face-min.js','./video/glitch-engine.js','./video/film-damage.js','./video/camera-osd.js','./video/face-ai.js','./looks.json','./jszip.min.js','./manifest.webmanifest','./icons/icon-180.png','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(APP_FILES)).then(()=>self.skipWaiting()));
 });
