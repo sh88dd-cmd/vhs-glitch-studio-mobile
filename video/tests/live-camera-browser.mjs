@@ -18,6 +18,14 @@ await page.route('**/*',route=>{
  route.abort();
 });
 await page.addInitScript(()=>{
+ const start=window.MediaRecorder?.prototype?.start;
+ if(start)window.MediaRecorder.prototype.start=function(...args){
+  window.__cameraRecordTracks={
+   video:this.stream.getVideoTracks().length,
+   audio:this.stream.getAudioTracks().length
+  };
+  return start.apply(this,args);
+ };
  const capture=navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
  if(capture)navigator.mediaDevices.getUserMedia=opts=>
   capture({audio:!!opts.audio,video:{width:{ideal:640},height:{ideal:480},
@@ -66,6 +74,26 @@ try{
  assert.match(recordingStatus,/Запись запущена/,
   'Real CanvasCaptureStream MediaRecorder must be operating: '+recordingStatus);
  await page.waitForTimeout(850);
+ const encoded=await page.evaluate(()=>{
+  const cv=document.getElementById('videoLiveCaptureCanvas');
+  const src=document.getElementById('videoLiveVideo');
+  const raw=document.createElement('canvas');
+  raw.width=cv.width;raw.height=cv.height;
+  raw.getContext('2d').drawImage(src,0,0,cv.width,cv.height);
+  const first=raw.getContext('2d').getImageData(0,0,cv.width,cv.height).data;
+  const second=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data;
+  let changed=0;
+  for(let i=0;i<second.length;i+=4*16)
+   if(Math.abs(second[i]-first[i])+
+    Math.abs(second[i+1]-first[i+1])+
+    Math.abs(second[i+2]-first[i+2])>5)changed++;
+  return{changed,tracks:window.__cameraRecordTracks};
+ });
+ console.log('Actual VHS/FILM pixel difference from raw camera:',encoded);
+ assert.ok(encoded.changed>25,
+  'Video stream must contain actual processed pixels, not merely a CSS overlay outside the recording');
+ assert.equal(encoded.tracks?.video,1,'Recorder must receive one processed video stream');
+ assert.equal(encoded.tracks?.audio,1,'Recorder must include microphone audio via WebAudio');
  await page.locator('#videoLiveHold').dispatchEvent('pointerdown',{button:0,pointerId:2});
  await page.waitForTimeout(370);
  await page.locator('#videoLiveHold').dispatchEvent('pointerup',{button:0,pointerId:2});
