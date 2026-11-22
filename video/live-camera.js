@@ -29,6 +29,14 @@ function random(seed){
   return((t^(t>>>14))>>>0)/4294967296;
  };
 }
+function fitGeometry(sourceW,sourceH,availableW,viewportH){
+ const w=Math.max(1,Number(sourceW)||1),h=Math.max(1,Number(sourceH)||1);
+ const maxW=Math.max(180,Number(availableW)||390);
+ const budget=Math.max(340,(Number(viewportH)||800)-280);
+ const width=Math.min(maxW,budget*w/h);
+ return{width:Math.round(width),height:Math.round(width*h/w),
+  ratio:w/h,portrait:h>w};
+}
 function colorFilter(state={}){
  if(state.masterBypass)return'none';
  const film=!!state.filmEnabled&&Number(state.filmStrength)>0;
@@ -178,11 +186,10 @@ function mount({getSettings,getFilmProfile,onImport}){
  }
  function fitStage(){
   const w=video.videoWidth||720,h=video.videoHeight||1280;
-  const maxW=Math.max(180,Math.min(dialog.clientWidth-20,window.innerWidth-24));
-  const heightBudget=Math.max(340,window.innerHeight-280);
-  const size=Math.min(maxW,heightBudget*w/h);
-  stage.style.width=Math.round(size)+'px';
-  stage.style.height=Math.round(size*h/w)+'px';
+  const fit=fitGeometry(w,h,
+   Math.min(dialog.clientWidth-20,window.innerWidth-24),window.innerHeight);
+  stage.style.width=fit.width+'px';
+  stage.style.height=fit.height+'px';
   stage.style.aspectRatio=w+' / '+h;
   stage.dataset.frameRatio=(w/h).toFixed(5);
   return[w,h];
@@ -495,5 +502,5 @@ function mount({getSettings,getFilmProfile,onImport}){
   width:processed.width,height:processed.height
  })});
 }
-root.VHSVideoLiveCamera=Object.freeze({mount,colorFilter,mimeChoice});
+root.VHSVideoLiveCamera=Object.freeze({mount,colorFilter,mimeChoice,fitGeometry});
 })(window);
