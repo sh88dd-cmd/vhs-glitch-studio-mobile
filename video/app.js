@@ -42,7 +42,7 @@
  }catch{}
  // Old network tracks cannot be restored: v0.6 supports only local files.
  if(state.selectedTrack&&!['file','video'].includes(state.selectedTrack.kind))state.selectedTrack=null;
- let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[];
+ let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[],filmGallery=null;
  let importedDB=null,recording=null,recordStream=null,exportBlob=null,exportMime='',exportOriginalFile=false;
  let downloadUrl='',exportStopRequested=false,audioContext=null,audioSource=null,audioMonitor=null;
  let lastDraw=0,framePending=false,loopId=0,renderBusy=false,seedHistory=[],audioErrorShown=false,videoUI=null;
@@ -267,6 +267,7 @@
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+key));
   if(key==='keyframes')renderKeyframes();
   if(key==='frameTools')syncFrameTools();
+  if(key==='film')filmGallery?.refresh();
   if(['touch','speed','live','cassettes'].includes(key))creativeUI?.refresh();
   // Safari may clamp scrollY after switching to a shorter tab without emitting
   // a scroll event. Re-evaluate the dock once the new layout has settled.
@@ -1395,6 +1396,7 @@
   const count=profiles.filter(p=>p.type==='xmp').length;
   $('filmCount').textContent=profiles.length+' плёнок · '+Object.keys(builtin).length+' встроенных · '+count+' XMP';
   renderFilmSelect();
+  filmGallery?.refresh();
  }
  function renderFilmSelect(){
   const search=$('filmSearch').value.trim(),select=$('filmSelect'),matching=profiles.filter(p=>!search||matches(p.name,search)).slice(0,150);
@@ -1405,6 +1407,38 @@
   if(matching.some(x=>x.id===state.filmId))select.value=state.filmId;
   else if(search)select.selectedIndex=0;
   else{state.filmId=matching[0].id;select.value=state.filmId;}
+ }
+ function selectFilmProfile(id){
+  if(!id)return;
+  const profile=profiles.find(p=>p.id===id);
+  if(!profile)return;
+  state.filmId=id;state.filmEnabled=true;$('filmEnabled').checked=true;
+  if(state.filmStrength===0){
+   state.filmStrength=85;
+   setControlByTitle($('filmControls'),'Сила плёнки',85);
+  }
+  // The dropdown remains a fallback if many XMP entries have filled it.
+  const dropdown=$('filmSelect');
+  if([...dropdown.options].some(o=>o.value===id))dropdown.value=id;
+  persist();renderCurrentFrame();
+  filmGallery?.refreshSelection();
+ }
+ function updateFavoriteFilm(id){
+  if(favoriteIds.includes(id))favoriteIds=favoriteIds.filter(x=>x!==id);
+  else favoriteIds=[...favoriteIds,id];
+  try{localStorage.setItem('vhs.video.filmFavorites',JSON.stringify(favoriteIds));}
+  catch(e){console.warn('Cannot persist video film favorites:',e);}
+ }
+ function mountFilmGallery(){
+  if(!window.VHSVideoFilmGallery?.mount)throw Error('Галерея плёнок не загрузилась');
+  filmGallery=window.VHSVideoFilmGallery.mount({
+   getProfiles:()=>profiles,getSelected:()=>state.filmId,
+   getVideo:()=>source,
+   getRecipe:profile=>builtin[profile.name],
+   onSelect:selectFilmProfile,
+   getFavorites:()=>favoriteIds,
+   onFavorite:updateFavoriteFilm
+  });
  }
  function addImported(items){
   const existing=new Map(importedXMP.map(x=>[x.id,x]));
@@ -1848,6 +1882,8 @@
   if(frameReady&&!videoImportBusy&&file)
    importStatus('Видео готово: '+file.name+' · первый кадр доступен. Можно смотреть и обрабатывать.',false);
   renderCurrentFrame();
+  if(document.getElementById('panel-film')?.classList.contains('active'))
+   filmGallery?.refresh();
  }
  async function togglePlay(){
   if(!file||recording)return;
@@ -2149,13 +2185,11 @@
   $('play').onclick=togglePlay;
   $('regenerate').onclick=regenerateSeed;
   $('undoGlitch').onclick=undoSeed;
-  $('filmSearch').oninput=renderFilmSelect;
-  $('filmSelect').onchange=()=>{
-   if(!$('filmSelect').value)return;
-   state.filmId=$('filmSelect').value;state.filmEnabled=true;$('filmEnabled').checked=true;
-   if(state.filmStrength===0){state.filmStrength=85;setControlByTitle($('filmControls'),'Сила плёнки',85);}
-   persist();renderCurrentFrame();
+  $('filmSearch').oninput=()=>{
+   renderFilmSelect();
+   filmGallery?.resetPage();
   };
+  $('filmSelect').onchange=()=>selectFilmProfile($('filmSelect').value);
   $('filmImport').onchange=async e=>{
    for(const f of [...(e.target.files||[])])try{await importPresets(f)}catch(err){$('filmImportStatus').textContent='Ошибка: '+err.message;}
    e.target.value='';
@@ -2231,8 +2265,13 @@
   const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
   importedXMP=savedXMP.slice(0,FILM_LIMIT);
   sharedXMP=fromPhoto.slice(0,FILM_LIMIT);
-  try{const prev=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');favoriteIds=Array.isArray(prev?.favoriteFilms)?prev.favoriteFilms:[];}catch{}
-  rebuildFilmList();renderCassetteShelf();
+  try{
+   const prev=JSON.parse(localStorage.getItem('vhs.mobile.settings')||'null');
+   const fromPhoto=Array.isArray(prev?.favoriteFilms)?prev.favoriteFilms:[];
+   const local=JSON.parse(localStorage.getItem('vhs.video.filmFavorites')||'[]');
+   favoriteIds=[...new Set([...fromPhoto,...(Array.isArray(local)?local:[])])];
+  }catch{}
+  rebuildFilmList();mountFilmGallery();renderCassetteShelf();
   $('filmImportStatus').textContent=fromPhoto.length?
    'Автоматически обнаружены '+fromPhoto.length+' XMP-профилей из фото-версии в этом браузере.':
    'Локальная XMP-библиотека фото-версии пока недоступна. Можно импортировать ZIP либо резервную копию.';
