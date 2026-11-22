@@ -91,8 +91,9 @@ const app=fs.readFileSync('video/app.js','utf8');
 const html=fs.readFileSync('video/index.html','utf8');
 const sw=fs.readFileSync('video/sw.js','utf8');
 assert.ok(app.includes('if(clean||localOnly){\n   window.VHSVideoCleanPath.drawClean(source,canvas);'),'Clean and local-only frames must start with the full-resolution source');
-assert.ok(app.includes("videoDimensions(clean?960:localOnly?1280:520)"),
- 'Local pixel/face masks use high-quality canvas, while clean playback uses a native video element');
+assert.ok(app.includes("videoDimensions(clean?960:localOnly?1280:")&&
+ app.includes('lossySignal?520:960'),
+ 'Local masks stay high-resolution; native FILM-only preview stays sharp; VHS may use low resolution');
 assert.ok(app.includes('const videoReady=await waitVideoReady('),'Video picker must remain unchanged');
 assert.ok(app.includes("exportBlob=file;exportMime=file.type||'application/octet-stream'"));
 assert.ok(app.includes("link.download=file.name||'original_video'"));
