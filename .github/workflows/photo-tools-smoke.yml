@@ -1,4 +1,4 @@
-name: Photo Studio 1.2 regression
+name: Photo Studio 1.3 regression
 on:
   push:
     paths:
@@ -8,12 +8,16 @@ on:
       - 'sw.js'
       - 'photo-extras-core.js'
       - 'photo-extras-ui.js'
+      - 'photo-polaroid.js'
+      - 'photo-polaroid-ui.js'
+      - 'photo-face-detect.js'
       - 'video/glitch-engine.js'
       - 'video/film-damage.js'
       - 'video/camera-osd.js'
       - 'video/face-ai.js'
       - 'tests/photo-extras-smoke.mjs'
       - 'tests/photo-ui-interaction-smoke.mjs'
+      - 'tests/photo-polaroid-face-smoke.mjs'
       - '.github/workflows/photo-tools-smoke.yml'
   pull_request:
     paths:
@@ -23,12 +27,16 @@ on:
       - 'sw.js'
       - 'photo-extras-core.js'
       - 'photo-extras-ui.js'
+      - 'photo-polaroid.js'
+      - 'photo-polaroid-ui.js'
+      - 'photo-face-detect.js'
       - 'video/glitch-engine.js'
       - 'video/film-damage.js'
       - 'video/camera-osd.js'
       - 'video/face-ai.js'
       - 'tests/photo-extras-smoke.mjs'
       - 'tests/photo-ui-interaction-smoke.mjs'
+      - 'tests/photo-polaroid-face-smoke.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -46,6 +54,9 @@ jobs:
           node --check app.js
           node --check photo-extras-core.js
           node --check photo-extras-ui.js
+          node --check photo-polaroid.js
+          node --check photo-polaroid-ui.js
+          node --check photo-face-detect.js
           node --check sw.js
           node --check video/glitch-engine.js
           node --check video/film-damage.js
@@ -55,3 +66,5 @@ jobs:
         run: node tests/photo-extras-smoke.mjs
       - name: Test iOS finger gestures, multiple photo faces and controls
         run: node tests/photo-ui-interaction-smoke.mjs
+      - name: Test tactile Polaroid frames and offline multi-face inference
+        run: node tests/photo-polaroid-face-smoke.mjs
