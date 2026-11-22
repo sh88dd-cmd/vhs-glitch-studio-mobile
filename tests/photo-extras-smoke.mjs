@@ -1,4 +1,4 @@
-/* Regression tests for photo v1.5.0. No external network or test packages. */
+/* Regression tests for photo v1.6.0. No external network or test packages. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -13,7 +13,7 @@ for(const p of paths){
  const version=p.startsWith('video/vendor/')?(p.endsWith('tracking-min.js')?'1.1.3':'1.0.0'):
   p.startsWith('video/')?'1.2.0':
   ['photo-extras-core.js','photo-extras-ui.js'].includes(p)?'1.3.0':
-   p==='photo-camera.js'?'1.5.0':'1.4.0';
+   p==='photo-camera.js'?'1.6.0':'1.4.0';
  assert.ok(html.includes('./'+p+'?v='+version),'Missing or stale script in photo HTML: '+p);
  assert.ok(sw.includes("'./"+p+"'"),'Not cached by photo service worker: '+p);
 }
@@ -21,7 +21,7 @@ for(const name of ['glitch','cassettes','masks','correction','polaroid','shoot',
  assert.ok(html.includes('id="panel-'+name+'"'),'Missing panel '+name);
  assert.ok(html.includes('data-tab="'+name+'"'),'Missing nav button '+name);
 }
-assert.ok(html.includes('STUDIO MOBILE · 1.5.0'));
+assert.ok(html.includes('STUDIO MOBILE · 1.6.0'));
 assert.ok(html.includes('id="allPhotoFxToggle"'));
 assert.ok(html.includes('id="photoHelpToggle"'));
 assert.ok(css.includes('.tabs{overflow-x:auto'),
@@ -128,10 +128,21 @@ assert.ok(html.includes('id="liveCameraDialog"')&&html.includes('id="liveCameraS
  html.includes('id="liveCameraFlip"')&&html.includes('id="liveCameraFaces"'),
  'App must present real shutter, front/back camera and static face masks');
 assert.ok(app.includes('async function onCameraCaptured(')&&
- app.includes('{cameraCapture:true,captureMasks:selectedMasks},state.singleSize'),
+ app.includes('{cameraCapture:true,captureMasks:selectedMasks,filmSeed:filmSeed??seed}'),
  'Camera photos must run the real editor pipeline with capture masks and chosen export size');
-assert.ok(app.includes('source,seed,opts,size')&&app.includes('processImage(source,seed,opts,size)'),
- 'Live video preview must share the same filter pipeline as still images');
+assert.ok(!read('photo-camera.js').includes('await renderFrame(')&&
+ read('photo-camera.js').includes("video.style.filter=")&&
+ read('photo-camera.js').includes('ctx.clearRect(0,0,w,h)')&&
+ app.includes('getVisualSettings:()=>({'),
+ 'Fast live preview must use native video + light overlay, not a full still render every frame');
+assert.ok(html.includes('id="liveCameraNew"')&&
+ read('photo-camera.js').includes('function newInterference()')&&
+ read('photo-camera.js').includes("newFx.addEventListener('click',newInterference)"),
+ 'NEW control must be in the camera viewfinder and reroll the current photo interference');
+assert.ok(read('photo-camera.js').includes('filmSeed=liveSeed')&&
+ read('photo-camera.js').includes('const oldSeed=liveSeed>>>0;')&&
+ app.includes('filmSeed:filmSeed??seed'),
+ 'NEW must randomize VHS seed while keeping FILM grain seed stable until another photo');
 assert.ok(app.includes('original=raw;photoName=filename;state.seed=seed;'),
  'Captured original source must remain editable in main editor');
 assert.ok(css.includes('#liveCameraDialog')&&sw.includes("'./photo-camera.js'"),
@@ -140,9 +151,9 @@ assert.ok(app.includes('await window.VHSPhotoPolaroid.ensureHandFont('),
  'Actual export waits for the selected Cyrillic handwriting font');
 assert.ok(html.includes('./photo-face-ai.js?v=1.4.0'),
  'Photo app loads pinned on-device face runtime');
-assert.ok(sw.includes('vhs-mobile-v1.5.0')&&sw.includes('blaze_face_full_range.tflite'),
+assert.ok(sw.includes('vhs-mobile-v1.6.0')&&sw.includes('blaze_face_full_range.tflite'),
  'Offline worker must cache real face model binaries');
 assert.ok(!read('photo-face-detect.js').includes('Promise.race(['),
  'Old 8.5s CDN timeout must be removed from the photo detector');
 
-console.log('PASS: photo 1.5 live camera integration, real filtered shutter, editable original, masks and existing effects');
+console.log('PASS: photo 1.6 low latency camera, NEW VHS reroll, full shutter pipeline, frozen film grain and cassette controls');
