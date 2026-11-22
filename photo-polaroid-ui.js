@@ -102,13 +102,52 @@ function mount({state,getOriginal,onChange}){
  background.onchange=()=>{cfg.background=background.value;onChange();};
  paper.append(text('label','Фон за отпечатком'),background);
  paper.append(text('p','Прозрачность сохранится только при выборе формата PNG в настройках экспорта. На JPEG фон будет белым.','hint'));
- const inscription=section('ПОДПИСЬ НА НИЖНЕМ ПОЛЕ');
- const note=doc.createElement('input');note.type='text';note.maxLength=90;
- note.id='polaroidNote';note.placeholder='Лето, 1997 · любимый момент';
+ const inscription=section('ЖИВАЯ РУКОПИСНАЯ ПОДПИСЬ');
+ inscription.append(text('p','До 5 строк. Шрифт поддерживает русский текст. Нажми «↻ Новый почерк и положение», чтобы получить новую натуральную посадку надписи на нижнем поле.','hint'));
+ const note=doc.createElement('textarea');note.rows=5;note.maxLength=360;
+ note.id='polaroidNote';note.placeholder='Лето 1997\nНаш первый день\nУ самого моря';
  note.value=cfg.note;
- note.addEventListener('input',()=>{cfg.note=note.value;onChange();});
- inscription.append(note);
- inscription.append(text('p','Подпись имитирует запись на бумаге. Сама фотография не обрезается.','hint'));
+ note.addEventListener('input',()=>{
+  const parts=note.value.replace(/\r\n?/g,'\n').split('\n');
+  if(parts.length>5){
+   const cursor=note.selectionStart;
+   note.value=parts.slice(0,5).join('\n');
+   note.selectionStart=note.selectionEnd=Math.min(cursor,note.value.length);
+  }
+  cfg.note=note.value;onChange();
+ });
+ inscription.append(text('label','Текст подписи (Enter — новая строка)'),note);
+ const fontSelect=doc.createElement('select');fontSelect.id='polaroidNoteFont';
+ const randomFont=doc.createElement('option');randomFont.value='random';
+ randomFont.textContent='🎲 Случайный рукописный шрифт';fontSelect.append(randomFont);
+ for(const item of P.handFonts){
+  const el=doc.createElement('option');el.value=item.id;el.textContent=item.name;
+  fontSelect.append(el);
+ }
+ fontSelect.value=cfg.noteFont;
+ fontSelect.addEventListener('change',()=>{cfg.noteFont=fontSelect.value;onChange();});
+ inscription.append(text('label','Рукописный шрифт'),fontSelect);
+ const inkSelect=doc.createElement('select');inkSelect.id='polaroidNoteInk';
+ for(const item of P.inkTools){
+  const el=doc.createElement('option');el.value=item.id;el.textContent=item.name;
+  inkSelect.append(el);
+ }
+ inkSelect.value=cfg.noteInk;
+ inkSelect.addEventListener('change',()=>{cfg.noteInk=inkSelect.value;onChange();});
+ inscription.append(text('label','Чем написано'),inkSelect);
+ slider(inscription,'noteSize','Размер почерка',40,180);
+ const randomPlacement=doc.createElement('button');
+ randomPlacement.type='button';randomPlacement.className='btn primary full';
+ randomPlacement.id='polaroidRerollHandwriting';
+ randomPlacement.textContent='↻ Новый почерк и положение';
+ randomPlacement.addEventListener('click',()=>{
+  cfg.notePlacementSeed=crypto.getRandomValues(new Uint32Array(1))[0];
+  // In random-font mode, a fresh click selects a different handwritten font.
+  // Explicitly chosen fonts stay fixed, while angle, spacing and position vary.
+  onChange();
+ });
+ inscription.append(randomPlacement);
+ inscription.append(text('p','С каждым нажатием меняются наклон, положение, межстрочные интервалы и нажим ручки. Надпись остаётся внутри нижней бумажной части, не залезая на фото.','hint'));
  const refreshButton=doc.createElement('button');refreshButton.type='button';
  refreshButton.className='btn full';refreshButton.textContent='↻ Новая фактура бумаги';
  refreshButton.onclick=()=>{cfg.seed=crypto.getRandomValues(new Uint32Array(1))[0];onChange();renderStyles();};
@@ -122,7 +161,8 @@ function mount({state,getOriginal,onChange}){
  function refresh(){
   enabled.checked=!!cfg.enabled;preset.value=cfg.look;
   surface.value=cfg.surface;background.value=cfg.background;note.value=cfg.note;
-  for(const key of ['strength','grain','frameSize','bottomHeight','paperWear']){
+  fontSelect.value=cfg.noteFont;inkSelect.value=cfg.noteInk;
+  for(const key of ['strength','grain','frameSize','bottomHeight','paperWear','noteSize']){
    const input=$('polaroid-'+key),out=$('polaroid-value-'+key);
    if(input)input.value=String(cfg[key]);
    if(out)out.textContent=String(cfg[key]);
