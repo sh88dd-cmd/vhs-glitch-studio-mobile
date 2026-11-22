@@ -96,6 +96,30 @@ try{
   'Portrait camera should fill available width within safe viewport height');
  assert.ok(Math.abs(geometry.landscape.width/geometry.landscape.height-1280/720)<.02);
  console.log('Correct native portrait and landscape framing:',geometry);
+ // Fullscreen camera must not scroll; REC and HOLD stay visible on iPhone.
+ for(const [width,height] of [[390,844],[375,667],[320,568]]){
+  await page.setViewportSize({width,height});
+  await page.waitForTimeout(100);
+  const layout=await page.evaluate(()=>{
+   const d=document.getElementById('videoLiveCameraDialog');
+   const v=document.getElementById('videoLiveViewport').getBoundingClientRect();
+   const f=document.getElementById('videoLiveStage').getBoundingClientRect();
+   const rec=document.getElementById('videoLiveRecord').getBoundingClientRect();
+   const hold=document.getElementById('videoLiveHold').getBoundingClientRect();
+   d.scrollTop=400;
+   return{scroll:d.scrollTop,extra:d.scrollHeight-d.clientHeight,
+    bottom:d.getBoundingClientRect().bottom,recTop:rec.top,recBottom:rec.bottom,
+    holdBottom:hold.bottom,frameTop:f.top,frameBottom:f.bottom,
+    areaTop:v.top,areaBottom:v.bottom};
+  });
+  assert.equal(layout.scroll,0,`Camera scroll at ${width}x${height}`);
+  assert.ok(layout.extra<=2,`Camera overflow at ${width}x${height}: ${JSON.stringify(layout)}`);
+  assert.ok(layout.recTop>=0&&layout.recBottom<=layout.bottom+1&&
+   layout.holdBottom<=layout.bottom+1,`REC/HOLD hidden at ${width}x${height}`);
+  assert.ok(layout.frameTop>=layout.areaTop-1&&layout.frameBottom<=layout.areaBottom+1,
+   `Viewfinder overflows its flex area at ${width}x${height}`);
+ }
+ await page.setViewportSize({width:390,height:844});
  assert.equal(opened.loading,false,'Camera readiness must dismiss startup overlay');
  await page.waitForFunction(()=>window.__actualCameraFx?.vhs>1&&
   window.__actualCameraFx?.film>1,null,{timeout:12000});
