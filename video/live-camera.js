@@ -175,6 +175,8 @@ function mount({getSettings,getFilmProfile,onImport}){
  function release(){
   active=false;ready=false;holding=false;session++;
   stopTimers();stopTracks();releaseRecordStream();
+  document.documentElement.classList.remove('videoCameraLock');
+  document.body.classList.remove('videoCameraLock');
   sync();
  }
  function close(){
@@ -427,6 +429,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   if(!dialog.open)dialog.showModal();
   document.documentElement.classList.add('videoCameraLock');
   document.body.classList.add('videoCameraLock');
+  fitStage(); // Keep the waiting view inside the pinned controls.
   await startCamera();
  }
  function swapCamera(){
@@ -479,9 +482,14 @@ function mount({getSettings,getFilmProfile,onImport}){
    overlay(session);
   }
  });
- window.addEventListener('resize',()=>{
-  if(active&&ready&&!resultBlob)fitStage();
- });
+ // Refit the display after Safari viewport changes or review is shown.
+ // This never alters processed video dimensions or recording bitrate.
+ const fitOnChange=()=>{if(active&&dialog.open)fitStage();};
+ window.addEventListener('resize',fitOnChange);
+ if(window.ResizeObserver){
+  const observer=new ResizeObserver(fitOnChange);
+  observer.observe($('videoLiveViewport'));
+ }
  download.addEventListener('click',()=>{
   // Keep the blob until the user explicitly starts another recording.
  });
