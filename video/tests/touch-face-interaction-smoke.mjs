@@ -39,7 +39,15 @@ const document={getElementById:$,
  createElementNS:(ns,tag)=>element(tag),
  querySelectorAll:()=>[]};
 $('panel-touch').classList.add('active');
-const root={FaceDetector:class{async detect(){return[{boundingBox:{x:120,y:180,width:120,height:130}}]}}};
+const faces=[
+ {boundingBox:{x:120,y:180,width:120,height:130}},
+ {boundingBox:{x:350,y:200,width:115,height:138}},
+ {boundingBox:{x:260,y:690,width:102,height:125}}
+];
+const root={
+ FaceDetector:class{async detect(){return faces}},
+ VHSVideoFaceAI:{async create(){return{kind:'mediapipe',async detect(){return faces}}}}
+};
 const touched=[];
 const E={
  defaults:()=>({}),forwardFactor:()=>1,speedAt:()=>1,agingAt:()=>0,
@@ -84,9 +92,18 @@ assert.equal($('touchOverlay').classList.contains('is-drawing'),true,
 const ev=(x,y)=>({
  clientX:x,clientY:y,pointerId:1,preventDefault(){},stopPropagation(){}
 });
-$('touchOverlay').dispatch('pointerdown',ev(50,110));
-$('touchOverlay').dispatch('pointermove',ev(140,200));
-$('touchOverlay').dispatch('pointerup',ev(140,200));
+// Simulate the iOS Touch Events channel, not the desktop pointer-only path.
+const touch=(x,y,end=false)=>{
+ const point={clientX:x,clientY:y,identifier:1};
+ return {touches:end?[]:[point],changedTouches:[point],
+  prevented:false,preventDefault(){this.prevented=true;},stopPropagation(){}};
+};
+const down=touch(50,110),move=touch(140,200),up=touch(140,200,true);
+$('touchEditStage').dispatch('touchstart',down);
+$('touchEditStage').dispatch('touchmove',move);
+$('touchEditStage').dispatch('touchend',up);
+assert.ok(down.prevented&&move.prevented&&up.prevented,
+ 'iPhone touch handlers must suppress native scrolling during a stroke');
 assert.equal(creative.touch.strokes.length,1,'A real finger stroke must be saved');
 assert.ok(creative.touch.strokes[0].points.length>=2,'A drag should preserve intermediate positions');
 assert.equal(creative.touch.enabled,true);
@@ -94,15 +111,16 @@ assert.ok(touched.some(item=>item[0]==='stroke'),'Saved strokes must be drawn on
 assert.ok(saved>0&&rendered>0,'Touch action must persist and repaint the real video');
 $('touchFaceTab').onclick();
 $('faceMark').onclick();
-$('touchOverlay').dispatch('pointerdown',ev(60,70));
-$('touchOverlay').dispatch('pointermove',ev(130,210));
-$('touchOverlay').dispatch('pointerup',ev(130,210));
+$('touchEditStage').dispatch('touchstart',touch(60,70));
+$('touchEditStage').dispatch('touchmove',touch(130,210));
+$('touchEditStage').dispatch('touchend',touch(130,210,true));
 assert.equal(creative.touch.manualFaces.length,1,'Manual face rectangle must save');
 assert.equal(creative.touch.facesEnabled,true,'Face mask must enable face processing');
 await Promise.resolve();
 await $('faceAuto').onclick();
-assert.match($('touchStatus').textContent,/Найдено лиц: 1/,'Auto detection result must be visible');
+assert.match($('touchStatus').textContent,/Найдено лиц: 3/,
+ 'Multi-face inference must return and display all three independent people');
 assert.equal($('faceAuto').disabled,false,'Face button should unlock after detection');
-assert.ok(touched.some(item=>item[0]==='face'&&item[1]>=1),
+assert.ok(touched.some(item=>item[0]==='face'&&item[1]>=3),
  'Auto-detected face must be forwarded to the visible mask renderer');
-console.log('PASS: visible inline touch editor, finger stroke, manual rectangle, native face detection and live repaint');
+console.log('PASS: iOS finger drawing, saved strokes, manual rectangle, 3 independently detected faces and model masks');
