@@ -464,7 +464,7 @@
    posLabel.append(position);options.append(posLabel);
    const sizeLabel=document.createElement('label');sizeLabel.textContent='Размер';
    const size=document.createElement('select');size.id=key+'Size';
-   for(const n of [70,85,100,125,150,180,220])size.add(new Option(n+'%',String(n)));
+   for(const n of [20,30,40,50,60,70,85,100,125,150,180,220])size.add(new Option(n+'%',String(n)));
    size.value=String(state.camera.sizes[key]);
    if(![...size.options].some(x=>x.value===size.value))size.value='125';
    size.addEventListener('change',()=>{state.camera.sizes[key]=Number(size.value);persist();renderCurrentFrame();});
@@ -2039,11 +2039,20 @@
   window.VHSVideoLiveCamera.mount({
    // Capture uses the current selected VHS, GLITCH, FILM, cassette and
    // viewfinder settings, but never mutates saved editor configuration.
+   getFilmProfile:()=>{
+    const selected=selectedFilm();
+    if(!selected)return null;
+    if(selected.type==='builtin')return{
+     type:'builtin',recipe:builtin[selected.name],name:selected.name
+    };
+    return selected;
+   },
    getSettings:()=>({
     masterBypass:state.masterBypass,
     vhsEnabled:state.vhsEnabled,master:state.master,
     preset:state.preset,tape:state.tape,
-    signal:state.signal,speed:state.speed,
+    signal:state.signal,signalWidth:state.signalWidth,
+    eventDensity:state.eventDensity,speed:state.speed,
     filmEnabled:state.filmEnabled,filmId:state.filmId,
     filmStrength:state.filmStrength,
     glitchEnabled:state.glitchEnabled,glitchStrength:state.glitchStrength,
