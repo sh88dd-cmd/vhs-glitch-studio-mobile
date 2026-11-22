@@ -308,7 +308,7 @@ function create(opts){
   if(trackedClip===clip){
    for(const face of next){
     const old=tracked.find(box=>box.id===face.id);
-    if(!old){tracked.push({...face});continue;}
+    if(!old){if(c.touch.faceAutodetect)tracked.push({...face});continue;}
     const fresh=.80;
     old.x=old.x*(1-fresh)+face.x*fresh;
     old.y=old.y*(1-fresh)+face.y*fresh;
