@@ -52,6 +52,7 @@ function colorFilter(state={}){
 }
 function mount({getSettings,getFilmProfile,onImport}){
  const dialog=$('videoLiveCameraDialog'),stage=$('videoLiveStage');
+ const connecting=$('videoLiveConnecting');
  const video=$('videoLiveVideo'),fx=$('videoLiveOverlay'),processed=$('videoLiveCaptureCanvas');
  const review=$('videoLiveReview'),reviewPanel=$('videoLiveReviewActions');
  const status=$('videoLiveStatus'),meta=$('videoLiveMeta'),badge=$('videoLiveBadge');
@@ -64,7 +65,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  const openTop=$('videoLiveOpenTop'),openPanel=$('videoLiveOpenPanel');
  const engine=root.VHSVideoLiveFX?.create?.();
  if(!engine)throw Error('Реальный видеодвижок камеры не загружен');
- let active=false,ready=false,recording=false,stopping=false,holding=false;
+ let active=false,ready=false,recording=false,stopping=false,holding=false,cameraError=false;
  let cameraStream=null,recordStream=null,recorder=null,audioGraph=null;
  let session=0,overlayTimer=null,animation=0,cameraStartedAt=0;
  let filmProfile=null,lastFxReport=null;
@@ -160,6 +161,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   fx.hidden=!!resultBlob||!ready;
   video.hidden=!!resultBlob;
   review.hidden=!resultBlob;
+  connecting.hidden=!active||ready||!!resultBlob||cameraError;
  }
  function release(){
   active=false;ready=false;holding=false;session++;
@@ -345,7 +347,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  async function startCamera(){
   const token=++session;
   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
-  stopTracks();ready=false;recording=false;holding=false;clearResult();sync();
+  stopTracks();ready=false;recording=false;holding=false;cameraError=false;clearResult();sync();
   state=getSettings()||{};
   filmProfile=getFilmProfile?.()||null;
   seed=randSeed();filmSeed=seed;frameIndex=0;engine.reset();
@@ -356,6 +358,7 @@ function mount({getSettings,getFilmProfile,onImport}){
    state.glitchEnabled?'ГЛИТЧ':null,state.selectedCassetteId?'КАССЕТА':null
   ].filter(Boolean).join(' · ')||'Оригинальное видео';
   if(!navigator.mediaDevices?.getUserMedia){
+   cameraError=true;sync();
    message('Камера недоступна. Открой через HTTPS в Safari.');return;
   }
   message('Запрашиваю разрешение на камеру и микрофон…');
@@ -377,6 +380,7 @@ function mount({getSettings,getFilmProfile,onImport}){
     for(const tr of media.getTracks())tr.stop();return;
    }
    cameraStream=media;
+   message('Камера найдена · запускаю изображение…');
    video.srcObject=media;
    video.muted=true;video.playsInline=true;
    await video.play();
@@ -398,7 +402,7 @@ function mount({getSettings,getFilmProfile,onImport}){
    message('Камера готова · настоящие эффекты VHS, FILM, GLITCH и индикаторы на живом изображении и записи.');
   }catch(err){
    if(token!==session)return;
-   stopTracks();ready=false;sync();
+   stopTracks();ready=false;cameraError=true;sync();
    message(err?.name==='NotAllowedError'?
     'Разреши доступ к камере и микрофону в Safari.':
     'Камера не запустилась: '+(err?.message||err));
