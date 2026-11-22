@@ -50,7 +50,7 @@ const ctx={window:root,document,Date,Math,Number,Array,Object,Map,
 vm.runInNewContext(fs.readFileSync('photo-extras-core.js','utf8'),ctx);
 vm.runInNewContext(fs.readFileSync('photo-extras-ui.js','utf8'),ctx);
 root.VHSPhotoFaceDetect={async detect(){return {
- engine:'Офлайн-поиск',faces:[
+ engine:'Офлайн-поиск',diagnostics:['Офлайн: лица найдены'],faces:[
  {x:.05,y:.10,w:.18,h:.25,auto:true},
  {x:.35,y:.16,w:.17,h:.27,auto:true},
  {x:.61,y:.32,w:.15,h:.22,auto:true}]};}};
