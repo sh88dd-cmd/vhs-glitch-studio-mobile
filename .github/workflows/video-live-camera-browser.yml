@@ -1,8 +1,10 @@
-name: Video 0.9 real camera record, NEW, hold browser regression
+name: Video 0.9.1 exact live VHS and FILM / portrait / iPhone camera regression
 on:
   push:
     paths:
       - 'video/live-camera.js'
+      - 'video/live-fx.js'
+      - 'video/camera-osd.js'
       - 'video/index.html'
       - 'video/app.js'
       - 'video/styles.css'
@@ -25,10 +27,12 @@ jobs:
         shell: bash
         run: |
           node --check video/live-camera.js
+          node --check video/live-fx.js
           node --check video/app.js
           node --check video/sw.js
           node video/tests/studio-core-smoke.mjs
           node video/tests/camera-cassette-smoke.mjs
+          node video/tests/creative-lab-smoke.mjs
           node video/tests/hold-audio-offline-smoke.mjs
       - name: Install real Chromium browser
         run: |
