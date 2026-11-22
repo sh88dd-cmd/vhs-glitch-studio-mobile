@@ -415,9 +415,13 @@ function mount({getSettings,onImport}){
   try{
    try{media=await navigator.mediaDevices.getUserMedia(device);}
    catch(error){
-    if(!micToggle.checked||error?.name==='NotAllowedError')throw error;
-    media=await navigator.mediaDevices.getUserMedia({video:device.video,audio:false});
-    message('Микрофон не разрешён · снимаем без звука.');
+    // If ONLY the microphone permission was denied, still let the user
+    // record video. A camera denial fails the second request as well.
+    if(!micToggle.checked)throw error;
+    media=await navigator.mediaDevices.getUserMedia({
+     video:device.video,audio:false
+    });
+    message('Микрофон недоступен · камера работает без звука.');
    }
    if(token!==session||!active){
     for(const tr of media.getTracks())tr.stop();return;
