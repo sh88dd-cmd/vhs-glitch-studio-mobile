@@ -830,3 +830,47 @@ body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){p
  touch-action:none;pointer-events:auto!important;
  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
+
+/* Video 0.9 — actual filtered iPhone live camera; grayscale controls. */
+.videoLiveEntry{display:flex;align-items:center;gap:9px;margin:0 0 10px}
+.videoLiveEntry .button{flex:1 0 auto;min-height:46px;border-color:#ddd}
+.videoLiveEntry span{font-size:10px;color:#ababab;line-height:1.45}
+@media(max-width:470px){.videoLiveEntry{flex-direction:column;align-items:stretch;gap:4px}.videoLiveEntry span{text-align:center}}
+.videoLiveCameraDialog{inset:0;position:fixed;margin:0;width:100vw;max-width:none;height:100dvh;max-height:none;border:0;border-radius:0;background:#08090b;color:#eee;padding:calc(env(safe-area-inset-top) + 8px) 10px calc(env(safe-area-inset-bottom) + 10px);overflow:auto}
+.videoLiveCameraDialog[open]{display:flex;flex-direction:column;gap:8px}
+.videoLiveCameraDialog::backdrop{background:#020304}
+.videoLiveTop{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 0 auto;min-height:42px}
+.videoLiveTop strong{font-size:12px;letter-spacing:.7px}
+.videoLiveTop small{display:block;color:#b1b1b1;font-size:10px;line-height:1.5;margin-top:5px}
+.videoLiveTop .button{font-size:20px;padding:7px 11px}
+.videoLiveStage{position:relative;flex:1 1 auto;min-height:180px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000;border:1px solid #454545;border-radius:12px;isolation:isolate}
+.videoLiveStage>video,.videoLiveStage>canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.videoLiveStage>#videoLiveVideo{z-index:1}
+.videoLiveStage>#videoLiveOverlay{z-index:2;pointer-events:none;image-rendering:auto}
+.videoLiveStage>#videoLiveReview{z-index:4;background:#030303}
+.videoLiveStage.selfie>#videoLiveVideo{transform:scaleX(-1)}
+.videoLiveStage.review #videoLiveOverlay{display:none}
+#videoLiveBadge{position:absolute;left:10px;top:10px;z-index:5;padding:5px 8px;background:#151515cc;border:1px solid #eee7;border-radius:6px;color:#f5f5f5;font-size:10px;font-weight:800;letter-spacing:.7px;pointer-events:none}
+#videoLiveBadge.recording{color:#ff7777;border-color:#b84646;background:#240d10db}
+#videoLiveNew{position:absolute;right:10px;top:10px;z-index:6;padding:0 7px;border:1px solid #bdbdbd;border-radius:7px;width:52px;height:32px;background:#101113df;color:#fff;font-weight:900;font-size:11px;letter-spacing:1px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#videoLiveNew:disabled{opacity:.4}
+#videoLiveNew.flashed{animation:videoLiveFlash .25s ease-out}
+@keyframes videoLiveFlash{0%{background:#fff;color:#101010;transform:scale(1.1)}100%{background:#111;color:#eee;transform:scale(1)}}
+.videoLiveStatus{background:#181a1e;border-left:3px solid #bfbfbf;padding:9px 11px;min-height:31px;border-radius:5px;color:#eee;font-size:11px;line-height:1.5}
+.videoLiveMeta,.videoLiveAudioState{font-size:10px;color:#aaa;line-height:1.35;min-height:13px}
+.videoLiveControls{display:grid;grid-template-columns:.7fr 1fr .95fr;gap:7px}
+.videoLiveControls label{display:flex;flex-direction:column;justify-content:center;gap:4px;padding:6px;background:#171717;border-radius:8px;border:1px solid #414141;font-size:11px;min-width:0}
+.videoLiveControls select{margin:0;min-height:32px;font-size:10px;padding:4px 3px}
+.videoLiveControls input[type=checkbox]{width:25px;height:25px;accent-color:#e2e2e2}
+.videoLiveButtons{display:grid;grid-template-columns:1fr 95px 1fr;gap:8px;align-items:center;flex:0 0 auto}
+.videoLiveButtons .button{font-size:11px;line-height:1.3;min-height:48px;padding:7px 5px}
+.videoLiveRecord{border:4px solid #f5f5f5;border-radius:50%;width:83px;height:83px;margin:auto;background:#9f232c;color:#fff;font-size:17px;font-weight:900;letter-spacing:.5px;box-shadow:0 0 0 2px #555}
+.videoLiveRecord.recording{border-radius:12px;width:82px;height:69px;background:#6a151a}
+.videoLiveRecord:disabled{opacity:.4}
+.videoLiveHold{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.videoLiveHold.held{color:#fff;background:#9b2830;border-color:#d64b55;box-shadow:0 0 12px #a32f3870}
+.videoLiveReviewActions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.videoLiveReviewActions .button{min-height:43px;font-size:11px;text-align:center}
+.videoLiveReviewActions #videoLiveImport{grid-column:1 / 3}
+.videoLiveNote{color:#9d9d9d;font-size:10px;line-height:1.55;margin:3px 1px 0;flex:0 0 auto}
+@media(max-width:380px){.videoLiveButtons{grid-template-columns:1fr 82px 1fr;gap:5px}.videoLiveRecord{width:72px;height:72px}.videoLiveButtons .button{font-size:10px}.videoLiveControls{gap:4px}.videoLiveControls label{padding:5px}}
