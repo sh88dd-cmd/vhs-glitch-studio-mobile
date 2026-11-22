@@ -1,0 +1,44 @@
+name: Video 0.9 real camera record, NEW, hold browser regression
+on:
+  push:
+    paths:
+      - 'video/live-camera.js'
+      - 'video/index.html'
+      - 'video/app.js'
+      - 'video/styles.css'
+      - 'video/sw.js'
+      - 'video/tests/live-camera-browser.mjs'
+      - '.github/workflows/video-live-camera-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-camera:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax and regress existing video lab features
+        shell: bash
+        run: |
+          node --check video/live-camera.js
+          node --check video/app.js
+          node --check video/sw.js
+          node video/tests/studio-core-smoke.mjs
+          node video/tests/camera-cassette-smoke.mjs
+          node video/tests/hold-audio-offline-smoke.mjs
+      - name: Install real Chromium browser
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.65.1
+          npx playwright install --with-deps chromium-headless-shell
+      - name: Record and decode a REAL camera stream with active video effects
+        shell: bash
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/video-live-camera.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          sleep 2
+          node video/tests/live-camera-browser.mjs
