@@ -47,7 +47,7 @@ const sw=fs.readFileSync('video/sw.js','utf8');
 const css=fs.readFileSync('video/styles.css','utf8');
 const ui=fs.readFileSync('video/help-ui.js','utf8');
 for(const script of ['help-content.js','help-illustrations.js','help-ui.js']){
- assert.ok(html.includes(script+'?v='+(script==='help-ui.js'?'0.7.10':script==='help-content.js'?'0.8.4':'0.7.9')),'Not linked: '+script);
+ assert.ok(html.includes(script+'?v='+(script==='help-ui.js'?'0.7.10':script==='help-content.js'?'0.8.5':'0.7.9')),'Not linked: '+script);
  assert.ok(sw.includes("'./"+script+"'"),'Not cached: '+script);
 }
 assert.ok(html.includes('id="videoHelpModal"')&&html.includes('id="helpClose"'));
