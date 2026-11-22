@@ -44,7 +44,7 @@ const inkTools=Object.freeze([
 const defaults=()=>({
  enabled:false,style:'classic',look:'soft',strength:55,paperWear:22,
  surface:'matte',frameSize:100,bottomHeight:100,
- note:'',noteFont:'caveat',noteInk:'blue-pen',
+ note:'',noteFont:'random',noteInk:'blue-pen',
  notePlacementSeed:518712,noteSize:100,
  noteColor:'#55514b',background:'studio',
  seed:518712,grain:14
