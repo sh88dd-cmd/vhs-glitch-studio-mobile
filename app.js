@@ -429,6 +429,10 @@
     const frame=newCanvas(w,h),ctx=frame.getContext('2d',{willReadFrequently:true});ctx.drawImage(im,0,0,w,h);
     let img=ctx.getImageData(0,0,w,h),p=img.data;const fac=power[state.preset]||1;
     const X=window.VHSPhotoExtras,extras=state.extras;
+    // Wait for the selected locally bundled Cyrillic font, including on
+    // the FIRST preview and on full-resolution export from iPhone Safari.
+    if(extras.polaroid?.enabled&&extras.polaroid.note?.trim())
+      await window.VHSPhotoPolaroid.ensureHandFont(extras.polaroid);
     if(X.activeAdjustment(extras.correction)){
       img.canvas=frame;X.adjustment(img,extras.correction);p=img.data;
     }
@@ -990,10 +994,12 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.3.0');
+      const cache=await caches.open('vhs-mobile-v1.4.0');
       const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js',
        './photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js',
-       './photo-polaroid-ui.js','./photo-face-detect.js',
+       './photo-polaroid-ui.js','./photo-face-ai.js','./photo-face-detect.js',
+       './assets/face/vision_bundle.mjs','./assets/face/blaze_face_short_range.tflite',
+       './assets/face/blaze_face_full_range.tflite',
        './video/vendor/tracking-min.js','./video/vendor/tracking-face-min.js',
        './video/glitch-engine.js','./video/film-damage.js','./video/camera-osd.js','./video/face-ai.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
