@@ -569,6 +569,7 @@ function create(opts){
    if(!faceDetector){pulse('Детектор недоступен. Можно обвести лицо пальцем прямо на кадре ниже.');return;}
    if(faceBusy)return;
    if(!source.paused)source.pause();
+   tool=''; // Search results should not be hidden by an active brush mode.
    c.touch.facesEnabled=true;c.touch.faceAutodetect=true;
    $('faceEnabled').checked=true;
    autoBoxes=[];autoClip=-1;faceLast=-1;resetTracking();editorDirty=true;
@@ -577,9 +578,16 @@ function create(opts){
    editStage.scrollIntoView({behavior:'smooth',block:'center'});
    try{
     const count=await detectFace();
+    if(!count){
+     // A failed scan must not leave face autodetect switched on with no
+     // usable mask. Offer direct finger selection on this same visible frame.
+     c.touch.faceAutodetect=false;
+     tool='face';
+     $('faceMark').textContent='✓ Закончить выделение';
+    }
     editorDirty=true;save();updateOverlay();
     pulse(count?'Найдено лиц: '+count+'. Зелёные рамки показывают области обработки; для другой сцены повтори поиск.':
-     'На этом кадре модель не распознала лицо. Нажми «Обвести лицо» и выдели его пальцем прямо здесь.');
+     'Модель не распознала лицо. Ручное выделение уже включено: обведи лицо пальцем по кадру выше.');
    }finally{$('faceAuto').disabled=false;}
   };
   $('faceMark').onclick=()=>{
