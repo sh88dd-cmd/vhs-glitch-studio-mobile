@@ -1,4 +1,4 @@
-/* Regression tests for photo v1.7.0. No external network or test packages. */
+/* Regression tests for photo v1.7.1. No external network or test packages. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -13,7 +13,7 @@ for(const p of paths){
  const version=p.startsWith('video/vendor/')?(p.endsWith('tracking-min.js')?'1.1.3':'1.0.0'):
   p.startsWith('video/')?'1.2.0':
   ['photo-extras-core.js','photo-extras-ui.js'].includes(p)?'1.3.0':
-   p==='photo-camera.js'?'1.7.0':'1.4.0';
+   p==='photo-camera.js'?'1.7.1':'1.4.0';
  assert.ok(html.includes('./'+p+'?v='+version),'Missing or stale script in photo HTML: '+p);
  assert.ok(sw.includes("'./"+p+"'"),'Not cached by photo service worker: '+p);
 }
@@ -21,7 +21,7 @@ for(const name of ['glitch','cassettes','masks','correction','polaroid','shoot',
  assert.ok(html.includes('id="panel-'+name+'"'),'Missing panel '+name);
  assert.ok(html.includes('data-tab="'+name+'"'),'Missing nav button '+name);
 }
-assert.ok(html.includes('STUDIO MOBILE · 1.7.0'));
+assert.ok(html.includes('STUDIO MOBILE · 1.7.1'));
 assert.ok(html.includes('id="allPhotoFxToggle"'));
 assert.ok(html.includes('id="photoHelpToggle"'));
 assert.ok(css.includes('.tabs{overflow-x:auto'),
@@ -124,7 +124,12 @@ assert.ok(app.includes("'undoPhotoFxReset'")&&
 assert.ok(app.includes('syncLegacyControls()'),
  'Cassette selection must synchronize legacy VHS/FILM controls');
 assert.ok(css.includes('polaroidGrid'),'Polaroid must render a selectable gallery');
-assert.ok(html.includes('id="liveCameraDialog"')&&html.includes('id="liveCameraShot"')&&
+assert.ok(html.includes('id="liveCameraViewport"')&&
+  css.includes('overflow:hidden;overscroll-behavior:none')&&
+  css.includes('.liveCameraViewport{flex:1 1 0;min-height:0')&&
+  app.includes('onPreview:(source,seed,filmSeed,size)=>processImage('),
+  'Camera must reserve the shutter space and fit real FX to the remaining viewport');
+ assert.ok(html.includes('id="liveCameraDialog"')&&html.includes('id="liveCameraShot"')&&
  html.includes('id="liveCameraFlip"')&&html.includes('id="liveCameraFaces"'),
  'App must present real shutter, front/back camera and static face masks');
 assert.ok(app.includes('async function onCameraCaptured(')&&
@@ -151,7 +156,7 @@ assert.ok(app.includes('await window.VHSPhotoPolaroid.ensureHandFont('),
  'Actual export waits for the selected Cyrillic handwriting font');
 assert.ok(html.includes('./photo-face-ai.js?v=1.4.0'),
  'Photo app loads pinned on-device face runtime');
-assert.ok(sw.includes('vhs-mobile-v1.7.0')&&sw.includes('blaze_face_full_range.tflite'),
+assert.ok(sw.includes('vhs-mobile-v1.7.1')&&sw.includes('blaze_face_full_range.tflite'),
  'Offline worker must cache real face model binaries');
 assert.ok(!read('photo-face-detect.js').includes('Promise.race(['),
  'Old 8.5s CDN timeout must be removed from the photo detector');
