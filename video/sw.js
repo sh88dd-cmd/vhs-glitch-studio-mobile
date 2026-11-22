@@ -30,8 +30,22 @@ self.addEventListener('fetch',event=>{
   }
   const wantsFresh=/\.(?:js|css|json|webmanifest)$/.test(new URL(request.url).pathname);
   if(wantsFresh){
-   try{const response=await fetch(request,{cache:'no-store'});if(response.ok)await cache.put(request,response.clone());return response;}
-   catch{const fallback=await cache.match(request,{ignoreSearch:true});return fallback||(request.mode==='navigate'?await cache.match('./index.html'):null)||Response.error();}
+   // Eagerly precached scripts are available instantly even in airplane
+   // mode and on a bad mobile connection. Versioned SW install ensures
+   // matching HTML, styles and JavaScript are replaced as one build.
+   const saved=await cache.match(request,{ignoreSearch:true});
+   if(saved){
+    const refresh=fetch(request,{cache:'no-store'}).then(response=>{
+     if(response.ok)return cache.put(request,response.clone());
+    }).catch(()=>{});
+    event.waitUntil?.(refresh);
+    return saved;
+   }
+   try{
+    const response=await fetch(request);
+    if(response.ok)await cache.put(request,response.clone());
+    return response;
+   }catch{return Response.error();}
   }
   const old=await cache.match(request,{ignoreSearch:true});if(old)return old;
   try{const response=await fetch(request);if(response.ok)await cache.put(request,response.clone());return response;}
