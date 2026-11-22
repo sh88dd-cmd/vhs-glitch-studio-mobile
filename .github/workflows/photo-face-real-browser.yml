@@ -1,0 +1,41 @@
+name: Photo real ML browser check
+on:
+  push:
+    paths:
+      - 'photo-face-ai.js'
+      - 'photo-face-detect.js'
+      - 'index.html'
+      - 'assets/face/**'
+      - 'tests/photo-face-browser-smoke.mjs'
+      - '.github/workflows/photo-face-real-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-face-inference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser for real photo inference
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium-headless-shell
+      - name: Get official Google face test picture
+        run: |
+          mkdir -p tests/fixtures
+          curl --fail --location --retry 3 --silent --show-error \
+            'https://storage.googleapis.com/mediapipe-assets/portrait.jpg' \
+            -o tests/fixtures/portrait.jpg
+          test "$(wc -c < tests/fixtures/portrait.jpg)" -gt 10000
+      - name: Verify local ML in a real browser without any CDN
+        shell: bash
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/photo-static-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          sleep 2
+          node tests/photo-face-browser-smoke.mjs
