@@ -71,18 +71,18 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
   const activeFilm=cfg.filmEnabled,activePol=pol.enabled;
   const name=String(film.name||'').toLowerCase();
   const filmStrength=activeFilm?limit(film.strength,0,100)/100:0;
-  const mono=(activeFilm&&/ilford|tri.x|t.max|monochrom|black.and.white|чёрно.бел|черно.бел|b\\/w/.test(name))||
+  const mono=(activeFilm&&(/ilford|tri.x|t.max|monochrom|black.and.white|чёрно.бел|черно.бел/.test(name)||name.includes('b/w')))||
     (activePol&&pol.look==='mono');
   const brightness=limit(Math.pow(2,limit(correction.exposure,-3,3)*.31)+
     limit(correction.brightness,-100,100)/430,.55,1.65);
   const contrast=limit(1+limit(correction.contrast,-100,100)/190+
     (activeFilm?filmStrength*.055:0),.65,1.6);
   const saturation=limit((1+limit(correction.saturation,-100,100)/125)*
-   (activeFilm?.90:1)*(activePol?.94:1),0,2);
+   (activeFilm ? .90 : 1)*(activePol ? .94 : 1),0,2);
   const sepia=limit(
    (activeFilm&&/kodak|gold|portra|fuji|vintage|ретро/i.test(name)?
     .13*filmStrength:0)+
-   (activePol&&['warm','expired','fade'].includes(pol.look)?.15:0),0,.45);
+   (activePol&&['warm','expired','fade'].includes(pol.look) ? .15 : 0),0,.45);
   const hue=limit(correction.hue,-180,180);
   return 'brightness('+brightness.toFixed(3)+') contrast('+contrast.toFixed(3)+
    ') saturate('+saturation.toFixed(3)+') sepia('+sepia.toFixed(3)+
@@ -137,7 +137,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
     for(let i=0;i<waves;i++){
      const y=Math.floor(rand()*h),height=1+Math.floor(rand()*Math.max(2,h*.035));
      const x=Math.floor(rand()*w*.26),opacity=.045+rand()*.13*master;
-     ctx.fillStyle='rgba(243,247,250,'+Math.min(.22,opacity+(glitch?.05:0))+')';
+     ctx.fillStyle='rgba(243,247,250,'+Math.min(.22,opacity+(glitch ? .05 : 0))+')';
      ctx.fillRect(x,y,w-x,height);
      if(rand()>.65){
       ctx.fillStyle=rand()>.5?'rgba(236,68,74,.14)':'rgba(41,178,250,.17)';
@@ -190,7 +190,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
    try{acquired=await navigator.mediaDevices.getUserMedia(opts);}
    catch(err){
     if(err?.name==='NotAllowedError'||err?.name==='PermissionDeniedError')throw err;
-    // Some iPhone lenses reject 4K/30fps; request a simple stream instead.
+    // Some iPhone lenses reject a requested 1080p/30fps constraint; fall back.
     acquired=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing}}});
    }
    if(token!==session||!active){
@@ -301,7 +301,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
    lastRendered=result.processed;
    lastFilename=result.filename;
    drawResult(still,result.processed,1440);
-   stage.classList.remove('selfie');review=true;
+   stage.classList.remove('selfie','instant');review=true;
    refreshButtons();
    const final=result.processed;
    res.textContent='Готовый снимок: '+final.width+' × '+final.height+
@@ -342,6 +342,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
   if(!active||capturing)return;
   review=false;lastRendered=null;lastFilename='';
   stage.classList.toggle('selfie',facing==='user');
+  applyVisual();
   liveSeed=getSeed();filmSeed=liveSeed;previewDraws=0;refreshButtons();
   if(!stream||!stream.getVideoTracks().some(t=>t.readyState==='live')){
    start();return;
