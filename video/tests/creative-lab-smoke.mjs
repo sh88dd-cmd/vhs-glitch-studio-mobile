@@ -140,5 +140,5 @@ assert.ok(ui.includes('vision.detect(pixels,w,h,1.1,1.22,2,.105,vision.classifie
 assert.ok(ui.includes("source.currentTime=clamp(source.currentTime+rate*dt"),'Negative speed must seek real video frames');
 assert.ok(ui.includes('opts.onBeat(events)'),'Beat output must be committed to timeline');
 assert.ok(ui.includes('opts.onLive(ev)'),'Live pads must record timeline events');
-assert.ok(html.includes('БЕТА 0.9.1'));
+assert.ok(html.includes('БЕТА 0.9.2'));
 console.log('PASS: eight creative studio workflows, actual pixel change, face motion tracking, beat onsets, signed speed, UI and offline cache');
