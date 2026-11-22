@@ -33,7 +33,7 @@ const damageControls=[
  ['scratches','Царапины'],['flicker','Изменение экспозиции'],['halation','Ореол света']
 ];
 const camControls=[
- ['counter','Счётчик ленты'],['zoom','ZOOM'],
+ ['counter','Счётчик ленты'],
  ['modeInfo','SP / LP / EP'],['focus','AF / фокус'],['frame','Уголки видоискателя']
 ];
 function control(id,title,value,min,max,step,change,tip){
@@ -545,7 +545,7 @@ function mount(opts){
  const placement=[['left-top','Слева сверху'],['center-top','По центру сверху'],
   ['right-top','Справа сверху'],['left-bottom','Слева снизу'],
   ['center-bottom','По центру снизу'],['right-bottom','Справа снизу']];
- for(const [id,title] of camControls.filter(([id])=>id!=='zoom')){
+ for(const [id,title] of camControls){
   const group=block(camera,title);
   group.append(checkbox('photoCamera-'+id,'Включить '+title,!!cameraMore[id],
    v=>{cameraMore[id]=v;changed();}));
@@ -595,7 +595,7 @@ function mount(opts){
    if($(id))$(id).checked=!!value;
   }
   if($('extraCameraMode'))$('extraCameraMode').value=extras.glitch.mode;
-  for(const [id] of camControls.filter(([k])=>k!=='zoom')){
+  for(const [id] of camControls){
    if($('photoCamera-'+id))$('photoCamera-'+id).checked=!!state.extraCamera[id];
   }
   markDirty();
