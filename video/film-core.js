@@ -5,12 +5,24 @@
 (function(root){
 'use strict';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  // Gamma acts on the ORIGINAL 8-bit input byte, so precompute the exact
+  // Math.pow(value/255, 1/gamma) curve once per film. The live 720p camera
+  // no longer evaluates three expensive pow() calls PER PIXEL per frame.
+  const gammaCache=new Map();
+  function gammaCurve(gamma){
+    if(gammaCache.has(gamma))return gammaCache.get(gamma);
+    const table=new Float64Array(256);
+    for(let i=0;i<256;i++)table[i]=Math.pow(i/255,1/gamma);
+    gammaCache.set(gamma,table);
+    return table;
+  }
   function filmBuiltin(p,recipe,strength){
     if(!recipe||strength<=0)return;
     const [gamma,contr,sat,gain,lift,shadows,highlights]=recipe;
+    const curve=gammaCurve(gamma);
     for(let i=0;i<p.length;i+=4){
-      const r0=p[i],g0=p[i+1],b0=p[i+2];let r=r0/255,g=g0/255,b=b0/255;
-      r=Math.pow(r,1/gamma);g=Math.pow(g,1/gamma);b=Math.pow(b,1/gamma);
+      const r0=p[i],g0=p[i+1],b0=p[i+2];
+      let r=curve[r0],g=curve[g0],b=curve[b0];
       r=(r-.5)*contr+.5;g=(g-.5)*contr+.5;b=(b-.5)*contr+.5;
       const l=.299*r+.587*g+.114*b; r=l+(r-l)*sat;g=l+(g-l)*sat;b=l+(b-l)*sat;
       const sh=(1-clamp(l,0,1))**2, hi=clamp(l,0,1)**2;
