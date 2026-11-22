@@ -1,15 +1,13 @@
-/* Photo Studio 1.6 — low-latency filtered camera.
- * The VIDEO stays live on the compositor. Only small transparent tracking /
- * interference overlays are re-randomized on a timer; NO per-video-frame
- * ImageData processing or complete still-image pipeline runs while moving.
- * The shutter still uses the unchanged high-quality photo processor.
- * All camera frames stay on device; there are no network endpoints.
+/* Photo Studio 1.7 — real photo-engine previews and unchanged high-res
+ * shutter capture. The live processor is adaptive and only runs one frame at
+ * a time; the native video remains behind it for startup/error recovery.
+ * The full-resolution still never uses the preview's smaller buffer.
  */
 (function(root){
 'use strict';
 const $=id=>document.getElementById(id);
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigure}){
+function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings,onConfigure}){
  const dialog=$('liveCameraDialog');
  const video=$('liveCameraVideo'),fx=$('liveCameraFx'),still=$('liveCameraStill');
  const stage=$('liveCameraStage'),badge=$('liveCameraBadge');
@@ -22,7 +20,8 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
  let stream=null,session=0,previewJob=null;
  let facing='environment',active=false,review=false,capturing=false;
  let lastRendered=null,lastFilename='',liveSeed=0,filmSeed=0;
- let liveVisual=null,previewDraws=0,ready=false;
+ let liveVisual=null,previewDraws=0,ready=false,fxReady=false,previewBusy=false;
+ let viewLongSide=720,lastRenderMs=0;
  const getDims=()=>[Number(video.videoWidth)||0,Number(video.videoHeight)||0];
  const setStatus=text=>{status.textContent=text;};
  const stopTracks=()=>{
@@ -39,10 +38,11 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
   again.disabled=capturing;
   save.disabled=capturing||!lastRendered;
   reviewButtons.hidden=!review;
-  fx.hidden=review||!previewToggle.checked;
+  fx.hidden=review||!previewToggle.checked||!fxReady;
   newFx.hidden=review;
   newFx.disabled=!ready||capturing||review;
-  video.style.filter=review||!previewToggle.checked?'none':liveFilter(liveVisual);
+  // The actual photo engine already supplies color and VHS; never double-filter.
+  video.style.filter='none';
   still.hidden=!review;
   badge.textContent=review?'● ГОТОВЫЙ КАДР':'● LIVE';
  };
@@ -51,6 +51,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
   clearJobs();stopTracks();
   lastRendered=null;lastFilename='';
   if(dialog.open)dialog.close();
+  stage.style.width='';stage.style.height='';stage.style.aspectRatio='';stage.style.flex='';
   refreshButtons();
  };
  const camerasEnabled=()=>!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia);
@@ -62,111 +63,83 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
   ]);
   if(token!==session)throw Error('Камера уже закрыта');
  };
- // CSS video filters are composed by the browser GPU, so moving the iPhone
- // does NOT wait for a slow frame processed in JavaScript.
- const limit=(v,min,max)=>Math.max(min,Math.min(max,Number(v)||0));
- function liveFilter(cfg){
-  if(!cfg)return'none';
-  const correction=cfg.correction||{},film=cfg.film||{},pol=cfg.polaroid||{};
-  const activeFilm=cfg.filmEnabled,activePol=pol.enabled;
-  const name=String(film.name||'').toLowerCase();
-  const filmStrength=activeFilm?limit(film.strength,0,100)/100:0;
-  const mono=(activeFilm&&(/ilford|tri.x|t.max|monochrom|black.and.white|чёрно.бел|черно.бел/.test(name)||name.includes('b/w')))||
-    (activePol&&pol.look==='mono');
-  const brightness=limit(Math.pow(2,limit(correction.exposure,-3,3)*.31)+
-    limit(correction.brightness,-100,100)/430,.55,1.65);
-  const contrast=limit(1+limit(correction.contrast,-100,100)/190+
-    (activeFilm?filmStrength*.055:0),.65,1.6);
-  const saturation=limit((1+limit(correction.saturation,-100,100)/125)*
-   (activeFilm ? .90 : 1)*(activePol ? .94 : 1),0,2);
-  const sepia=limit(
-   (activeFilm&&/kodak|gold|portra|fuji|vintage|ретро/i.test(name)?
-    .13*filmStrength:0)+
-   (activePol&&['warm','expired','fade'].includes(pol.look) ? .15 : 0),0,.45);
-  const hue=limit(correction.hue,-180,180);
-  return 'brightness('+brightness.toFixed(3)+') contrast('+contrast.toFixed(3)+
-   ') saturate('+saturation.toFixed(3)+') sepia('+sepia.toFixed(3)+
-   ') grayscale('+(mono?1:0)+') hue-rotate('+hue+'deg)';
+ // Match the video's camera viewfinder geometry. Neither a portrait sensor
+ // nor an instant-print frame may be stretched to fill a landscape box.
+ function fitStage(w,h){
+  if(!(w>1&&h>1))return;
+  const maxWidth=Math.max(180,Math.min(window.innerWidth-24,dialog.clientWidth-20));
+  const maxHeight=Math.max(190,window.innerHeight-350);
+  const width=Math.min(maxWidth,maxHeight*w/h);
+  stage.style.width=Math.round(width)+'px';
+  stage.style.height=Math.round(width*h/w)+'px';
+  stage.style.aspectRatio=w+' / '+h;
+  stage.style.flex='0 0 auto';
  }
- function randomizer(seed){
-  let x=(seed>>>0)||0x91e10da5;
-  return()=>{
-   x=(x+0x6D2B79F5)>>>0;
-   let t=x;
-   t=Math.imul(t^(t>>>15),t|1);
-   t^=t+Math.imul(t^(t>>>7),t|61);
-   return ((t^(t>>>14))>>>0)/4294967296;
-  };
+ function hasSelectedEffects(v){
+  return !!((v.vhsEnabled&&Number(v.master)>0)||v.filmEnabled||
+   v.glitch?.enabled||v.damage?.enabled||v.edgeBurn?.enabled||
+   v.polaroid?.enabled||(v.colorCopy?.enabled&&v.colorCopy?.target)||
+   v.film?.whiteBorder||v.film?.blackBorder||v.film?.caption||
+   Object.values(v.camera||{}).some(x=>x?.on)||
+   ['counter','modeInfo','focus','frame'].some(k=>v.extraCamera?.[k])||
+   root.VHSPhotoExtras?.activeAdjustment?.(v.correction));
  }
- const schedule=(token,ms=160)=>{
+ function idealLongSide(v){
+  const analog=(v.vhsEnabled&&Number(v.master)>0)||v.glitch?.enabled;
+  return analog?420:800;
+ }
+ const schedule=(token,ms=180)=>{
   if(previewJob!==null)clearTimeout(previewJob);
-  if(!active||review||!ready||token!==session)return;
-  previewJob=setTimeout(()=>{previewJob=null;renderLive(token);},ms);
+  if(!active||review||!ready||token!==session||!previewToggle.checked)return;
+  previewJob=setTimeout(()=>{previewJob=null;void renderLive(token);},ms);
  };
  function applyVisual(){
   liveVisual=getVisualSettings()||{};
-  stage.classList.toggle('instant',!!liveVisual.polaroid?.enabled&&previewToggle.checked);
-  video.style.filter=previewToggle.checked?liveFilter(liveVisual):'none';
+  // The photo engine draws real Polaroid paper; no fake CSS paper overlay.
+  stage.classList.remove('instant');
+  video.style.filter='none';
+  viewLongSide=idealLongSide(liveVisual);
+  fxReady=false;fx.hidden=true;
  }
- function renderLive(token){
-  if(token!==session||!active||!ready||review||capturing)return;
-  if(!previewToggle.checked){
-   fx.hidden=true;video.style.filter='none';return;
+ async function renderLive(token){
+  if(token!==session||!active||!ready||review||capturing||
+     !previewToggle.checked||previewBusy)return;
+  if(!hasSelectedEffects(liveVisual||{})){
+   fxReady=false;fx.hidden=true;
+   return; // Pure camera view: keep native sensor detail, no downsampling.
   }
+  const [vw,vh]=getDims();
+  if(vw<2||vh<2){schedule(token,150);return;}
+  previewBusy=true;
+  const start=performance.now();
   try{
-   const [vw,vh]=getDims();
-   if(vw<2||vh<2){schedule(token,200);return;}
-   const ratio=Math.min(1,320/Math.max(vw,vh));
-   const w=Math.max(32,Math.round(vw*ratio));
-   const h=Math.max(32,Math.round(vh*ratio));
-   if(fx.width!==w||fx.height!==h){fx.width=w;fx.height=h;}
-   const ctx=fx.getContext('2d',{alpha:true});
-   ctx.clearRect(0,0,w,h);
-   const v=liveVisual||{},signal=v.signal||{},film=v.film||{};
-   const analog=!!v.vhsEnabled&&Number(v.master)>0;
-   const master=limit(v.master,0,100)/100;
-   const glitch=!!v.glitch?.enabled;
-   const damage=!!v.damage?.enabled;
-   const strength=analog?master*.85:0;
-   const rand=randomizer((liveSeed^Math.imul(previewDraws+1,0x9e3779b9))>>>0);
-   // Quick scanline/tape overlay: ~hundreds of 2D drawing calls on a
-   // transparent 320px surface, NEVER reading back video frame pixels.
-   if(analog||glitch){
-    const waves=Math.round((4+(signal.tracking||20)/8)*strength+
-       (glitch?5:0));
-    for(let i=0;i<waves;i++){
-     const y=Math.floor(rand()*h),height=1+Math.floor(rand()*Math.max(2,h*.035));
-     const x=Math.floor(rand()*w*.26),opacity=.045+rand()*.13*master;
-     ctx.fillStyle='rgba(243,247,250,'+Math.min(.22,opacity+(glitch ? .05 : 0))+')';
-     ctx.fillRect(x,y,w-x,height);
-     if(rand()>.65){
-      ctx.fillStyle=rand()>.5?'rgba(236,68,74,.14)':'rgba(41,178,250,.17)';
-      ctx.fillRect(Math.max(0,x-2),y+1,Math.floor(w*(.18+rand()*.55)),1);
-     }
-    }
-    const lines=Math.round((6+(signal.noise||30)*.11)*strength+(glitch?7:0));
-    for(let i=0;i<lines;i++){
-     ctx.fillStyle='rgba(255,255,253,'+(.018+rand()*.065)+')';
-     const y=Math.floor(rand()*h);
-     ctx.fillRect(0,y,w,1);
-    }
-   }
-   if(analog||v.filmEnabled||damage){
-    const count=Math.min(210,Math.round((v.filmEnabled?30:0)+
-      strength*(25+limit(signal.noise,0,100)*.45)+(damage?35:0)));
-    for(let i=0;i<count;i++){
-     const y=Math.floor(rand()*h),x=Math.floor(rand()*w);
-     ctx.fillStyle=rand()>.3?'rgba(240,230,212,.13)':'rgba(13,17,23,.17)';
-     ctx.fillRect(x,y,rand()>.85?2:1,1);
-    }
-   }
+   // One exact processed frame at a time. No decorative stripe overlay,
+   // no fake CSS FILM lookup, and no backlog of stale camera frames.
+   const result=await onPreview(video,liveSeed,filmSeed,viewLongSide);
+   if(token!==session||!active||review||capturing||!previewToggle.checked)return;
+   if(!result||result.width<2||result.height<2)
+    throw Error('Не получен обработанный кадр');
+   fx.width=result.width;fx.height=result.height;
+   fx.getContext('2d',{alpha:true}).drawImage(result,0,0);
+   fxReady=true;fx.hidden=false;
+   fitStage(result.width,result.height);
    previewDraws++;
-   fx.hidden=false;
-   schedule(token,160);
+   lastRenderMs=performance.now()-start;
+   const ideal=idealLongSide(liveVisual||{});
+   const minimum=ideal===420?320:560;
+   if(lastRenderMs>165)viewLongSide=Math.max(minimum,Math.round(viewLongSide*.85));
+   else if(lastRenderMs<85)viewLongSide=Math.min(ideal,Math.round(viewLongSide*1.12));
   }catch(err){
-   fx.hidden=true;
-   setStatus('Облегчённый предпросмотр: '+(err?.message||err));
-   schedule(token,500);
+   if(token!==session||!active)return;
+   fxReady=false;fx.hidden=true;
+   setStatus('Ошибка живых эффектов: '+(err?.message||err)+
+    '. Обычная камера продолжает работать.');
+  }finally{
+   previewBusy=false;
+   if(token===session&&active&&ready&&!review&&!capturing&&previewToggle.checked){
+    const delay=Math.max(100,Math.min(600,(performance.now()-start)*.85));
+    schedule(token,delay);
+   }
   }
  }
  // Still-photo review uses the same lossless source dimensions as before.
@@ -181,6 +154,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
   const token=++session;
   clearJobs();stopTracks();
   ready=false;capturing=false;review=false;lastRendered=null;
+  fxReady=false;fx.hidden=true;viewLongSide=720;
   stage.classList.toggle('selfie',facing==='user');
   refreshButtons();
   $('liveCameraProfile').textContent=getProfile();
@@ -217,8 +191,9 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
     '. Для снимка используется максимальное разрешение, доступное браузеру.';
    liveSeed=getSeed();filmSeed=liveSeed;previewDraws=0;
    applyVisual();
+   fitStage(w,h);
    ready=true;refreshButtons();
-   setStatus('Плавный предпросмотр: живое видео без задержки обработки. На снимке — полные эффекты.');
+   setStatus('Камера готова · реальные выбранные эффекты в видоискателе. Снимок сохраняется отдельно в высоком разрешении.');
    schedule(token,50);
   }catch(err){
    if(token!==session)return;
@@ -309,6 +284,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
    lastRendered=result.processed;
    lastFilename=result.filename;
    drawResult(still,result.processed,1440);
+   fitStage(still.width,still.height);
    stage.classList.remove('selfie','instant');review=true;
    refreshButtons();
    const final=result.processed;
@@ -351,6 +327,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
   review=false;lastRendered=null;lastFilename='';
   stage.classList.toggle('selfie',facing==='user');
   applyVisual();
+  const [vw,vh]=getDims();fitStage(vw,vh);
   liveSeed=getSeed();filmSeed=liveSeed;previewDraws=0;refreshButtons();
   if(!stream||!stream.getVideoTracks().some(t=>t.readyState==='live')){
    start();return;
@@ -367,7 +344,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
   // Keep selected VHS/FILM/paper settings and the FILM grain seed intact.
   // Only the current camera VHS/random glitch seed changes.
   previewDraws=0;
-  fx.hidden=false;
+  fxReady=false;fx.hidden=true;
   newFx.classList.remove('is-new');
   void newFx.offsetWidth;
   newFx.classList.add('is-new');
@@ -387,10 +364,15 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
  $('liveCameraAgain').addEventListener('click',againShot);
  $('liveCameraConfigure').addEventListener('click',configure);
  previewToggle.addEventListener('change',()=>{
-  applyVisual();
+  if(!previewToggle.checked){fxReady=false;fx.hidden=true;clearJobs();}
+  else if(active&&!review&&ready)schedule(session,40);
   refreshButtons();
-  if(active&&!review&&ready&&previewToggle.checked)schedule(session,40);
-  else if(previewJob!==null){clearTimeout(previewJob);previewJob=null;}
+ });
+ window.addEventListener('resize',()=>{
+  if(!active)return;
+  if(review&&still.width>2&&still.height>2)fitStage(still.width,still.height);
+  else if(fxReady)fitStage(fx.width,fx.height);
+  else{const [w,h]=getDims();fitStage(w,h);}
  });
  dialog.addEventListener('cancel',e=>{e.preventDefault();close();});
  document.addEventListener('visibilitychange',()=>{
@@ -402,7 +384,7 @@ function mount({onCaptured,onSave,getSeed,getProfile,getVisualSettings,onConfigu
  return Object.freeze({open,close,isActive:()=>active,
   getState:()=>({active,ready,review,facing,hasStream:!!stream,
    hasRenderedShot:!!lastRendered,liveSeed,filmSeed,previewDraws,
-   previewMode:'compositor-overlay'})});
+   previewMode:'exact-photo-pipeline',viewLongSide,lastRenderMs})});
 }
 root.VHSPhotoCamera=Object.freeze({mount});
 })(window);
