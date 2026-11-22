@@ -626,9 +626,36 @@ function mount(opts){
    if($(id))$(id).checked=!!value;
   }
   if($('extraCameraMode'))$('extraCameraMode').value=extras.glitch.mode;
+  if($('photoDamageType'))$('photoDamageType').value=extras.damage.type;
+  if($('photoMaskBrush'))$('photoMaskBrush').value=extras.masks.brush;
+  if($('photoMaskFaceStyle'))$('photoMaskFaceStyle').value=extras.masks.style;
+  if($('photoMaskMode'))$('photoMaskMode').value=extras.masks.mode;
+  for(const [id,value] of [
+   ['photoMaskRadius',extras.masks.radius],
+   ['photoMaskStrength',extras.masks.strength],
+   ['photoFacePixel',extras.masks.faceSize],
+   ['photoFaceBlur',extras.masks.faceBlur]]){
+   if($(id)){$(id).value=value;$('value-'+id).textContent=value;}
+  }
   for(const [id] of camControls){
    if($('photoCamera-'+id))$('photoCamera-'+id).checked=!!state.extraCamera[id];
+   if(id!=='frame'){
+    if($('photoCameraPosition-'+id))
+      $('photoCameraPosition-'+id).value=state.extraCamera.positions?.[id]||
+       (id==='counter'?'center-bottom':id==='modeInfo'?'center-top':'right-top');
+    const size=state.extraCamera.sizes?.[id]||100;
+    if($('photoCameraSize-'+id)){
+     $('photoCameraSize-'+id).value=size;
+     $('value-photoCameraSize-'+id).textContent=size;
+    }
+   }
   }
+  if($('photoCameraFrameSize')){
+   const size=state.extraCamera.frameSize||100;
+   $('photoCameraFrameSize').value=size;
+   $('value-photoCameraFrameSize').textContent=size;
+  }
+  syncHelp();
   markDirty();
  }
  return Object.freeze({refresh,drawMaskEditor,markDirty,reroll,notice});
