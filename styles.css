@@ -258,11 +258,15 @@ body.photoHelpVisible .extraHelpText.expanded{display:block!important}
  .cameraEntry>span{text-align:center;font-size:9px}
 }
 #liveCameraDialog{position:fixed;inset:0;margin:0;max-width:none;
- max-height:none;width:100vw;height:100dvh;border:0;border-radius:0;
+ max-height:100dvh;width:100vw;height:100dvh;border:0;border-radius:0;
  padding:calc(env(safe-area-inset-top) + 8px) 10px
- calc(env(safe-area-inset-bottom) + 15px);
- background:#090e15;color:#e7f5f5;overflow:auto;overscroll-behavior:contain}
-#liveCameraDialog[open]{display:flex;flex-direction:column;gap:10px}
+ calc(env(safe-area-inset-bottom) + 12px);
+ background:#090e15;color:#e7f5f5;overflow:hidden;overscroll-behavior:none}
+#liveCameraDialog[open]{display:flex;flex-direction:column;gap:8px}
+html.photoCameraLock,body.photoCameraLock{overflow:hidden!important;overscroll-behavior:none}
+.liveCameraViewport{flex:1 1 0;min-height:0;width:100%;display:flex;
+ align-items:center;justify-content:center;overflow:hidden;touch-action:none;
+ overscroll-behavior:none}
 #liveCameraDialog::backdrop{background:#04080c}
 .liveCameraTop{display:flex;gap:9px;align-items:center;
  justify-content:space-between;flex:0 0 auto;min-height:36px}
@@ -289,7 +293,8 @@ body.photoHelpVisible .extraHelpText.expanded{display:block!important}
 .liveCameraStatus{flex:0 0 auto;min-height:35px;color:#ccf4ec;
  background:#1b3037;border-left:3px solid #80e7cc;
  padding:10px 12px;border-radius:6px;font-size:11px;line-height:1.4}
-#liveCameraResolution{margin:0;padding:0 3px}
+#liveCameraResolution{margin:0;padding:0 3px;flex:0 0 auto;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:14px}
 .liveCameraOptions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
  gap:7px;flex:0 0 auto}
 .liveCameraOption{display:flex;flex-direction:column;
@@ -316,8 +321,28 @@ body.photoHelpVisible .extraHelpText.expanded{display:block!important}
 .liveCameraReviewActions{display:grid;grid-template-columns:1fr 1.25fr;
  gap:8px;flex:0 0 auto}
 .liveCameraReviewActions .btn{min-height:47px;font-size:12px}
-.liveCameraNote{font-size:10px;color:#92a6af;
- line-height:1.5;margin:3px 2px 0;flex:0 0 auto}
+.liveCameraNote{display:none}
+#liveCameraDialog.is-review .liveCameraActions{display:none}
+#liveCameraDialog.is-review .liveCameraReviewActions{min-height:78px}
+@media(max-height:730px){
+ #liveCameraDialog{padding-top:calc(env(safe-area-inset-top) + 5px);
+  padding-bottom:calc(env(safe-area-inset-bottom) + 7px)}
+ #liveCameraDialog[open]{gap:5px}
+ .liveCameraTop{min-height:30px}
+ .liveCameraStatus{padding:6px 9px;min-height:27px}
+ .liveCameraOptions{gap:5px}
+ .liveCameraOption{padding:5px;font-size:10px;gap:3px}
+ .liveCameraOption select{min-height:33px;padding:5px 3px}
+ .liveCameraActions .btn{min-height:43px}
+ .liveCameraShutter{width:65px;height:65px}
+}
+@media(max-height:590px){
+ #liveCameraResolution{display:none}
+ .liveCameraTop small{display:none}
+ .liveCameraOptions{gap:3px}
+ .liveCameraOption{padding:4px}
+ .liveCameraOption select{min-height:30px}
+}
 @media(max-width:385px){
  .liveCameraOptions{gap:4px}
  .liveCameraOption{font-size:10px;padding:6px}
