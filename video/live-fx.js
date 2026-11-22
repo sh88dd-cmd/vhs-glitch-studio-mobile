@@ -21,7 +21,7 @@ function signalDimensions(outW,outH,state={},opts={}){
  // receives more pixels to avoid falsely resembling damaged VHS.
  const longest=reduce?
   vhs?clamp(chosen||240,128,320):
-  clamp(chosen==='auto'?480:Math.max(480,chosen||480),360,640):
+  clamp(Math.max(480,chosen||480),360,640):
   Math.max(outW,outH);
  const factor=Math.min(1,longest/Math.max(outW,outH));
  return{
@@ -51,7 +51,13 @@ function create(){
   const film=active&&state.filmEnabled&&Number(state.filmStrength)>0;
   const vhs=active&&state.vhsEnabled&&Number(state.master)>0;
   const damaged=active&&state.filmDamage?.enabled;
-  const extra=active&&(state.glitchEnabled||String(state.mode||'vhs')!=='vhs');
+  // A checked but zero-strength GLITCH switch is not a video effect.
+  // Do not force a CPU-heavy temporal processor on a FILM-only capture.
+  const extra=active&&(
+   (state.glitchEnabled&&Number(state.glitchStrength)>0&&
+    Object.values(state.glitches||{}).some(value=>Number(value)>0))||
+   (String(state.mode||'vhs')!=='vhs'&&Number(state.modeStrength)>0)
+  );
   const transferred=active&&state.creative?.look?.enabled&&state.creative.look.target;
   // Film/color/XMP, grain, scratches and palette transfer do not
   // reduce optical resolution. The old condition included "film" here,
