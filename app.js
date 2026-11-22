@@ -1082,7 +1082,11 @@
     const copy=clone(snapshot);
     for(const key of ['vhsEnabled','filmEnabled','preset','master','fx',
       'signal','film','camera','legacyVhs','extraCamera'])
-      if(key in copy)state[key]=clone(copy[key]);
+      if(key in copy){
+       // Additional camera controls captured this object at mount time.
+       if(key==='extraCamera')Object.assign(state.extraCamera,clone(copy[key]));
+       else state[key]=clone(copy[key]);
+      }
     if(copy.edgeBurn)Object.assign(state.edgeBurn,copy.edgeBurn);
     const polaroid=state.extras.polaroid;
     const oldMasks=state.extras.masks;
