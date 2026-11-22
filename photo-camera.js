@@ -32,7 +32,7 @@ function mount({renderFrame,onCaptured,onSave,getSeed,getProfile,onConfigure}){
  };
  const refreshButtons=()=>{
   shutter.disabled=!ready||capturing||review;
-  flip.disabled=capturing;
+  flip.disabled=capturing||review;
   again.disabled=capturing;
   save.disabled=capturing||!lastRendered;
   reviewButtons.hidden=!review;
@@ -163,8 +163,10 @@ function mount({renderFrame,onCaptured,onSave,getSeed,getProfile,onConfigure}){
   const w=source.naturalWidth||source.videoWidth||source.width,
    h=source.naturalHeight||source.videoHeight||source.height;
   if(!w||!h)throw Error('Снимок не содержит изображения');
-  const safeScale=Math.min(1,4300/Math.max(w,h),
-   Math.sqrt(18500000/(w*h)));
+  // Bound source buffers on iPhones: the native still can be 48MP,
+  // while this canvas pipeline should stay within mobile Safari memory.
+  const safeScale=Math.min(1,3800/Math.max(w,h),
+   Math.sqrt(12500000/(w*h)));
   const sw=Math.max(1,Math.round(w*safeScale));
   const sh=Math.max(1,Math.round(h*safeScale));
   const c=document.createElement('canvas');c.width=sw;c.height=sh;
