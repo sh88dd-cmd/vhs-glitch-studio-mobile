@@ -915,3 +915,11 @@ body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){p
 }
 @keyframes videoConnectSpin{to{transform:rotate(360deg)}}
 .videoLiveConnecting[hidden]{display:none!important}
+
+/* A sized connection panel avoids the large blank black viewfinder when
+   Safari is negotiating camera permission on an iPhone. */
+#videoLiveStage:not([data-frame-ratio]){
+ width:min(100%,330px)!important;
+ height:min(61svh,550px)!important;
+ aspect-ratio:9 / 16;
+}
