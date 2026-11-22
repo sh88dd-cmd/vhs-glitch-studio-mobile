@@ -41,7 +41,10 @@ try{
  // process EVERY live camera frame, not merely decorative CSS lines.
  await page.locator('button[data-tab="film"]').click();
  await page.locator('#filmEnabled').check();
- await page.locator('#filmSelect').selectOption({index:1});
+ // The new gallery is the PRIMARY film selector. The old dropdown is
+ // intentionally hidden inside a fallback <details> control.
+ await page.locator('.filmFamilyChip',{hasText:'Kodak'}).first().click();
+ await page.locator('.filmGalleryPick').filter({hasText:'Kodak Portra 160'}).first().click();
  await page.evaluate(()=>{
   window.__actualCameraFx={film:0,vhs:0};
   const film=window.VideoFilmCore;
