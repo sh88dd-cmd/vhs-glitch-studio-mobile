@@ -94,9 +94,9 @@ try{
   return !document.getElementById('liveCameraReviewActions').hidden||
     status.startsWith('Ошибка снимка:');
  },null,{timeout:20000});
- const shotStatus=await page.locator('#liveCameraStatus').textContent();
- if(shotStatus.startsWith('Ошибка снимка:'))
-  throw Error('Real shutter processing failed: '+shotStatus+
+ const shotStatus1=await page.locator('#liveCameraStatus').textContent();
+ if(shotStatus1.startsWith('Ошибка снимка:'))
+  throw Error('Real shutter processing failed: '+shotStatus1+
    ' | pageErrors='+pageErrors.join('; '));
  const taken=await page.evaluate(()=>{
   const e=document.getElementById('liveCameraStill'),
@@ -138,9 +138,9 @@ try{
   return !document.getElementById('liveCameraReviewActions').hidden||
     status.startsWith('Ошибка снимка:');
  },null,{timeout:20000});
- const shotStatus=await page.locator('#liveCameraStatus').textContent();
- if(shotStatus.startsWith('Ошибка снимка:'))
-  throw Error('Real shutter processing failed: '+shotStatus+
+ const shotStatus2=await page.locator('#liveCameraStatus').textContent();
+ if(shotStatus2.startsWith('Ошибка снимка:'))
+  throw Error('Real shutter processing failed: '+shotStatus2+
    ' | pageErrors='+pageErrors.join('; '));
  const seed2=await page.evaluate(()=>window.__capturedVhsSeeds.at(-1));
  assert.notEqual(seed1,seed2,
