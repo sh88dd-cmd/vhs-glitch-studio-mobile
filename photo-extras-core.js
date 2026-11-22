@@ -267,15 +267,19 @@ function glitch(canvas,cfg,seed){
  }
  ctx.putImageData(data,0,0);
 }
+const maskScratch=document.createElement('canvas');
 function styleRegion(ctx,x,y,w,h,mode,power){
  const W=ctx.canvas.width,H=ctx.canvas.height;
  const sx=Math.floor(clamp(x,0,1)*W),sy=Math.floor(clamp(y,0,1)*H);
  const sw=Math.min(W-sx,Math.max(2,Math.floor(w*W))),sh=Math.min(H-sy,Math.max(2,Math.floor(h*H)));
  if(sw<=1||sh<=1)return;
- const small=document.createElement('canvas');
+ const small=maskScratch;
  const k=clamp(power,3,100);
- small.width=Math.max(2,Math.floor(sw/(mode==='blur'?Math.max(2,k/3):Math.max(3,k/5))));
- small.height=Math.max(2,Math.floor(sh/(mode==='blur'?Math.max(2,k/3):Math.max(3,k/5))));
+ const dw=Math.max(2,Math.floor(sw/(mode==='blur'?Math.max(2,k/3):Math.max(3,k/5))));
+ const dh=Math.max(2,Math.floor(sh/(mode==='blur'?Math.max(2,k/3):Math.max(3,k/5))));
+ // Reuse the same backing store for hundreds of adjacent finger stamps.
+ if(small.width!==dw)small.width=dw;
+ if(small.height!==dh)small.height=dh;
  const s=small.getContext('2d');s.imageSmoothingEnabled=mode==='blur';
  s.drawImage(ctx.canvas,sx,sy,sw,sh,0,0,small.width,small.height);
  ctx.save();ctx.imageSmoothingEnabled=mode==='blur';
