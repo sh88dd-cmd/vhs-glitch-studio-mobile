@@ -25,17 +25,37 @@ const looks=[
  {id:'mono',name:'Монохромная'},
  {id:'expired',name:'Просроченная плёнка'}
 ];
+const handFonts=Object.freeze([
+ {id:'caveat',name:'Живой крупный почерк',family:'PhotoCaveat'},
+ {id:'badscript',name:'Лёгкая скоропись',family:'PhotoBadScript'},
+ {id:'marckscript',name:'Красивый курсив',family:'PhotoMarckScript'},
+ {id:'neucha',name:'Небрежный дневник',family:'PhotoNeucha'},
+ {id:'pangolin',name:'Круглые буквы',family:'PhotoPangolin'},
+ {id:'pacifico',name:'Ретро-открытка',family:'PhotoPacifico'}
+]);
+const inkTools=Object.freeze([
+ {id:'blue-pen',name:'Синяя ручка',color:'#2550a1',marker:false},
+ {id:'black-pen',name:'Чёрная ручка',color:'#28292e',marker:false},
+ {id:'red-pen',name:'Красная ручка',color:'#ad3239',marker:false},
+ {id:'blue-marker',name:'Синий маркер',color:'#1b428c',marker:true},
+ {id:'black-marker',name:'Чёрный маркер',color:'#1f2227',marker:true},
+ {id:'red-marker',name:'Красный маркер',color:'#a72630',marker:true}
+]);
 const defaults=()=>({
  enabled:false,style:'classic',look:'soft',strength:55,paperWear:22,
  surface:'matte',frameSize:100,bottomHeight:100,
- note:'',noteColor:'#55514b',background:'studio',
+ note:'',noteFont:'caveat',noteInk:'blue-pen',
+ notePlacementSeed:518712,noteSize:100,
+ noteColor:'#55514b',background:'studio',
  seed:518712,grain:14
 });
 function hydrate(input={}){
  const v={...defaults(),...(input&&typeof input==='object'?input:{})};
  if(!styles.some(s=>s.id===v.style))v.style='classic';
  if(!looks.some(s=>s.id===v.look))v.look='soft';
- v.note=String(v.note||'').slice(0,90);
+ v.note=String(v.note||'').replace(/\r\n?/g,'\n').split('\n').slice(0,5).join('\n').slice(0,360);
+ if(!handFonts.some(f=>f.id===v.noteFont)&&v.noteFont!=='random')v.noteFont='caveat';
+ if(!inkTools.some(t=>t.id===v.noteInk))v.noteInk='blue-pen';
  return v;
 }
 function hash(seed,x,y){
@@ -79,6 +99,21 @@ function look(canvas,cfg){
  }
  ctx.putImageData(image,0,0);return canvas;
 }
+function noteLines(cfg){
+ return String(cfg?.note||'').replace(/\r\n?/g,'\n').split('\n').slice(0,5).map(s=>s.slice(0,110));
+}
+function resolvedHandFont(cfg){
+ const seed=(Number(cfg?.notePlacementSeed)||0)>>>0;
+ const id=cfg?.noteFont==='random'?
+  handFonts[Math.floor(hash(seed,13,57)*handFonts.length)].id:cfg?.noteFont;
+ return handFonts.find(x=>x.id===id)||handFonts[0];
+}
+async function ensureHandFont(cfg){
+ if(!noteLines(cfg).some(line=>line.trim()))return;
+ const name=resolvedHandFont(cfg).family;
+ if(typeof document==='undefined'||!document.fonts?.load)return;
+ await document.fonts.load('24px "'+name+'"','АБВГД ЕЖЗИЙ КПРСТ 123');
+}
 function geometry(w,h,cfg={}){
  if(!Number.isFinite(w)||!Number.isFinite(h)||w<2||h<2)
   throw Error('Неверные размеры фотографии');
@@ -89,7 +124,11 @@ function geometry(w,h,cfg={}){
  // portraits remain tall. Frame proportion is never imposed by cropping.
  const side=Math.max(3,Math.round(m*style.side*scale));
  const top=Math.max(3,Math.round(m*style.side*1.02*scale));
- const bottom=Math.max(top+4,Math.round(m*style.bottom*scale*C(cfg.bottomHeight??100,60,160)/100));
+ const lines=noteLines(cfg).filter(s=>s.trim()).length;
+ const minFont=Math.max(6,Math.round(m*.012));
+ const minNoteHeight=lines?Math.ceil(lines*minFont*1.24+2*Math.max(5,m*.012)):0;
+ const bottom=Math.max(top+4,minNoteHeight,
+  Math.round(m*style.bottom*scale*C(cfg.bottomHeight??100,60,160)/100));
  const pad=Math.max(4,Math.round(m*.025*scale));
  return {side,top,bottom,pad,
   outerW:w+2*side,outerH:h+top+bottom,
@@ -206,19 +245,82 @@ function render(source,cfg={},maxPixels=56000000){
   }
  }
  paperWear(ctx,g,cfg);
- // Handwritten annotation sits on the lower paper border, never on the photo.
- const note=String(cfg.note||'').replace(/\s+/g,' ').trim().slice(0,90);
- if(note){
-  ctx.save();ctx.fillStyle=cfg.noteColor||'#4b4640';
-  ctx.globalAlpha=.85;
-  const font=Math.max(10,Math.min(g.bottom*.28,ow*.045));
-  ctx.font='italic '+font+'px "Marker Felt","Bradley Hand","Segoe Print",cursive';
-  ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.translate(x+ow/2,iy+h+g.bottom*.53);
-  ctx.rotate((hash(Number(cfg.seed)||0,89,47)-.5)*.032);
-  ctx.fillText(note,0,0,ow*.87);ctx.restore();
+ // Handwriting stays fully inside the INSTANT-PRINT lower paper only.
+ // The selected font is loaded from locally bundled Cyrillic assets before
+ // rendering previews or full-resolution exports.
+ const lines=noteLines(cfg);
+ if(lines.some(line=>line.trim())){
+  const seed=(Number(cfg.notePlacementSeed)||0)>>>0;
+  const font=resolvedHandFont(cfg);
+  const ink=inkTools.find(t=>t.id===cfg.noteInk)||inkTools[0];
+  const gap=Math.max(4,Math.round(g.bottom*.075));
+  const availableW=ow-Math.max(g.side*.9,ow*.08)*2;
+  const availableH=g.bottom-gap*2;
+  const maxByHeight=Math.max(5,availableH/(lines.length*1.24));
+  let size=Math.max(5,Math.min(
+   maxByHeight,
+   g.bottom*.34*C(cfg.noteSize??100,40,180)/100,
+   ow*.065));
+  // Fit the longest line at a real measured font width, not via maxWidth
+  // text compression (which would distort the handwriting).
+  const measured=ctx;
+  for(let attempt=0;attempt<50;attempt++){
+   measured.font=(font.id==='caveat'?'500 ':'400 ')+size+'px "'+
+    font.family+'", "Bradley Hand", cursive';
+   const longest=Math.max(...lines.map(line=>measured.measureText(line).width),0);
+   if(longest<=availableW*.92||size<=5)break;
+   size*=.93;
+  }
+  const lineHeight=size*1.23,blockH=lineHeight*lines.length;
+  const angle=(hash(seed,7,41)-.5)*.18;
+  const centreX=x+ow*(.37+hash(seed,9,12)*.26);
+  const centralTop=iy+h+gap+(availableH-blockH)*hash(seed,6,34);
+  const anchorY=centralTop+blockH*.48;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x+Math.max(2,g.side*.35),iy+h+Math.max(2,g.bottom*.025),
+   ow-2*Math.max(2,g.side*.35),g.bottom-Math.max(4,g.bottom*.05));
+  ctx.clip();
+  ctx.translate(centreX,anchorY);
+  ctx.rotate(angle);
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.font=(font.id==='caveat'?'500 ':'400 ')+size+'px "'+
+   font.family+'", "Bradley Hand", cursive';
+  for(let i=0;i<lines.length;i++){
+   const line=lines[i];if(!line.trim())continue;
+   const dx=(hash(seed,100+i,37)-.5)*size*.4;
+   const dy=(hash(seed,200+i,38)-.5)*size*.18+
+    (i-(lines.length-1)/2)*lineHeight;
+   ctx.save();
+   ctx.translate(dx,dy);
+   ctx.rotate((hash(seed,300+i,31)-.5)*.023);
+   ctx.fillStyle=ink.color;
+   const pressure=.63+hash(seed,400+i,64)*.23;
+   ctx.globalAlpha=ink.marker?pressure*.89:pressure*.98;
+   if(ink.marker){
+    ctx.strokeStyle=ink.color;
+    ctx.lineWidth=Math.max(.35,size*.07);
+    ctx.lineJoin='round';
+    ctx.strokeText(line,0,0);
+    ctx.globalAlpha*=.86;
+   }else{
+    // A faint companion line imitates light pen-ink pooling without glow.
+    ctx.strokeStyle=ink.color;
+    ctx.globalAlpha*=.24;
+    ctx.lineWidth=Math.max(.2,size*.018);
+    ctx.strokeText(line,.15,.13);
+    ctx.globalAlpha=pressure*.89;
+   }
+   ctx.fillText(line,0,0);
+   ctx.restore();
+  }
+  ctx.restore();
  }
  return out;
 }
-root.VHSPhotoPolaroid=Object.freeze({styles,looks,defaults,hydrate,geometry,look,render});
+root.VHSPhotoPolaroid=Object.freeze({
+ styles,looks,handFonts,inkTools,defaults,hydrate,
+ geometry,look,render,noteLines,resolvedHandFont,ensureHandFont
+});
 })(window);
