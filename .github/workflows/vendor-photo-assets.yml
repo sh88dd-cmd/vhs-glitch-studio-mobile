@@ -25,7 +25,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p assets/face/wasm assets/fonts /tmp/vision-package
-          npm pack @mediapipe/tasks-vision@0.10.22 --pack-destination /tmp/vision-package --silent
+          echo 'Resolve pinned vision package through the official npm registry'
+          npm pack '@mediapipe/tasks-vision@0.10.22' --registry=https://registry.npmjs.org/ --pack-destination /tmp/vision-package --loglevel=info
+          echo 'Contents of the downloaded npm package:'
+          ls -lah /tmp/vision-package/
           tar -xzf /tmp/vision-package/mediapipe-tasks-vision-0.10.22.tgz -C /tmp/vision-package
           cp /tmp/vision-package/package/vision_bundle.mjs assets/face/vision_bundle.mjs
           cp /tmp/vision-package/package/wasm/vision_wasm_internal* assets/face/wasm/
