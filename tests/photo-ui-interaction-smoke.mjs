@@ -49,11 +49,11 @@ const ctx={window:root,document,Date,Math,Number,Array,Object,Map,
  setTimeout,URL:{createObjectURL:()=>'',revokeObjectURL(){}},Image:class{},console};
 vm.runInNewContext(fs.readFileSync('photo-extras-core.js','utf8'),ctx);
 vm.runInNewContext(fs.readFileSync('photo-extras-ui.js','utf8'),ctx);
-root.VHSVideoFaceAI={async create(){return {async detect(){return[
- {boundingBox:{x:10,y:15,width:35,height:40}},
- {boundingBox:{x:65,y:33,width:30,height:41}},
- {boundingBox:{x:120,y:58,width:28,height:35}}
-];}}}};
+root.VHSPhotoFaceDetect={async detect(){return {
+ engine:'Офлайн-поиск',faces:[
+ {x:.05,y:.10,w:.18,h:.25,auto:true},
+ {x:.35,y:.16,w:.17,h:.27,auto:true},
+ {x:.61,y:.32,w:.15,h:.22,auto:true}]};}};
 const state={
  extras:root.VHSPhotoExtras.defaults(),
  extraCamera:{counter:false,modeInfo:false,focus:false,frame:false},
@@ -64,7 +64,13 @@ let original={naturalWidth:200,naturalHeight:160},changes=0;
 const editor=root.VHSPhotoExtrasUI.mount({
  state,onChange:()=>changes++,getOriginal:()=>original,
  onMaskChange:()=>changes++,saveFile:()=>{},
- onSetSnapshot(snapshot){Object.assign(state,snapshot);}
+ onSetSnapshot(snapshot){
+  for(const [key,value] of Object.entries(snapshot)){
+   if(key==='extras'){
+    for(const [k,v] of Object.entries(value))state.extras[k]=v;
+   }else state[key]=value;
+  }
+ }
 });
 assert.ok($('correction-brightness'),'Must render brightness slider');
 assert.ok($('correction-dehaze'),'Must render dehaze slider');
@@ -105,7 +111,25 @@ assert.equal(state.extras.masks.faces.filter(x=>x.auto).length,3,
 assert.equal(state.extras.masks.faces.length,4,
  'Automatic search must keep manually selected faces');
 assert.match($('photoMaskStatus').textContent,/Найдено лиц: 3/);
+const beforeCassette=state.extras.glitch.effects.rf;
+const cabinet=$('panel-cassettes');
+const destroyed=findByText(cabinet,'▣ ЗАЖЁВАННАЯ КАССЕТА');
+assert.ok(destroyed,'Factory cassette must be a real interactive button');
+await destroyed.click();
+assert.equal(state.extras.selectedCassetteId,'factory-destroyed',
+ 'Selecting cassette must save actual selection in state');
+assert.ok(state.extras.glitch.effects.tapeChew>=75,
+ 'Destroyed cassette must activate strong real tape-damage settings');
+assert.ok(state.extras.glitch.effects.rf!==beforeCassette,
+ 'Cassette must change parameters, not just change the button color');
+assert.ok(changes>1,'Cassette change must trigger image render callback');
+const chooseAgain=findByText(cabinet,'▣ ЗАЖЁВАННАЯ КАССЕТА');
+await chooseAgain.click();
+assert.equal(state.extras.selectedCassetteId,null,
+ 'Second click must remove cassette and restore previous settings');
+assert.equal(state.extras.glitch.effects.rf,beforeCassette,
+ 'Cassette removal restores the exact pre-cassette state');
 await $('photoHelpToggle').click();
 assert.equal(state.extras.showHelp,true);
 assert.ok(editor.refresh&&editor.markDirty);
-console.log('PASS: UI mounts, sliders change settings, native finger stroke, manual box, three-face search, camera without ZOOM');
+console.log('PASS: iOS drawing, three offline faces, cassette REAL settings change + reversible removal, no ZOOM');
