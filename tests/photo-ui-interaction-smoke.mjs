@@ -20,7 +20,10 @@ function make(tag='div'){
   },
   addEventListener(name,fn){(handlers[name]??=[]).push(fn);},
   fire(name,event={}){for(const fn of handlers[name]||[])fn(event);},
-  async click(){for(const fn of handlers.click||[])await fn({preventDefault(){},stopPropagation(){}});},
+  async click(){
+   for(const fn of handlers.click||[])await fn({preventDefault(){},stopPropagation(){}});
+   if(typeof this.onclick==='function')await this.onclick();
+  },
   append(...items){this.children.push(...items);},
   replaceChildren(...items){this.children=[...items];},
   setAttribute(){},scrollIntoView(){},
