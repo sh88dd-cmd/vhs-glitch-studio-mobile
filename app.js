@@ -990,10 +990,12 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.2.0');
+      const cache=await caches.open('vhs-mobile-v1.3.0');
       const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js',
-       './photo-extras-core.js','./photo-extras-ui.js','./video/glitch-engine.js',
-       './video/film-damage.js','./video/camera-osd.js','./video/face-ai.js'];
+       './photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js',
+       './photo-polaroid-ui.js','./photo-face-detect.js',
+       './video/vendor/tracking-min.js','./video/vendor/tracking-face-min.js',
+       './video/glitch-engine.js','./video/film-damage.js','./video/camera-osd.js','./video/face-ai.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
