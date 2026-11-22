@@ -271,7 +271,7 @@ body.photoHelpVisible .extraHelpText.expanded{display:block!important}
  color:#b8c9d1;margin-top:5px;max-width:75vw}
 .liveCameraTop>.btn{font-size:17px;min-width:40px}
 .liveCameraStage{position:relative;display:flex;align-items:center;
- justify-content:center;flex:1 1 auto;min-height:145px;
+ justify-content:center;flex:0 0 auto;min-height:0;max-width:100%;margin:0 auto;
  background:#020609;border:1px solid #35535c;border-radius:15px;
  overflow:hidden;isolation:isolate}
 .liveCameraStage>video,
@@ -347,7 +347,7 @@ body.photoHelpVisible .extraHelpText.expanded{display:block!important}
  box-shadow:inset 0 0 8px rgba(0,0,0,.12)}
 .liveCameraStage.instant #liveCameraBadge{top:17px;left:17px}
 .liveCameraStage.instant #liveCameraNew{top:17px;right:17px}
-/* The source video stays composited by the browser, never copied into a
-   slow canvas on each frame. Only transparent analog marks are drawn. */
-#liveCameraVideo{will-change:filter}
-#liveCameraFx{pointer-events:none;contain:layout paint}
+/* Real photo-engine pixels share the sensor aspect ratio, with native video
+   underneath for startup, no-effects preview and processing failures. */
+#liveCameraVideo{will-change:transform}
+#liveCameraFx{pointer-events:none;contain:layout paint;image-rendering:auto}
