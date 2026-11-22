@@ -89,8 +89,15 @@ try{
  console.log('Selected VHS + Polaroid LIVE, NEW without lag:',preview,fast);
 
  await page.locator('#liveCameraShot').click();
- await page.waitForFunction(()=>
-  !document.getElementById('liveCameraReviewActions').hidden,null,{timeout:60000});
+ await page.waitForFunction(()=>{
+  const status=document.getElementById('liveCameraStatus').textContent;
+  return !document.getElementById('liveCameraReviewActions').hidden||
+    status.startsWith('Ошибка снимка:');
+ },null,{timeout:20000});
+ const shotStatus=await page.locator('#liveCameraStatus').textContent();
+ if(shotStatus.startsWith('Ошибка снимка:'))
+  throw Error('Real shutter processing failed: '+shotStatus+
+   ' | pageErrors='+pageErrors.join('; '));
  const taken=await page.evaluate(()=>{
   const e=document.getElementById('liveCameraStill'),
    v=document.getElementById('liveCameraVideo');
@@ -126,8 +133,15 @@ try{
   null,{timeout:15000});
  await page.locator('#liveCameraNew').click();
  await page.locator('#liveCameraShot').click();
- await page.waitForFunction(()=>
-  !document.getElementById('liveCameraReviewActions').hidden,null,{timeout:60000});
+ await page.waitForFunction(()=>{
+  const status=document.getElementById('liveCameraStatus').textContent;
+  return !document.getElementById('liveCameraReviewActions').hidden||
+    status.startsWith('Ошибка снимка:');
+ },null,{timeout:20000});
+ const shotStatus=await page.locator('#liveCameraStatus').textContent();
+ if(shotStatus.startsWith('Ошибка снимка:'))
+  throw Error('Real shutter processing failed: '+shotStatus+
+   ' | pageErrors='+pageErrors.join('; '));
  const seed2=await page.evaluate(()=>window.__capturedVhsSeeds.at(-1));
  assert.notEqual(seed1,seed2,
   'NEW must actually change the VHS seed stored in the subsequent captured photo');
