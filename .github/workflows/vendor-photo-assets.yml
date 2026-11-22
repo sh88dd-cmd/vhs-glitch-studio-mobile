@@ -38,6 +38,11 @@ jobs:
             'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite' \
             --output assets/face/blaze_face_short_range.tflite
           test "$(wc -c < assets/face/blaze_face_short_range.tflite)" -gt 10000
+          # The full-range model detects people at a distance in group photos.
+          curl --fail --location --retry 3 --silent --show-error \
+            'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/1/blaze_face_full_range.tflite' \
+            --output assets/face/blaze_face_full_range.tflite
+          test "$(wc -c < assets/face/blaze_face_full_range.tflite)" -gt 10000
           ls -lh assets/face/ assets/face/wasm/
       - name: Add six original open-source Cyrillic handwriting fonts
         shell: bash
