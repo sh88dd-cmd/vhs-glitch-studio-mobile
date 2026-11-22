@@ -25,7 +25,7 @@ function hydrate(raw){
    result[k]={...result[k],...input[k]};
  }else if(['off','camcorder','walkman','radio','phone','cctv','broken'].includes(input[k]))result[k]=input[k];
  result.touch.strokes=(Array.isArray(result.touch.strokes)?result.touch.strokes:[]).slice(0,140);
- result.touch.manualFaces=(Array.isArray(result.touch.manualFaces)?result.touch.manualFaces:[]).slice(0,6);
+ result.touch.manualFaces=(Array.isArray(result.touch.manualFaces)?result.touch.manualFaces:[]).slice(0,10);
  result.speed.points=(Array.isArray(result.speed.points)?result.speed.points:[]).slice(0,70);
  result.live.events=(Array.isArray(result.live.events)?result.live.events:[]).slice(0,140);
  const rate=Number(result.speed.rate);
