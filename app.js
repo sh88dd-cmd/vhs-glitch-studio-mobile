@@ -15,7 +15,8 @@
     film:{name:'Kodak Gold 200 — стиль',strength:80,grain:22,halation:13,leaks:0,dust:0,vignette:8,whiteBorder:false,blackBorder:false,blackFrameSize:1,frameStyle:'none',frameSize:8,caption:false,captionText:'',captionSize:100,customLut:false},
     edgeBurn:{"enabled":false,"side":"random","strength":90,"width":35,"roughness":75,"scratches":38,"seed":238711811},
     camera:{date:{on:false,text:'PM 10:28 | JUN 16 1995',position:'right-bottom',size:125},rec:{on:false,position:'left-top',size:125},play:{on:false,position:'left-top',size:125},battery:{on:false,position:'right-top',size:125,level:'LOW'}},
-    singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[],previewDock:{enabled:true,collapsed:false}
+    singleSize:'3200',batchSize:'2000',exportFormat:'image/jpeg',favoriteFilms:[],previewDock:{enabled:true,collapsed:false},
+    extras:window.VHSPhotoExtras.defaults(),extraCamera:{counter:false,modeInfo:false,focus:false,frame:false}
   };
   let state=clone(defaults);
   try{
@@ -32,6 +33,10 @@
     }
   }catch(e){console.warn('Frame settings migration unavailable',e);}
   if(!Array.isArray(state.favoriteFilms))state.favoriteFilms=[];
+  state.extras=window.VHSPhotoExtras.hydrate(state.extras);
+  state.extraCamera={...defaults.extraCamera,...(state.extraCamera||{})};
+  delete state.extraCamera.zoom; // ZOOM is not part of the photo camera OSD.
+  let photoExtrasUI=null;
   state.previewDock={...defaults.previewDock,...(state.previewDock||{})};
   // Discard obsolete color, warm-halo and shape settings from previous releases.
   state.edgeBurn=Object.fromEntries(Object.keys(defaults.edgeBurn).map(key=>[key,state.edgeBurn?.[key]??defaults.edgeBurn[key]]));
@@ -397,6 +402,12 @@
     if(w*h>54e6)throw Error('Изображение слишком большое для мобильной памяти. Выбери экспорт до 3200 px.');
     const frame=newCanvas(w,h),ctx=frame.getContext('2d',{willReadFrequently:true});ctx.drawImage(im,0,0,w,h);
     let img=ctx.getImageData(0,0,w,h),p=img.data;const fac=power[state.preset]||1;
+    const X=window.VHSPhotoExtras,extras=state.extras;
+    if(X.activeAdjustment(extras.correction)){
+      img.canvas=frame;X.adjustment(img,extras.correction);p=img.data;
+    }
+    if(extras.colorCopy?.enabled&&extras.colorCopy.target)
+      X.colorMatch(p,w,h,extras.colorCopy.target,extras.colorCopy.strength);
     const filmSeed=opts.filmSeed??seed; // Keep FILM grain separate from per-photo VHS rerolls.
     if(state.filmEnabled){const s=clamp(state.film.strength/100,0,1);
       if(activeLook&&activeLook.fields)filmXMP(p,activeLook,s);
@@ -412,6 +423,17 @@
     // Camera OSD is part of the video signal: draw BEFORE VHS so distortion hits
     // REC/PLAY/date/time/battery exactly as it hits the underlying pixels.
     drawCamera(frame,state.camera);
+    // New viewfinder indicators never draw ZOOM, and are part of the VHS signal.
+    if(window.VHSVideoCameraOSD&&Object.values(state.extraCamera||{}).some(Boolean)){
+      window.VHSVideoCameraOSD.draw(ctx,w,h,{
+       counter:!!state.extraCamera.counter,modeInfo:!!state.extraCamera.modeInfo,
+       focus:!!state.extraCamera.focus,frame:!!state.extraCamera.frame,
+       zoom:false,rec:false,play:false,date:false,battery:false,
+       positions:{counter:'center-bottom',modeInfo:'center-top',focus:'right-top'},
+       sizes:{counter:90,modeInfo:80,focus:80},
+       frameSize:100,frameColor:'white'
+      },state.signal.tapeSpeed,0);
+    }
     if(state.vhsEnabled && state.master>0){
       const m=clamp(state.master/100*fac,0,1.35);
       const video=ctx.getImageData(0,0,w,h);
@@ -431,6 +453,23 @@
     }
     // Film-edge exposure remains independent of VHS rerolls.
     paintEdgeBurns(frame,state.edgeBurn);
+    if(extras.damage?.enabled){
+      const f=ctx.getImageData(0,0,w,h);
+      window.VHSVideoFilmDamage.apply(f.data,w,h,{
+       ...extras.damage,seed:(Number(extras.damage.seed)||0)^(opts.filmSeed??seed),
+       time:((Number(extras.damage.seed)||0)%2099)/174
+      });
+      ctx.putImageData(f,0,0);
+    }
+    const extraGlitch=opts.batch&&extras.batchAging?
+     {...extras.glitch,aging:Math.round(extras.glitch.aging*
+       (Number(opts.batchIndex??0)+1)/Math.max(1,Number(opts.batchCount)||1))}:
+     extras.glitch;
+    if(extraGlitch?.enabled)X.glitch(frame,extraGlitch,seed);
+    // Per-image finger masks must NOT silently land on unrelated BATCH photos.
+    if(!opts.batch&&extras.masks?.enabled&&
+       (extras.masks.strokes?.length||extras.masks.faces?.length))
+       X.masks(frame,extras.masks);
     return drawBorder(frame,state.film);
   }
   // Catalogue: local recipes plus XMP imports persisted in IndexedDB.
@@ -593,7 +632,14 @@
     $('renderStatus').textContent='Готово · всё обработано на iPhone';$('renderTime').textContent=Math.round(performance.now()-begin)+' мс';
   }catch(err){$('renderStatus').textContent='Ошибка: '+err.message;console.error(err);}finally{rendering=false;if(rerender){rerender=false;schedulePreview();}}}
   async function openSingle(file){if(!file)return;original=await decodeImage(file);latestPreview=null;photoName=file.name.replace(/\.[^.]+$/,'');$('photoLabel').textContent=file.name;refreshDockVisibility();
-    $('sizeLabel').textContent=`${original.naturalWidth} × ${original.naturalHeight}`;state.seed=randomSeed();mainSeedHistory=[];updateMainUndoButtons();renderFilmPage();renderFavoritesPage();schedulePreview();$('fileSingle').value='';}
+    $('sizeLabel').textContent=`${original.naturalWidth} × ${original.naturalHeight}`;
+    const id=[file.name,file.size,file.lastModified].join(':');
+    if(state.extras.masks.originalId!==id){
+      state.extras.masks.strokes=[];state.extras.masks.faces=[];
+      state.extras.masks.originalId=id;
+    }
+    state.seed=randomSeed();mainSeedHistory=[];updateMainUndoButtons();renderFilmPage();renderFavoritesPage();schedulePreview();$('fileSingle').value='';
+    photoExtrasUI?.refresh();}
 
   // Main-photo viewer uses its own dialog; it must not interfere with the batch viewer.
   function clampMainViewerPan(){
@@ -740,7 +786,8 @@
     try{
       const image=await decodeImage(item.file);
       if(token!==pageToken||request!==item.previewRequest||seed!==item.seed)return;
-      const output=await processImage(image,seed,{filmSeed:item.filmSeed},BATCH_PREVIEW);
+      const output=await processImage(image,seed,{filmSeed:item.filmSeed,batch:true,
+       batchIndex:item.index,batchCount:batchFiles.length},BATCH_PREVIEW);
       if(token!==pageToken||request!==item.previewRequest||seed!==item.seed)return;
       setCanvas(canvas,output);
       label.textContent=item.file.name;
@@ -862,7 +909,8 @@
     const item=batchFiles[dialogFileIndex];
     if(!item)return;
     const im=await decodeImage(item.file);
-    await saveSingle(im,item.file.name.replace(/\.[^.]+$/,''),item.seed,state.singleSize,{filmSeed:item.filmSeed});
+    await saveSingle(im,item.file.name.replace(/\.[^.]+$/,''),item.seed,state.singleSize,
+     {filmSeed:item.filmSeed,batch:true,batchIndex:item.index,batchCount:batchFiles.length});
   }
   async function exportBatch(){if(!batchFiles.length){notify('Сначала выбери фотографии',true);return;}if(busy)return;busy=true;$('exportBatch').disabled=true;
     const zip=new JSZip(),n=batchFiles.length,start=Date.now();try{
@@ -871,7 +919,8 @@
       for(let i=0;i<n;i++){
         const item=batchFiles[i];$('progressText').textContent=`Обработка ${i+1} / ${n}: ${item.file.name}`;
         await new Promise(r=>setTimeout(r,0));const im=await decodeImage(item.file);
-        const cv=await processImage(im,item.seed,{filmSeed:item.filmSeed},state.batchSize),blob=await canvasBlob(cv,'image/jpeg',.91);
+        const cv=await processImage(im,item.seed,{filmSeed:item.filmSeed,batch:true,
+          batchIndex:i,batchCount:n},state.batchSize),blob=await canvasBlob(cv,'image/jpeg',.91);
         let name=item.file.name.replace(/\.[^.]+$/,'').slice(0,90).replace(/[\\/:*?"<>|]/g,'_');zip.file(`${String(i+1).padStart(2,'0')}_${name}_VHS.jpg`,blob,{binary:true,compression:'STORE'});
       }
       $('progressText').textContent=`Упаковываю ${n} фото в ZIP…`;
@@ -884,7 +933,9 @@
 
   function showTab(id){if(id==='settings'){$('panel-settings').classList.add('active');document.querySelectorAll('.panel').forEach(p=>{if(p.id!=='panel-settings')p.classList.remove('active');});document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));}
     else{document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+id));document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));}
-    if(id==='film')renderFilmPage();const destination=document.getElementById('panel-'+id);if(destination)destination.scrollIntoView({block:'start',behavior:'smooth'});
+    if(id==='film')renderFilmPage();
+    if(id==='masks')photoExtrasUI?.drawMaskEditor();
+    const destination=document.getElementById('panel-'+id);if(destination)destination.scrollIntoView({block:'start',behavior:'smooth'});
   }
   async function exportBackup(){const payload={kind:'VHS_STUDIO_MOBILE_BACKUP',version:1,created:new Date().toISOString(),settings:state,xmpProfiles:await dbAll('xmp'),lut:await dbAll('assets')};
     const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});saveBlob(blob,'VHS_Studio_BACKUP_'+new Date().toISOString().slice(0,10)+'.json');notify('Резервная копия создана. Сохрани файл в «Файлы» и по возможности на другое устройство.');}
@@ -900,7 +951,10 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.1.3');const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js'];
+      const cache=await caches.open('vhs-mobile-v1.2.0');
+      const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js',
+       './photo-extras-core.js','./photo-extras-ui.js','./video/glitch-engine.js',
+       './video/film-damage.js','./video/camera-osd.js','./video/face-ai.js'];
       ready=(await Promise.all(files.map(p=>cache.match(p)))).every(Boolean);
     }
   }catch(e){console.warn('Service worker status',e);}
@@ -962,6 +1016,22 @@
   }
   async function init(){
     mountControls();bindEvents();initMainViewerEvents();mountEdgeBurnControls();initDockPreview();updateMainUndoButtons();
+    photoExtrasUI=window.VHSPhotoExtrasUI.mount({
+     state,onChange:schedulePreview,getOriginal:()=>original,
+     onMaskChange:schedulePreview,
+     saveFile:saveBlob,
+     onSetSnapshot(snapshot){
+      const rootKeys=['vhsEnabled','filmEnabled','master','preset','fx',
+       'signal','film','camera','edgeBurn','extraCamera'];
+      for(const key of rootKeys)if(key in snapshot)
+       state[key]=JSON.parse(JSON.stringify(snapshot[key]));
+      if(snapshot.extras)for(const key of ['correction','glitch','damage','colorCopy'])
+       if(key in snapshot.extras)
+        state.extras[key]=JSON.parse(JSON.stringify(snapshot.extras[key]));
+      // Preserve active image masks and saved cassette collection.
+      schedulePreview();
+     }
+    });
     try{Object.assign(looks,await (await fetch('./looks.json')).json());}catch(err){notify('Каталог плёнок не загрузился. Открой программу через HTTPS или локальный сервер.');}
     xmpProfiles=await dbAll('xmp');cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
     if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
