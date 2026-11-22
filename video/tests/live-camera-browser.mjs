@@ -33,8 +33,26 @@ await page.addInitScript(()=>{
 });
 try{
  await page.goto('http://127.0.0.1:8765/video/',{waitUntil:'domcontentloaded',timeout:45000});
- await page.waitForFunction(()=>window.VHSVideoLiveCamera?.mount
-  && document.querySelector('#videoLiveOpenTop'),null,{timeout:18000});
+ await page.waitForFunction(()=>window.VHSVideoLiveCamera?.mount &&
+  window.VHSVideoLiveFX?.create &&
+  document.querySelector('#filmSelect')?.options?.length>1,
+  null,{timeout:18000});
+ // Select a genuine named built-in film; assert exact video-engine functions
+ // process EVERY live camera frame, not merely decorative CSS lines.
+ await page.locator('button[data-tab="film"]').click();
+ await page.locator('#filmEnabled').check();
+ await page.locator('#filmSelect').selectOption({index:1});
+ await page.evaluate(()=>{
+  window.__actualCameraFx={film:0,vhs:0};
+  const film=window.VideoFilmCore;
+  window.VideoFilmCore=Object.freeze({...film,filmBuiltin(...args){
+   window.__actualCameraFx.film++;return film.filmBuiltin(...args);
+  }});
+  const vhs=window.VHSPhotoEngine;
+  window.VHSPhotoEngine=Object.freeze({...vhs,apply(...args){
+   window.__actualCameraFx.vhs++;return vhs.apply(...args);
+  }});
+ });
  await page.locator('#videoLiveOpenTop').click();
  await page.waitForFunction(()=>{
   const s=document.getElementById('videoLiveStatus').textContent;
@@ -46,13 +64,28 @@ try{
   videoH:document.getElementById('videoLiveVideo').videoHeight,
   mic:document.getElementById('videoLiveVideo').srcObject?.getAudioTracks().length,
   videoFilter:document.getElementById('videoLiveVideo').style.filter,
-  dialog:document.getElementById('videoLiveCameraDialog').open
+  dialog:document.getElementById('videoLiveCameraDialog').open,
+  loading:!document.getElementById('videoLiveConnecting').hidden,
+  aspect:{
+   stage:document.getElementById('videoLiveStage').clientWidth/
+    document.getElementById('videoLiveStage').clientHeight,
+   source:document.getElementById('videoLiveVideo').videoWidth/
+    document.getElementById('videoLiveVideo').videoHeight
+  }
  }));
  console.log('Video camera opened:',opened);
  assert.match(opened.status,/Камера готова/);
  assert.ok(opened.dialog&&opened.videoW>30&&opened.videoH>30);
  assert.ok(opened.mic===1,'Real camera stream must contain microphone track');
- assert.match(opened.videoFilter,/contrast\(/,'Live camera color treatment should be visible');
+ assert.equal(opened.videoFilter,'none',
+  'Raw CSS recolor must be disabled; actual selected effects applied in video frame pipeline');
+ assert.ok(Math.abs(opened.aspect.stage-opened.aspect.source)<.006,
+  '9:16 camera picture, date and VHS must match native image aspect ratio; no 16:9 stretching');
+ assert.equal(opened.loading,false,'Camera readiness must dismiss startup overlay');
+ await page.waitForFunction(()=>window.__actualCameraFx?.vhs>1&&
+  window.__actualCameraFx?.film>1,null,{timeout:12000});
+ console.log('ACTUAL editor film + VHS processor calls during live view:',
+  await page.evaluate(()=>window.__actualCameraFx));
  await page.waitForFunction(()=>{
   const c=document.getElementById('videoLiveOverlay');
   return c.width>50&&c.height>50;
@@ -91,7 +124,7 @@ try{
  });
  console.log('Actual VHS/FILM pixel difference from raw camera:',encoded);
  assert.ok(encoded.changed>25,
-  'Video stream must contain actual processed pixels, not merely a CSS overlay outside the recording');
+  'Video stream must contain the actual FILM/VHS pixels, not separate decorative stripes');
  assert.equal(encoded.tracks?.video,1,'Recorder must receive one processed video stream');
  assert.equal(encoded.tracks?.audio,1,'Recorder must include microphone audio via WebAudio');
  await page.locator('#videoLiveHold').dispatchEvent('pointerdown',{button:0,pointerId:2});
@@ -120,6 +153,10 @@ try{
  });
  console.log('Recorded live filtered video:',recorded);
  assert.ok(recorded.resultOpen&&recorded.mime,'Recording must create real local video Blob');
+ const exact=await page.evaluate(()=>window.__actualCameraFx);
+ assert.ok(exact.vhs>4&&exact.film>4,
+  'BOTH real selected FILM + actual VHSPhotoEngine must run for live and recorded frames');
+ console.log('Real processors executed on both preview and recording:',exact);
  assert.match(recorded.filename,/^VHS_LIVE_.*\.(mp4|webm)$/);
  assert.ok(recorded.width>100&&recorded.height>100);
  assert.equal(recorded.trackState,'live','Camera preview remains available after recording');
@@ -155,7 +192,7 @@ try{
  assert.ok(edit.editorVideo,'Recorded video must open in existing video editor');
  console.log('Imported into existing full editor:',edit);
  assert.deepEqual(errors,[],'No unhandled browser errors');
- console.log('PASS: real low-latency live iPhone camera, NEW, press-and-hold glitches, mic, recorded video with visual FX, save, decode and editor import');
+ console.log('PASS: actual named FILM + VHS engines processed live AND recorded frames, portrait aspect aligned, REC/NEW/HOLD/mic, JPEG? NO: playable MP4 export and editor import');
 }finally{
  await context.close();await browser.close();
 }
