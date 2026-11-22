@@ -3,10 +3,10 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#11151c"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="VHS Studio">
 <meta name="description" content="Офлайн редактор фотографий: VHS, FILM, REC, batch до 50 изображений">
-<link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icons/icon-180.png"><link rel="icon" type="image/png" href="./icons/icon-192.png"><link rel="stylesheet" href="./styles.css?v=1.1.3">
+<link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icons/icon-180.png"><link rel="icon" type="image/png" href="./icons/icon-192.png"><link rel="stylesheet" href="./styles.css?v=1.2.0">
 <title>VHS Glitch Studio Mobile</title>
 </head><body>
-<header class="top"><div class="brand"><span class="mark">▥</span><div>VHS <b>GLITCH</b><small>STUDIO MOBILE · 1.1.3</small></div></div><span class="status" id="onlineState">ПРОВЕРКА…</span></header>
+<header class="top"><div class="brand"><span class="mark">▥</span><div>VHS <b>GLITCH</b><small>STUDIO MOBILE · 1.2.0</small></div></div><span class="status" id="onlineState">ПРОВЕРКА…</span></header>
 <aside id="floatingPreview" class="floatingPreview" aria-label="Закреплённый предпросмотр фотографии" hidden>
   <div class="floatingPreviewBar">
     <span class="floatingPreviewTitle">▣ КАДР ПРИ НАСТРОЙКЕ</span>
@@ -23,7 +23,7 @@
 <div class="row slim"><button class="btn mini" id="compare">◩ До / После</button><button class="btn mini" id="openMainPreview">⛶ Открыть крупно</button><button class="btn mini" id="dockEnable" aria-pressed="true">▣ Превью: вкл</button><span id="renderStatus" class="muted">Локальная обработка · фото не загружаются на сервер</span><span id="renderTime" class="muted"></span></div></section>
 <details id="favoritesStrip" class="favoriteStrip"><summary><span>★ ИЗБРАННЫЕ ПЛЁНКИ</span><span id="favoritesCount" class="muted" role="status">Пока пусто</span></summary><p class="hint">Нажми ☆ у понравившейся плёнки в разделе FILM. Коснись карточки здесь, чтобы сразу применить её к фото.</p><div id="favoritesGrid" class="filmGrid"></div><div class="row"><button class="btn mini" id="prevFavoritesPage">← Назад</button><span id="favoritesPageLabel" class="muted"></span><button class="btn mini" id="nextFavoritesPage">Вперёд →</button></div></details>
 
-<nav class="tabs" aria-label="Разделы"><button data-tab="vhs" class="active">VHS</button><button data-tab="film">FILM</button><button data-tab="batch">BATCH</button><button data-tab="camera">КАМЕРА</button></nav>
+<nav class="tabs" aria-label="Разделы"><button data-tab="vhs" class="active">VHS</button><button data-tab="film">FILM</button><button data-tab="glitch">GLITCH</button><button data-tab="cassettes">КАССЕТЫ</button><button data-tab="masks">МАСКИ</button><button data-tab="correction">КОРРЕКЦИЯ</button><button data-tab="batch">BATCH</button><button data-tab="camera">КАМЕРА</button></nav>
 <section class="panel active" id="panel-vhs"><h2>VHS / ANALOG TAPE</h2><div class="row switch"><span>Включить VHS</span><input id="vhsEnabled" type="checkbox" checked></div>
 <label>Стиль записи<select id="vhsPreset"><option>VHS 90s</option><option>Camcorder 90s</option><option>VHS — мягкий</option><option>VHS — повреждённая кассета</option><option>Dirty VHS Extreme</option><option>Tracking Error</option><option>Аналоговый шум</option><option>Цветные помехи</option><option>RGB Split</option></select></label>
 <div id="masterControl"></div><p class="hint">Аналоговая обработка фотографии по принципам ntsc-rs (самостоятельная офлайн-реализация). Все параметры сохраняются.</p>
@@ -47,6 +47,10 @@
 <label class="btn mini full">＋ Импортировать 3D .cube LUT<input type="file" id="lutFile" accept=".cube,text/plain" hidden></label>
 <button class="btn mini full" id="clearLut">Убрать выбранный LUT</button>
 <p class="hint">451 профиль можно один раз скачать <a href="https://github.com/peva3/EmulsionPresets/releases/tag/v3.1.4" target="_blank" rel="noreferrer">на странице официального выпуска EmulsionPresets</a>, затем импортировать ZIP выше. После импорта плёнки работают без интернета.</p><p class="hint" id="importStatus">Плёнки не отправляются в интернет.</p></details></section>
+<section class="panel" id="panel-glitch"><h2>GLITCH / ПОВРЕЖДЕНИЯ СИГНАЛА</h2><p class="hint">15 отдельных эффектов из видеоредактора, дополнительные режимы цифровых камер, слои и повреждения киноплёнки.</p></section>
+<section class="panel" id="panel-cassettes"><h2>КАССЕТЫ / МОИ СТИЛИ</h2><p class="hint">Готовые кассеты, собственные пресеты, старение и плавное смешивание. Повторное нажатие возвращает исходные настройки.</p></section>
+<section class="panel" id="panel-masks"><h2>МАСКИ / РИСОВАНИЕ / ЛИЦА</h2><p class="hint">Рисуй пикселизацию и размытие пальцем, находи несколько лиц и сохраняй результат в полном разрешении.</p></section>
+<section class="panel" id="panel-correction"><h2>КОРРЕКЦИЯ / СВЕТ · ЦВЕТ · ДЕТАЛИ</h2></section>
 <section class="panel" id="panel-batch"><h2>BATCH / ДО 50 ФОТОГРАФИЙ</h2><p class="hint">Один стиль VHS + FILM + КАМЕРА для серии. Маленькая ↻ под фото обновляет только его помехи, ↶ возвращает предыдущий вариант. Общая ↻ — сразу для всех. Шесть превью на странице.</p>
 <label class="btn primary full">＋ Выбрать до 50 фото<input type="file" id="batchFiles" accept="image/*" multiple hidden></label>
 <div class="row"><span id="batchStatus">Фотографии не выбраны</span><button id="batchRegen" class="btn mini">↻ Новые помехи</button></div><div class="batchGrid" id="batchGrid"></div>
@@ -58,10 +62,10 @@
 <section class="panel" id="panel-settings"><h2>НАСТРОЙКИ И РЕЗЕРВНАЯ КОПИЯ</h2><p class="hint">Для надёжного восстановления сохрани файл резервной копии в «Файлы» на iPhone или на компьютере. Он содержит твои настройки и импортированные XMP/LUT, но не личные фотографии.</p>
 <button class="btn primary full" id="backupExport">↓ Скачать резервную копию настроек и плёнок</button><label class="btn full">↑ Восстановить из резервной копии<input type="file" id="backupImport" accept=".json,application/json" hidden></label>
 <label>Формат отдельной фотографии<select id="exportFormat"><option value="image/jpeg">JPEG — меньший размер</option><option value="image/png">PNG — без JPEG-сжатия</option></select></label><label>Размер экспорта отдельной фотографии<select id="singleSize"><option value="3200">До 3200 px (рекомендуется)</option><option value="full">Исходный размер (больше памяти)</option><option value="2000">До 2000 px</option></select></label>
-<div class="row"><span>Версия приложения</span><span class="muted">Mobile 1.1.3</span></div><p class="hint" id="offlineDetail">Проверка офлайн-ресурсов…</p>
+<div class="row"><span>Версия приложения</span><span class="muted">Mobile 1.2.0</span></div><p class="hint" id="offlineDetail">Проверка офлайн-ресурсов…</p>
 <button class="btn primary full" id="checkForUpdates" type="button">↻ Обновить приложение без удаления данных</button>
 <button class="btn mini full" id="protectStorage">Попробовать защитить данные от очистки iOS</button><button class="btn mini full" id="installHelp">Как установить через Safari?</button></section>
-<footer class="footer"><p id="notice">Все фотографии обрабатываются на устройстве без отправки на сервер.</p><button class="btn mini" id="openSettings">Резервная копия · Настройки</button></footer>
+<p class="hint" id="extrasStatus" role="status" aria-live="polite">Новые функции сохраняются вместе с настройками. Исходная фотография не изменяется.</p><footer class="footer"><button type="button" id="photoHelpToggle" class="btn mini">? Показать объяснения</button><p id="notice">Все фотографии обрабатываются на устройстве без отправки на сервер.</p><button class="btn mini" id="openSettings">Резервная копия · Настройки</button></footer>
 </main>
 <dialog id="mainPreviewDialog" aria-label="Увеличенный просмотр основной фотографии">
   <div class="mainViewerTop"><strong id="mainViewerTitle">Просмотр фотографии</strong><div class="mainViewerSeedButtons"><button type="button" class="btn mini" id="undoMainViewer" aria-label="Предыдущие помехи основного фото" title="Назад: предыдущие помехи" disabled>↶</button><button type="button" class="btn mini" id="rerollMainViewer" aria-label="Новые помехи основного фото" title="Новые помехи">↻</button><button class="btn mini" type="button" id="closeMainPreview" aria-label="Закрыть увеличенный просмотр">✕</button></div></div>
@@ -77,4 +81,11 @@
 </dialog>
 <dialog id="photoDialog"><div class="dialogHead"><b id="dialogTitle">Просмотр кадра</b><div class="batchDialogTools"><button type="button" id="undoDialog" aria-label="Вернуть предыдущие помехи открытого фото" title="Назад: предыдущие помехи" disabled>↶</button><button type="button" id="rerollDialog" aria-label="Новые помехи только для открытого фото" title="Новые помехи только для этого фото">↻</button><button id="closeDialog" type="button" aria-label="Закрыть">✕</button></div></div><canvas id="largeCanvas" width="900" height="900"></canvas><span id="dialogRefreshStatus" class="batchDialogStatus" role="status" aria-live="polite"></span><button class="btn primary full" id="saveDialog">↓ Сохранить этот кадр</button></dialog>
 <dialog id="helpDialog"><div class="dialogHead"><b>Установка на iPhone</b><button id="closeHelp" aria-label="Закрыть">✕</button></div><div class="helpBody"><p>1. Открой адрес приложения в Safari на iPhone.</p><p>2. Нажми «Поделиться» → «На экран Домой» → «Добавить».</p><p>3. Открой новую иконку на экране. Дождись статуса «ГОТОВО ОФЛАЙН».</p><p>4. Отключи интернет и проверь, что приложение открывается и обрабатывает фото.</p><p>Если iOS очистит данные сайта, для восстановления потребуется снова открыть ссылку с интернетом. Настройки и импортированные плёнки можно вернуть из сохранённого файла резервной копии.</p></div></dialog>
-<script src="./jszip.min.js" defer></script><script src="./ntsc-photo.js?v=1.1.0" defer></script><script src="./app.js?v=1.1.3" defer></script></body></html>
+<script src="./jszip.min.js" defer></script><script src="./ntsc-photo.js?v=1.1.0" defer></script>
+<script src="./video/glitch-engine.js?v=1.2.0" defer></script>
+<script src="./video/film-damage.js?v=1.2.0" defer></script>
+<script src="./video/camera-osd.js?v=1.2.0" defer></script>
+<script src="./video/face-ai.js?v=1.2.0" defer></script>
+<script src="./photo-extras-core.js?v=1.2.0" defer></script>
+<script src="./photo-extras-ui.js?v=1.2.0" defer></script>
+<script src="./app.js?v=1.2.0" defer></script></body></html>
