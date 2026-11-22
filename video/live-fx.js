@@ -7,6 +7,30 @@
 (function(root){
 'use strict';
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,Number(x)||0));
+function signalDimensions(outW,outH,state={},opts={}){
+ const active=!state.masterBypass;
+ const vhs=active&&!!state.vhsEnabled&&Number(state.master)>0;
+ const temporal=active&&!!state.glitchEnabled&&Number(state.glitchStrength)>0 &&
+  Object.values(state.glitches||{}).some(value=>Number(value)>0);
+ const mode=active&&String(state.mode||'vhs')!=='vhs'&&
+  Number(state.modeStrength)>0;
+ const hold=!!opts.holding;
+ const reduce=vhs||temporal||mode||hold;
+ const chosen=state.signalWidth==='auto'?240:Number(state.signalWidth);
+ // VHS deliberately resembles a low-bandwidth composite signal. Glitch-only
+ // receives more pixels to avoid falsely resembling damaged VHS.
+ const longest=reduce?
+  vhs?clamp(chosen||240,128,320):
+  clamp(chosen==='auto'?480:Math.max(480,chosen||480),360,640):
+  Math.max(outW,outH);
+ const factor=Math.min(1,longest/Math.max(outW,outH));
+ return{
+  w:Math.max(2,Math.round(outW*factor/2)*2),
+  h:Math.max(2,Math.round(outH*factor/2)*2),
+  reduced:reduce,
+  reason:vhs?'VHS':hold?'ЗАЖМИ':temporal?'GLITCH':mode?'MODE':'native'
+ };
+}
 function create(){
  const pixel=document.createElement('canvas');
  const px=pixel.getContext('2d',{willReadFrequently:true});
@@ -29,14 +53,12 @@ function create(){
   const damaged=active&&state.filmDamage?.enabled;
   const extra=active&&(state.glitchEnabled||String(state.mode||'vhs')!=='vhs');
   const transferred=active&&state.creative?.look?.enabled&&state.creative.look.target;
-  // Readjust the actual signal resolution without changing the output size.
-  // 240 long-side pixels match the normal editor's iPhone AUTO signal mode.
-  const setting=state.signalWidth==='auto'?240:Number(state.signalWidth);
-  const maxLong=clamp(setting||240,128,320);
-  const longer=Math.max(outW,outH);
-  const factor=Math.min(1,(film||vhs||damaged||extra||transferred?maxLong:longer)/longer);
-  const w=Math.max(2,Math.round(outW*factor/2)*2);
-  const h=Math.max(2,Math.round(outH*factor/2)*2);
+  // Film/color/XMP, grain, scratches and palette transfer do not
+  // reduce optical resolution. The old condition included "film" here,
+  // degrading a 720x1280 phone stream to about 135x240 pixels (!).
+  // Only genuine VHS signal loss and heavy temporal glitches use a lower
+  // resolution. FILM-only is pixel-for-pixel native at 480p or 720p.
+  const {w,h}=signalDimensions(outW,outH,state,{holding:hold});
   if(width!==w||height!==h){
    width=w;height=h;pixel.width=w;pixel.height=h;reset();
   }
@@ -121,5 +143,5 @@ function create(){
  }
  return Object.freeze({render,reset,stats:()=>({width,height,renderCount})});
 }
-root.VHSVideoLiveFX=Object.freeze({create});
+root.VHSVideoLiveFX=Object.freeze({create,signalDimensions});
 })(window);
