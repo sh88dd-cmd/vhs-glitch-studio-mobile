@@ -207,16 +207,18 @@ function region(ctx,x,y,w,h,mode='pixel',power=20,blur=12){
  const pw=Math.min(W-px,Math.max(2,Math.round(w*W)));
  const ph=Math.min(H-py,Math.max(2,Math.round(h*H)));
  if(pw<2||ph<2)return;
- const small=Math.max(2,Math.round(Math.min(pw,ph)/Math.max(3,Number(power)||15)));
- scratch.width=Math.max(2,Math.round(pw/Math.max(2,power/2)));
- scratch.height=Math.max(2,Math.round(ph/Math.max(2,power/2)));
+ // Pixel mosaics use visible square blocks; blur uses smooth resampling.
+ // Both paths work without ctx.filter, which is unreliable in old Safari.
+ const block=mode==='blur'?Math.max(2,Number(blur)||12)/3:
+  Math.max(3,(Number(power)||20)/4.5);
+ scratch.width=Math.max(2,Math.round(pw/Math.max(2,block)));
+ scratch.height=Math.max(2,Math.round(ph/Math.max(2,block)));
  const sctx=scratch.getContext('2d',{willReadFrequently:false});
+ sctx.imageSmoothingEnabled=mode==='blur';
  sctx.clearRect(0,0,scratch.width,scratch.height);
- if(mode==='blur'&&'filter'in sctx){
-  sctx.filter='blur('+Math.max(2,Number(blur)||12)+'px)';
- }else sctx.filter='none';
  sctx.drawImage(ctx.canvas,px,py,pw,ph,0,0,scratch.width,scratch.height);
  ctx.save();ctx.imageSmoothingEnabled=mode==='blur';
+ if(mode==='blur'&&'filter'in ctx)ctx.filter='blur('+Math.max(2,Number(blur)||12)*.4+'px)';
  ctx.drawImage(scratch,0,0,scratch.width,scratch.height,px,py,pw,ph);
  ctx.restore();
 }
@@ -224,13 +226,30 @@ function drawStrokes(ctx,creative,clip,time){
  const cfg=creative?.touch;
  if(!cfg?.enabled)return 0;
  const strokes=brushArray(cfg.strokes,clip,time);
+ const W=ctx.canvas.width,H=ctx.canvas.height;
  for(const s of strokes){
-  const pts=Array.isArray(s.points)?s.points:[];
-  const radius=clamp(s.radius||cfg.radius,3,120)/Math.max(ctx.canvas.width,ctx.canvas.height);
-  for(const p of pts.slice(0,240)){
-   const size=radius*2;
-   region(ctx,clamp(p[0]-radius,0,1),clamp(p[1]-radius,0,1),size,size,
-    s.mode==='blur'?'blur':'pixel',s.strength||cfg.strength,s.blur||14);
+  const points=Array.isArray(s.points)?s.points:[];
+  // Brush width follows the visible canvas width and remains strong on
+  // portrait iPhone videos (the old max(width,height) made it too tiny).
+  const rx=clamp(s.radius||cfg.radius,4,100)/480;
+  const ry=rx*W/H;
+  const step=Math.max(.003,rx*.60),mode=s.mode==='blur'?'blur':'pixel';
+  let stamps=0,previous=null;
+  const stamp=(x,y)=>{
+   if(stamps++>=320)return;
+   region(ctx,clamp(x-rx,0,1),clamp(y-ry,0,1),rx*2,ry*2,
+    mode,s.strength||cfg.strength,3+(Number(s.strength||cfg.strength)||80)*.28);
+  };
+  for(const p of points.slice(0,400)){
+   if(!Array.isArray(p)||p.length<2)continue;
+   if(previous){
+    const dx=p[0]-previous[0],dy=(p[1]-previous[1])*H/W;
+    const segments=Math.max(1,Math.min(16,Math.ceil(Math.hypot(dx,dy)/step)));
+    for(let i=1;i<=segments&&stamps<320;i++)
+     stamp(previous[0]+(p[0]-previous[0])*i/segments,
+       previous[1]+(p[1]-previous[1])*i/segments);
+   }else stamp(p[0],p[1]);
+   previous=p;if(stamps>=320)break;
   }
  }
  return strokes.length;
@@ -239,8 +258,13 @@ function drawFaces(ctx,boxes,creative){
  const cfg=creative?.touch;
  if(!cfg?.facesEnabled||!Array.isArray(boxes))return;
  const style=cfg.faceStyle==='blur'?'blur':'pixel';
- for(const f of boxes.slice(0,6)){
-  region(ctx,f.x,f.y,f.w,f.h,style,style==='pixel'?cfg.faceSize:cfg.faceBlur,cfg.faceBlur);
+ for(const f of boxes.slice(0,10)){
+  if(!f||!(f.w>0&&f.h>0))continue;
+  // Add a small privacy margin so masks cover forehead and chin as faces turn.
+  const padX=f.w*.08,padY=f.h*.10;
+  region(ctx,clamp(f.x-padX,0,1),clamp(f.y-padY,0,1),
+   Math.min(1-f.x+padX,f.w+padX*2),Math.min(1-f.y+padY,f.h+padY*2),
+   style,style==='pixel'?cfg.faceSize:cfg.faceBlur,cfg.faceBlur);
  }
 }
 // Block matching displacement on small luminance buffers between neighboring
