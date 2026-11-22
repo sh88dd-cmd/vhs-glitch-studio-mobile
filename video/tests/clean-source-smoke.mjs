@@ -91,7 +91,8 @@ const app=fs.readFileSync('video/app.js','utf8');
 const html=fs.readFileSync('video/index.html','utf8');
 const sw=fs.readFileSync('video/sw.js','utf8');
 assert.ok(app.includes('if(clean||localOnly){\n   window.VHSVideoCleanPath.drawClean(source,canvas);'),'Clean and local-only frames must start with the full-resolution source');
-assert.ok(app.includes('videoDimensions(clean||localOnly?1920:520)'),'Local pixel/face masks must not downsample the whole video');
+assert.ok(app.includes("videoDimensions(clean?960:localOnly?1280:520)"),
+ 'Local pixel/face masks use high-quality canvas, while clean playback uses a native video element');
 assert.ok(app.includes('const videoReady=await waitVideoReady('),'Video picker must remain unchanged');
 assert.ok(app.includes("exportBlob=file;exportMime=file.type||'application/octet-stream'"));
 assert.ok(app.includes("link.download=file.name||'original_video'"));
@@ -99,3 +100,11 @@ assert.ok(app.includes("if(window.VHSVideoCleanPath.canCopyOriginal(state,"));
 assert.ok(html.includes('clean-path.js?v=0.7.5'));
 assert.ok(sw.includes("'./clean-path.js'"));
 console.log('PASS: clean frames avoid 240px buffer, aspect ratio preserved, raw file copied only when untouched');
+
+assert.ok(html.includes('<div class="stageCanvas">\\n    <video id="source"') ||
+ html.includes('<div class="stageCanvas">\n    <video id="source"'),
+ 'Visible stage must contain the source video for Safari decode');
+assert.ok(app.includes('const playback=source.play();'),
+ 'The source video must start synchronously from the tap, before awaiting Web Audio');
+assert.ok(app.includes("classList.toggle('native-clean',clean)"),
+ 'When all effects are off, playback must fall back to the real native video');
