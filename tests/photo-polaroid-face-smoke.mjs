@@ -30,9 +30,9 @@ assert.equal(P.styles.length,8,'Eight independent tactile paper frame designs re
 assert.equal(P.looks.length,7,'Seven instant film color looks required');
 assert.equal(P.handFonts.length,6,'Six actual Cyrillic handwritten font choices');
 assert.equal(P.inkTools.length,6,'Blue, black and red pens and markers');
-assert.equal(P.noteLines({note:'а\\nб\\nв\\nг\\nд\\nе'}).length,5,
+assert.equal(P.noteLines({note:['а','б','в','г','д','е'].join(String.fromCharCode(10))}).length,5,
  'Five-line handwritten caption must never include a sixth line');
-assert.equal(P.hydrate({note:'А\\nБ\\nВ\\nГ\\nД\\nЕ'}).note.split('\\n').length,5,
+assert.equal(P.hydrate({note:['А','Б','В','Г','Д','Е'].join(String.fromCharCode(10))}).note.split(String.fromCharCode(10)).length,5,
  'Persistence must clamp handwritten captions to five lines');
 for(const [w,h] of [[800,800],[1300,650],[600,1100]]){
  const geo=P.geometry(w,h,P.defaults());
