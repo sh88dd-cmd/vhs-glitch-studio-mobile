@@ -160,7 +160,8 @@ function mount({renderFrame,onCaptured,onSave,getSeed,getProfile,onConfigure}){
   await start();
  }
  function canvasFrom(source){
-  const w=source.width||source.naturalWidth,h=source.height||source.naturalHeight;
+  const w=source.naturalWidth||source.videoWidth||source.width,
+   h=source.naturalHeight||source.videoHeight||source.height;
   if(!w||!h)throw Error('Снимок не содержит изображения');
   const safeScale=Math.min(1,4300/Math.max(w,h),
    Math.sqrt(18500000/(w*h)));
@@ -207,10 +208,7 @@ function mount({renderFrame,onCaptured,onSave,getSeed,getProfile,onConfigure}){
   }
   const [w,h]=getDims();
   if(w<2||h<2)throw Error('Кадр камеры ещё не готов');
-  return canvasFrom({width:w,height:h,
-   // drawImage must receive the HTMLVideoElement (not an arbitrary object).
-   get _source(){return video;}
-  }._source);
+  return canvasFrom(video);
  }
  async function captureNow(){
   if(!active||!ready||capturing||review)return;
@@ -268,7 +266,9 @@ function mount({renderFrame,onCaptured,onSave,getSeed,getProfile,onConfigure}){
   review=false;lastRendered=null;lastFilename='';
   stage.classList.toggle('selfie',facing==='user');
   liveSeed=getSeed();refreshButtons();
-  if(!stream?.active){start();return;}
+  if(!stream||!stream.getVideoTracks().some(t=>t.readyState==='live')){
+   start();return;
+  }
   res.textContent='Камера работает · можно сделать следующий кадр';
   setStatus('Готово к следующему снимку с теми же настройками.');
   schedule(session,70);
