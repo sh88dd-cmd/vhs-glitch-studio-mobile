@@ -34,11 +34,13 @@ try{
  // Check real photo processor is never called for every video frame.
  await page.evaluate(()=>{
   window.__capturedVhsSeeds=[];
-  const apply=window.VHSPhotoEngine.apply;
-  window.VHSPhotoEngine.apply=(...args)=>{
+  // The engine API is Object.freeze()'d; instrument its global binding,
+  // not a readonly method property.
+  const engine=window.VHSPhotoEngine;
+  window.VHSPhotoEngine=Object.freeze({...engine,apply(...args){
    window.__capturedVhsSeeds.push(args[3].seed);
-   return apply(...args);
-  };
+   return engine.apply(...args);
+  }});
  });
  // An instant-film preset should appear in BOTH the live view and captured photo.
  await page.locator('button[data-tab="polaroid"]').click();
