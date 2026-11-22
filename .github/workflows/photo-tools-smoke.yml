@@ -1,8 +1,9 @@
-name: Photo Studio 1.4 regression
+name: Photo Studio 1.5 regression
 on:
   push:
     paths:
       - 'app.js'
+      - 'photo-camera.js'
       - 'index.html'
       - 'styles.css'
       - 'sw.js'
@@ -24,6 +25,7 @@ on:
   pull_request:
     paths:
       - 'app.js'
+      - 'photo-camera.js'
       - 'index.html'
       - 'styles.css'
       - 'sw.js'
@@ -56,6 +58,7 @@ jobs:
       - name: Validate photo JavaScript syntax
         run: |
           node --check app.js
+          node --check photo-camera.js
           node --check photo-extras-core.js
           node --check photo-extras-ui.js
           node --check photo-polaroid.js
