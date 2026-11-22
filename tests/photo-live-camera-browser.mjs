@@ -89,7 +89,7 @@ try{
   page.waitForEvent('download',{timeout:30000}),
   page.locator('#liveCameraSave').click()
  ]);
- assert.match(download.suggestedFilename(),/^CAM_\d+_VHS_FILM\.jpg$/);
+ assert.match(download.suggestedFilename(),/^CAM_\d{8}_\d{6}_VHS_FILM\.jpg$/);
  console.log('Saved processed still:',download.suggestedFilename());
 
  await page.locator('#liveCameraAgain').click();
