@@ -976,3 +976,10 @@ body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){p
  .filmGalleryPick span{font-size:9px}
  .filmGalleryStar{width:23px;height:23px;font-size:17px;top:6px;right:6px}
 }
+
+/* One-tap clean FILM mode: avoid accidental VHS softness while comparing films. */
+#filmOnlyMode.filmOnlyMode{
+ display:block;width:100%;min-height:43px;margin:10px 0 3px;
+ background:#343129;color:#f3dfba;border-color:#a38a63;
+ font-size:11px;font-weight:800;letter-spacing:.3px}
+#filmOnlyMode.filmOnlyMode:active{background:#67543a}
