@@ -281,13 +281,13 @@ function trackBoxes(previous,current,w,h,boxes){
   // Match a textured grid across the *inside* of each face, not a single
   // 11px center patch. A tiny center patch easily snaps to the background.
   const samples=[];
-  for(let iy=-2;iy<=2;iy++)for(let ix=-2;ix<=2;ix++){
-   const x=Math.round(cx+ix*Math.max(2,face.w*w*.14));
-   const y=Math.round(cy+iy*Math.max(2,face.h*h*.14));
+  for(let iy=-3;iy<=3;iy++)for(let ix=-3;ix<=3;ix++){
+   const x=Math.round(cx+ix*Math.max(2,face.w*w*.18));
+   const y=Math.round(cy+iy*Math.max(2,face.h*h*.18));
    if(x>1&&y>1&&x<w-2&&y<h-2)
     samples.push([x,y,previous[y*w+x]]);
   }
-  if(samples.length<12){result.push({...face});continue;}
+  if(samples.length<20){result.push({...face});continue;}
   const radius=Math.min(13,Math.max(3,Math.round(Math.max(face.w*w,face.h*h)*.30)));
   let bestError=Infinity,bestX=0,bestY=0,stationary=Infinity;
   // Dense ±radius search: separate face masks have independent movement.
