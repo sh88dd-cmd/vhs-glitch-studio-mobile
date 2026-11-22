@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.9.1">
+<link rel="stylesheet" href="./styles.css?v=0.9.2">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.9.1 · РЕАЛЬНЫЕ VHS / FILM / GLITCH</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.9.2 · ГАЛЕРЕЯ ПЛЁНОК И ЧЁТКАЯ КАМЕРА</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -307,7 +307,26 @@
   <h2>ПЛЁНОЧНЫЕ ФИЛЬТРЫ</h2>
   <div class="switch"><span>Включить FILM</span><input id="filmEnabled" type="checkbox"></div>
   <label>Поиск фильтра<input id="filmSearch" type="search" placeholder="Kodak, Fuji, Ilford…" autocomplete="off"></label>
-  <label>Выбрать плёнку<select id="filmSelect"></select></label>
+  <div class="videoFilmLibrary">
+    <p class="hint">Галерея как в фоторедакторе: три карточки в ряд с настоящими цветовыми примерами. Если видео загружено, примеры берутся из его кадра; иначе показывается эталонная сцена.</p>
+    <label for="filmCategory">Категория плёнок
+      <select id="filmCategory" aria-label="Категория плёнки">
+        <option value="Все">Все категории</option>
+      </select>
+    </label>
+    <div id="filmFamilyChips" class="filmFamilyChips" role="group" aria-label="Разделы плёнок"></div>
+    <span id="filmGalleryCount" class="hint" role="status">Загружаю карточки плёнок…</span>
+    <div id="filmGallery" class="filmGallery" aria-label="Каталог плёнок: три карточки в ряд"></div>
+    <div class="filmGalleryPager">
+      <button id="filmGalleryPrev" class="button mini" type="button">← Назад</button>
+      <span id="filmGalleryPage" aria-live="polite">1 / 1</span>
+      <button id="filmGalleryNext" class="button mini" type="button">Далее →</button>
+    </div>
+    <details class="videoFilmListFallback">
+      <summary>Выбор плёнки обычным списком</summary>
+      <label>Выбрать плёнку<select id="filmSelect"></select></label>
+    </details>
+  </div>
   <span id="filmCount" class="hint">Загружаю каталог…</span>
   <div id="filmControls"></div>
   <div class="creativeCard">
@@ -469,7 +488,7 @@
   </div>
 </section>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.9.1</span>
+  <span>VHS Video Lab · 0.9.2</span>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
     <span class="helpToggleMark" aria-hidden="true">?</span>
@@ -576,8 +595,9 @@
 <script src="./face-ai.js?v=0.8.6" defer></script>
 <script src="./creative-engine.js?v=0.8.6" defer></script>
 <script src="./creative-ui.js?v=0.8.6" defer></script>
-<script src="./live-fx.js?v=0.9.1" defer></script>
+<script src="./live-fx.js?v=0.9.2" defer></script>
+<script src="./film-gallery.js?v=0.9.2" defer></script>
 <script src="./live-camera.js?v=0.9.1" defer></script>
-<script src="./app.js?v=0.9.1" defer></script>
+<script src="./app.js?v=0.9.2" defer></script>
 </body>
 </html>
