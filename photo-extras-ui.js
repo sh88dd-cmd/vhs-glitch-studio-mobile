@@ -107,6 +107,11 @@ function mount(opts){
    extras:{correction:copy.extras.correction,glitch:copy.extras.glitch,
     damage:copy.extras.damage,colorCopy:copy.extras.colorCopy}};
  }
+ // Factory cassettes are stable presets, not a moving copy of whichever
+ // cassette happens to be selected when the shelf redraws.
+ const factoryBaseline=cassetteSnapshot();
+ factoryBaseline.extras.glitch=X.defaults().glitch;
+ factoryBaseline.extras.damage=X.defaults().damage;
  function applySnapshot(snapshot){
   const s=JSON.parse(JSON.stringify(snapshot));
   const current=extras.cassettes,selected=extras.selectedCassetteId,
@@ -329,7 +334,7 @@ function mount(opts){
  function getCassettes(){
   return [...X.factory.map(f=>({id:'factory-'+f.id,name:f.name,factory:true,
    settings:(()=>{
-    const s=cassetteSnapshot();s.vhsEnabled=true;s.master=f.master;
+    const s=JSON.parse(JSON.stringify(factoryBaseline));s.vhsEnabled=true;s.master=f.master;
     s.extras.glitch.enabled=true;s.extras.glitch.mode=f.mode;
     s.extras.glitch.aging=f.aging;return s;
    })()})),...extras.cassettes];
