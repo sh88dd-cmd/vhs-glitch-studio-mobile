@@ -983,3 +983,19 @@ body:not(.help-visible) .masterFxActions .helpButtonSlot>button:not(.helpIcon){p
  background:#343129;color:#f3dfba;border-color:#a38a63;
  font-size:11px;font-weight:800;letter-spacing:.3px}
 #filmOnlyMode.filmOnlyMode:active{background:#67543a}
+
+/* Video 0.9.3: fixed single-screen recording controls, matching photo camera. */
+.videoLiveCameraDialog{max-height:100dvh;overflow:hidden;overscroll-behavior:none}
+.videoLiveCameraDialog[open]{gap:6px}
+html.videoCameraLock,body.videoCameraLock{overflow:hidden!important;overscroll-behavior:none}
+.videoLiveViewport{flex:1 1 0;min-height:0;min-width:0;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;overscroll-behavior:none;touch-action:none}
+#videoLiveStage.videoLiveStage{flex:0 0 auto;max-width:100%;max-height:100%;margin:0 auto}
+#videoLiveStage:not([data-frame-ratio]){width:auto!important;height:auto!important;max-height:100%;max-width:100%;aspect-ratio:9 / 16}
+.videoLiveTop,.videoLiveStatus,.videoLiveMeta,.videoLiveControls,.videoLiveButtons,.videoLiveAudioState,.videoLiveReviewActions{flex:0 0 auto}
+.videoLiveStatus{max-height:44px;overflow:hidden;line-height:1.3;padding:6px 9px;min-height:25px}
+.videoLiveMeta,.videoLiveAudioState{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:12px}
+.videoLiveNote{display:none}
+.videoLiveCameraDialog.has-result .videoLiveButtons{display:none}
+.videoLiveCameraDialog.has-result .videoLiveReviewActions{grid-template-columns:1fr 1fr}
+@media(max-height:730px){.videoLiveCameraDialog{padding-top:calc(env(safe-area-inset-top) + 5px);padding-bottom:calc(env(safe-area-inset-bottom) + 6px)}.videoLiveCameraDialog[open]{gap:4px}.videoLiveTop{min-height:30px}.videoLiveControls label{padding:4px;gap:2px}.videoLiveControls select{min-height:30px}.videoLiveRecord{width:66px;height:66px}.videoLiveButtons .button{min-height:40px}}
+@media(max-height:590px){.videoLiveMeta,.videoLiveAudioState{display:none}.videoLiveTop small{display:none}.videoLiveRecord{width:58px;height:58px}.videoLiveControls select{min-height:28px}}
