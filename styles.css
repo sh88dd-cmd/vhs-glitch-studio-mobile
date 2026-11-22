@@ -168,3 +168,19 @@ input[type="file"][hidden], [hidden]{display:none !important}
 body.photoHelpVisible .extraHelpText{display:block}
 #photoHelpToggle{display:block;margin:8px 15px 0}
 #panel-correction .photoFxControl input[type=range] {accent-color:#78d7ca}
+
+/* The bottom help switch reveals contextual '?' buttons. Clicking one shows
+   that control's explanation without permanently filling the mobile screen. */
+.photoHelpMark{display:none;flex:none;min-width:21px;height:21px;padding:0;
+ border:1px solid #83cfc6;border-radius:50%;background:#234e4d;
+ color:#bff4e9;font-size:12px;line-height:1;font-weight:800}
+body.photoHelpVisible .photoHelpMark{display:inline-flex;align-items:center;justify-content:center}
+.extraHelpText{display:none!important}
+body.photoHelpVisible .extraHelpText.expanded{display:block!important}
+.photoFxHead .photoHelpMark{margin-left:auto}
+#allPhotoFxToggle{background:#753934;color:#ffe1dc;border-color:#9e4c43}
+#allPhotoFxToggle:active{background:#8b4b46}
+.tabs .hasActivePhotoFx:after{content:'';display:block;position:absolute;
+ top:4px;right:7px;width:5px;height:5px;background:#75e2d0;
+ border-radius:50%;box-shadow:0 0 5px #75e2d0}
+.tabs button{position:relative}
