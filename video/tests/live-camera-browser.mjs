@@ -121,6 +121,46 @@ try{
  }
  await page.setViewportSize({width:390,height:844});
  assert.equal(opened.loading,false,'Camera readiness must dismiss startup overlay');
+ // Actual layout across different iPhone-sized displays: no scrolling and
+ // recording buttons must remain below the fitted image, inside the dialog.
+ const fixedPositions=[];
+ for(const [width,height] of [[390,844],[375,667],[320,568]]){
+  await page.setViewportSize({width,height});
+  await page.waitForTimeout(120);
+  const bounds=await page.evaluate(()=>{
+   const dialog=document.getElementById('videoLiveCameraDialog');
+   const box=document.getElementById('videoLiveViewport');
+   const rect=id=>document.getElementById(id).getBoundingClientRect();
+   const b=rect('videoLiveRecord'),hold=rect('videoLiveHold'),stage=rect('videoLiveStage');
+   const vp=box.getBoundingClientRect(),d=dialog.getBoundingClientRect();
+   dialog.scrollTop=300;
+   return{scrollTop:dialog.scrollTop,scrollHeight:dialog.scrollHeight,clientHeight:dialog.clientHeight,
+    bottom:d.bottom,recordTop:b.top,recordBottom:b.bottom,holdBottom:hold.bottom,
+    stageTop:stage.top,stageBottom:stage.bottom,viewportTop:vp.top,viewportBottom:vp.bottom,
+    ratio:stage.width/stage.height};
+  });
+  assert.equal(bounds.scrollTop,0,
+   `Video camera dialog must never scroll at ${width}x${height}`);
+  assert.ok(bounds.scrollHeight<=bounds.clientHeight+2,
+   `REC and HOLD must fit on screen at ${width}x${height}: ${JSON.stringify(bounds)}`);
+  assert.ok(bounds.recordTop>=0&&bounds.recordBottom<=bounds.bottom+1&&bounds.holdBottom<=bounds.bottom+1,
+   `REC and HOLD must stay visible at ${width}x${height}: ${JSON.stringify(bounds)}`);
+  assert.ok(bounds.stageTop>=bounds.viewportTop-1&&bounds.stageBottom<=bounds.viewportBottom+1,
+   `Processed video frame must fit the remaining viewport at ${width}x${height}`);
+  assert.ok(Math.abs(bounds.ratio-opened.aspect.source)<.008,
+   `Camera aspect must remain native at ${width}x${height}`);
+  fixedPositions.push({width,height,bounds});
+ }
+ await page.setViewportSize({width:390,height:844});
+ await page.waitForTimeout(120);
+ const recordBefore=await page.locator('#videoLiveRecord').evaluate(node=>{
+  const r=node.getBoundingClientRect();return{top:r.top,bottom:r.bottom,center:(r.top+r.bottom)/2};
+ });
+ console.log('Pinned video REC/HOLD without scroll:',fixedPositions.map(x=>({
+  width:x.width,height:x.height,recordBottom:x.bounds.recordBottom,
+  stageBottom:x.bounds.stageBottom
+ })));
+
  await page.waitForFunction(()=>window.__actualCameraFx?.vhs>1&&
   window.__actualCameraFx?.film>1,null,{timeout:12000});
  console.log('ACTUAL editor film + VHS processor calls during live view:',
@@ -145,6 +185,14 @@ try{
  const recordingStatus=await page.locator('#videoLiveStatus').textContent();
  assert.match(recordingStatus,/REC · настоящие выбранные эффекты/,
   'Real CanvasCaptureStream MediaRecorder must be operating: '+recordingStatus);
+ const recordDuring=await page.locator('#videoLiveRecord').evaluate(node=>{
+  const r=node.getBoundingClientRect();return{top:r.top,bottom:r.bottom,center:(r.top+r.bottom)/2};
+ });
+ assert.ok(Math.abs(recordBefore.center-recordDuring.center)<=6,
+  'REC and STOP must not jump vertically when recording begins');
+ assert.ok(recordDuring.bottom<=await page.evaluate(()=>window.innerHeight),
+  'STOP must remain visible during video recording');
+
  await page.waitForTimeout(850);
  const encoded=await page.evaluate(()=>{
   const cv=document.getElementById('videoLiveCaptureCanvas');
@@ -192,6 +240,24 @@ try{
  });
  console.log('Recorded live filtered video:',recorded);
  assert.ok(recorded.resultOpen&&recorded.mime,'Recording must create real local video Blob');
+ // Finished recording displays saving and importing controls, still fixed.
+ await page.setViewportSize({width:320,height:568});
+ await page.waitForTimeout(120);
+ const resultLayout=await page.evaluate(()=>{
+  const dialog=document.getElementById('videoLiveCameraDialog');
+  dialog.scrollTop=320;
+  const buttons=['videoLiveDownload','videoLiveShare','videoLiveImport','videoLiveAgain'];
+  return{scrollTop:dialog.scrollTop,scrollHeight:dialog.scrollHeight,clientHeight:dialog.clientHeight,
+   dialogBottom:dialog.getBoundingClientRect().bottom,
+   bottoms:buttons.map(id=>document.getElementById(id).getBoundingClientRect().bottom)};
+ });
+ assert.equal(resultLayout.scrollTop,0,'Video review must not scroll');
+ assert.ok(resultLayout.scrollHeight<=resultLayout.clientHeight+2,
+  'Video save/edit controls must fit inside the fixed review');
+ assert.ok(resultLayout.bottoms.every(y=>y<=resultLayout.dialogBottom+1),
+  'All video save/edit buttons must be visible on a small screen');
+ await page.setViewportSize({width:390,height:844});
+
  const exact=await page.evaluate(()=>window.__actualCameraFx);
  assert.ok(exact.vhs>4&&exact.film>4,
   'BOTH real selected FILM + actual VHSPhotoEngine must run for live and recorded frames');
