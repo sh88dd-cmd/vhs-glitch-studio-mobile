@@ -2031,6 +2031,32 @@
    else exportStatus('Системная отправка недоступна для этого файла. Используй «Скачать».');
   }catch(e){if(e.name!=='AbortError')exportStatus('Не удалось поделиться: '+e.message);}
  }
+ function mountVideoCapture(){
+  if(!window.VHSVideoLiveCamera?.mount){
+   console.warn('Видеокамера с эффектами не загрузилась.');
+   return;
+  }
+  window.VHSVideoLiveCamera.mount({
+   // Capture uses the current selected VHS, GLITCH, FILM, cassette and
+   // viewfinder settings, but never mutates saved editor configuration.
+   getSettings:()=>({
+    masterBypass:state.masterBypass,
+    vhsEnabled:state.vhsEnabled,master:state.master,
+    signal:state.signal,speed:state.speed,
+    filmEnabled:state.filmEnabled,filmId:state.filmId,
+    filmStrength:state.filmStrength,
+    glitchEnabled:state.glitchEnabled,glitchStrength:state.glitchStrength,
+    glitches:state.glitches,mode:state.mode,modeStrength:state.modeStrength,
+    filmDamage:state.filmDamage,camera:state.camera,
+    selectedCassetteId:state.selectedCassetteId,
+    creative:state.creative
+   }),
+   onImport:async captured=>{
+    await loadVideo([captured],'camera');
+    showMainTab('vhs');
+   }
+  });
+ }
  function initEvents(){
   document.querySelectorAll('.tabs button[data-tab]').forEach(button=>button.addEventListener('click',()=>showMainTab(button.dataset.tab)));
   document.querySelectorAll('[data-audio-section]').forEach(button=>button.addEventListener('click',()=>showAudioSection(button.dataset.audioSection)));
@@ -2129,7 +2155,7 @@
   $('share').onclick=shareExport;
  }
  async function init(){
-  mountControls();mountKeyframes();initEvents();
+  mountControls();mountKeyframes();initEvents();mountVideoCapture();
   const mixSnapshots=(a,b,v)=>{
    if(typeof a==='number'&&typeof b==='number')return a+(b-a)*v;
    if(a&&b&&typeof a==='object'&&typeof b==='object'&&!Array.isArray(a)&&!Array.isArray(b)){
