@@ -76,64 +76,99 @@ async function native(source,onStatus=()=>{}){
   return dedupe(normalize(faces,frame.width,frame.height));
  }catch{return [];}
 }
-let mediaPromise=null;
-async function mediaEngine(){
- if(!root.VHSVideoFaceAI?.create)return null;
- if(!mediaPromise)mediaPromise=root.VHSVideoFaceAI.create().catch(e=>{
-  mediaPromise=null;throw e;
- });
- return await mediaPromise;
-}
+// Photo-only model is bundled in this GitHub Pages project. We never load
+// the nonexistent old @mediapipe/tasks-vision@0.10.22 CDN version.
 async function mediapipe(source,onStatus=()=>{}){
- onStatus('Загружаю точную модель распознавания лиц…');
- const model=await Promise.race([
-  mediaEngine(),
-  new Promise((_,reject)=>setTimeout(()=>reject(Error('Загрузка модели заняла слишком долго')),8500))
- ]);
- if(!model)return[];
- // Huge original iPhone JPEGs are scaled down for the detector only.
- // All masks are mapped back to relative original-photo coordinates.
- const limits=[950,1280],found=[];
- for(const side of limits){
-  const frame=canvasFrame(source,side);
-  onStatus('Ищу несколько лиц · '+frame.width+'×'+frame.height+'…');
+ if(!root.VHSPhotoLocalAI?.create)throw Error('Локальный MediaPipe не загружен');
+ onStatus('Читаю локальные модели ближних и дальних лиц…');
+ const detector=await root.VHSPhotoLocalAI.create(onStatus);
+ const found=[];
+ const photoW=Number(source.naturalWidth||source.width);
+ const photoH=Number(source.naturalHeight||source.height);
+ const areas=[{x:0,y:0,w:1,h:1,limit:900},
+              {x:0,y:0,w:1,h:1,limit:1500}];
+ // Tiled searches keep tiny group faces recognizable: the 192px detector
+ // receives a significantly larger face instead of the entire huge photo.
+ if(Math.max(photoW,photoH)>1000){
+  const halves=[
+   {x:0,y:0,w:.57,h:.57},
+   {x:.43,y:0,w:.57,h:.57},
+   {x:0,y:.43,w:.57,h:.57},
+   {x:.43,y:.43,w:.57,h:.57}
+  ];
+  areas.push(...halves.map(v=>({...v,limit:950})));
+ }
+ for(const area of areas){
+  const srcX=Math.round(photoW*area.x);
+  const srcY=Math.round(photoH*area.y);
+  const srcW=Math.max(1,Math.round(photoW*area.w));
+  const srcH=Math.max(1,Math.round(photoH*area.h));
+  const f=Math.min(1,area.limit/Math.max(srcW,srcH));
+  const w=Math.max(24,Math.round(srcW*f));
+  const h=Math.max(24,Math.round(srcH*f));
+  const can=document.createElement('canvas');can.width=w;can.height=h;
+  can.getContext('2d',{willReadFrequently:true})
+   .drawImage(source,srcX,srcY,srcW,srcH,0,0,w,h);
+  onStatus('Проверяю лица: область '+(areas.indexOf(area)+1)+'/'+areas.length+
+   ' · '+w+'×'+h+'…');
   await wait();
-  const boxes=await model.detect(frame);
-  found.push(...normalize(boxes,frame.width,frame.height));
-  if(found.length>=10)break;
+  const detected=await detector.detect(can,onStatus);
+  for(const face of normalize(detected,w,h)){
+   const rect={x:area.x+face.x*area.w,y:area.y+face.y*area.h,
+    w:face.w*area.w,h:face.h*area.h,auto:true,
+    confidence:Number(face.confidence||1)};
+   found.push(rect);
+  }
+  // An image with many clear faces does not need every heavy crop.
+  if(found.length>=14)break;
  }
  return dedupe(found,16);
 }
 async function detect(source,onStatus=()=>{}){
+ const diagnostics=[],report=(msg)=>{
+  diagnostics.push(String(msg).slice(0,210));
+  onStatus(msg);
+ };
  const methods=[];
- let faces=[];
+ let faces=[],error='';
  try{
-  faces=await mediapipe(source,onStatus);
-  if(faces.length)methods.push('MediaPipe');
+  faces=await mediapipe(source,report);
+  methods.push('Локальный MediaPipe');
+  report('MediaPipe: найдено лиц '+faces.length);
  }catch(err){
-  onStatus('Точная модель недоступна: '+String(err?.message||err).slice(0,90)+'. Проверяю запасной поиск…');
+  error=String(err?.message||err);
+  report('MediaPipe не смог запуститься: '+error.slice(0,145));
  }
- if(!faces.length){
-  const found=await native(source,onStatus);
-  if(found.length){faces=found;methods.push('Системный детектор');}
- }
- // Haar also augments a partial MediaPipe result, but discard highly
- // overlapping low-confidence detections to avoid duplicated masks.
- if(faces.length<10){
+ // Native Safari FaceDetector is not consistently available on iOS, but
+ // use it as a second route where supported.
+ if(faces.length<3){
   try{
-   const other=await haar(source,onStatus);
-   if(other.length){
-    faces=dedupe([...faces,...other]);
-    methods.push('Офлайн-поиск');
+   const found=await native(source,report);
+   report('Системный детектор: найдено лиц '+found.length);
+   if(found.length){
+    faces=dedupe([...faces,...found]);
+    methods.push('Системный');
    }
-  }catch(err){
-   if(!faces.length)throw new Error('Не удалось распознать лица: '+err.message);
-  }
+  }catch(err){report('Системный поиск: '+err.message);}
  }
- onStatus(faces.length?
-  'Найдено лиц: '+faces.length+' · '+methods.join(' + '):
-  'Автоматически лица не обнаружены. Можно выделить каждое лицо вручную.');
- return {faces,engine:methods.join(' + ')||'Нет распознавания'};
+ // Third route: truly offline 3-scale Haar with checked bundled classifiers.
+ // Its results are also normalized to the original photo.
+ if(faces.length<4){
+  try{
+   const found=await haar(source,report);
+   report('Резервный Haar: найдено лиц '+found.length);
+   if(found.length){
+    faces=dedupe([...faces,...found]);methods.push('Резервный Haar');
+   }
+  }catch(err){report('Резервный поиск: '+err.message);}
+ }
+ faces=dedupe(faces,16);
+ const engine=methods.join(' + ')||'Не запустился ни один детектор';
+ report(faces.length?'ИТОГ: найдено лиц '+faces.length:
+  'ИТОГ: 0 лиц. '+(error?
+   'Ошибка основной модели: '+error.slice(0,100):
+   'Проверь фото в хорошем освещении или выдели лица вручную.'));
+ return {faces,engine,diagnostics,error};
 }
 root.VHSPhotoFaceDetect=Object.freeze({detect,normalize,dedupe,haar,mediapipe,canvasFrame});
 })(window);
