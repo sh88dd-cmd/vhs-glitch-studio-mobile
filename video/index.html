@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.8.6">
+<link rel="stylesheet" href="./styles.css?v=0.9.0">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.8.6 · ТВОРЧЕСКАЯ ЛАБОРАТОРИЯ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.9.0 · ВИДЕОСЪЁМКА С ЭФФЕКТАМИ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -42,6 +42,10 @@
     <label class="button primary">＋ Одно видео<input id="videoInput" type="file" accept="video/*" hidden></label>
     <button id="play" class="button" disabled>▶ Просмотр</button>
     <div class="seedActions"><button id="undoGlitch" type="button" class="button seedUndo" disabled title="Предыдущий рисунок помех" aria-label="Вернуть предыдущие помехи">↶</button><button id="regenerate" class="button" disabled title="Новый рисунок помех">↻ Помехи</button></div>
+  </div>
+  <div class="videoLiveEntry">
+    <button class="button primary" id="videoLiveOpenTop" type="button">📹 СНИМАТЬ ВИДЕО С ЭФФЕКТАМИ</button>
+    <span>Живая камера · NEW · ЗАЖМИ · сохранение записанных помех</span>
   </div>
   <div class="videoImportOptions" role="group" aria-label="Дополнительные способы выбора видео">
     <label class="button mini">▣ Через «Файлы»<input id="videoFilesInput" type="file" accept="video/*,.mov,.mp4,.m4v,.webm" hidden></label>
@@ -101,6 +105,7 @@
   <button data-tab="filmDamage">ПЛЁНКА FX</button>
   <button data-tab="audio">♫ АУДИО</button>
   <button data-tab="camera">КАМЕРА</button>
+  <button data-tab="shoot">📹 СЪЁМКА</button>
   <button data-tab="cassettes">КАССЕТЫ</button>
   <button data-tab="touch">КАСАНИЯ</button>
   <button data-tab="speed">СКОРОСТЬ</button>
@@ -438,6 +443,13 @@
   <div id="cameraControls"></div>
   <p class="hint">Индикаторы добавляются после FILM, но до VHS. Значит, помехи действуют на дату, REC, PLAY и батарею вместе с изображением и при экспорте.</p>
 </section>
+<section id="panel-shoot" class="panel">
+  <h2>📹 СЪЁМКА С ЭФФЕКТАМИ</h2>
+  <p class="hint">Выбери VHS, FILM, кассету, плёночные повреждения или GLITCH в разделах выше. Затем открой камеру и записывай видео с обработанной картинкой, а не только с предпросмотром.</p>
+  <button class="button primary full" type="button" id="videoLiveOpenPanel">● ОТКРЫТЬ ВИДЕОКАМЕРУ</button>
+  <p class="hint">● REC — начало и остановка записи. ⚡ ЗАЖМИ — сильные VHS-помехи только пока удерживаешь кнопку; они попадают в видеозапись. NEW — новый рисунок случайных помех без сброса плёнки и кассеты.</p>
+  <p class="hint">Плавный предпросмотр и запись работают через ускоренные браузерные эффекты. Готовый ролик можно открыть в этом видеоредакторе для полного набора его сложных эффектов. Для записи нужен Safari с поддержкой MediaRecorder и Canvas.captureStream.</p>
+</section>
 <section id="panel-export" class="panel">
   <h2>СОХРАНЕНИЕ ВИДЕО</h2>
   <label>Размер видео<select id="outputSize"><option value="360">360p — быстрее на iPhone</option><option value="480">480p — баланс качества</option><option value="720">720p — высокая нагрузка</option></select></label>
@@ -457,7 +469,7 @@
   </div>
 </section>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.8.0</span>
+  <span>VHS Video Lab · 0.9.0</span>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
     <span class="helpToggleMark" aria-hidden="true">?</span>
@@ -465,6 +477,40 @@
   </button>
 </footer>
 </main>
+<dialog id="videoLiveCameraDialog" aria-label="Видеокамера с эффектами" class="videoLiveCameraDialog">
+  <div class="videoLiveTop">
+    <div><strong>ВИДЕОКАМЕРА · VHS VIDEO LAB</strong><small id="videoLiveProfile">Выбранные фильтры</small></div>
+    <button id="videoLiveClose" class="button mini" type="button" aria-label="Закрыть видеокамеру">✕</button>
+  </div>
+  <div class="videoLiveStage" id="videoLiveStage">
+    <video id="videoLiveVideo" autoplay playsinline muted></video>
+    <canvas id="videoLiveOverlay" width="2" height="2" aria-label="Живые аналоговые помехи"></canvas>
+    <canvas id="videoLiveCaptureCanvas" width="2" height="2" hidden aria-hidden="true"></canvas>
+    <video id="videoLiveReview" playsinline controls hidden></video>
+    <span id="videoLiveBadge">● LIVE</span>
+    <button type="button" id="videoLiveNew" title="Новый рисунок VHS-помех без изменения других фильтров" aria-label="Новые помехи">NEW</button>
+  </div>
+  <div id="videoLiveStatus" class="videoLiveStatus" aria-live="polite" role="status">Камера не запущена</div>
+  <div id="videoLiveMeta" class="videoLiveMeta">Видео обрабатывается на устройстве</div>
+  <div class="videoLiveControls">
+    <label><span>Микрофон</span><input type="checkbox" id="videoLiveMicrophone" checked></label>
+    <label><span>Качество</span><select id="videoLiveQuality"><option value="480">480p · плавнее</option><option value="720">720p · выше качество</option></select></label>
+    <label><span>Частота</span><select id="videoLiveFPS"><option value="20">20 кадров/с</option><option value="15">15 кадров/с</option><option value="24">24 кадра/с</option></select></label>
+  </div>
+  <div class="videoLiveButtons">
+    <button id="videoLiveFlip" type="button" class="button">↻ ФРОНТ / ТЫЛ</button>
+    <button id="videoLiveRecord" type="button" class="videoLiveRecord" aria-label="Начать запись">● REC</button>
+    <button id="videoLiveHold" type="button" class="button videoLiveHold" aria-pressed="false">⚡ ЗАЖМИ</button>
+  </div>
+  <div class="videoLiveAudioState" id="videoLiveAudioState">Микрофон</div>
+  <div id="videoLiveReviewActions" class="videoLiveReviewActions" hidden>
+    <a class="button primary" id="videoLiveDownload" download>↓ СКАЧАТЬ ВИДЕО</a>
+    <button class="button" id="videoLiveShare" type="button">Поделиться</button>
+    <button class="button" id="videoLiveImport" type="button">ОТКРЫТЬ В РЕДАКТОРЕ</button>
+    <button class="button" id="videoLiveAgain" type="button">↻ НОВАЯ ЗАПИСЬ</button>
+  </div>
+  <p class="videoLiveNote">Живое движение без тяжёлой покадровой обработки. Цвет и аналоговые помехи видны сразу и записываются в файл. Некоторые сложные эффекты редактора при съёмке упрощены; для точной дополнительной обработки открой записанный клип в редакторе. При сворачивании iPhone запись может остановиться.</p>
+</dialog>
 <dialog id="videoViewer" class="videoViewer" aria-label="Увеличенный видеопросмотр">
   <div class="viewerHead">
     <strong id="viewerName">Просмотр видео</strong>
@@ -529,6 +575,7 @@
 <script src="./face-ai.js?v=0.8.6" defer></script>
 <script src="./creative-engine.js?v=0.8.6" defer></script>
 <script src="./creative-ui.js?v=0.8.6" defer></script>
-<script src="./app.js?v=0.8.6" defer></script>
+<script src="./live-camera.js?v=0.9.0" defer></script>
+<script src="./app.js?v=0.9.0" defer></script>
 </body>
 </html>
