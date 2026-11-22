@@ -718,7 +718,7 @@ function create(opts){
   $('touchStartDrawing').onclick=()=>{
    if(tool!=='brush'&&!source.paused)source.pause();
    tool=tool==='brush'?'':'brush';
-   $('touchStartDrawing').textContent=tool==='brush'?'✓ Закончить рисование':'✎ Начать рисовать на кадре ниже';
+   $('touchStartDrawing').textContent=tool==='brush'?'✓ Закончить рисование':'✎ Начать рисовать на кадре выше';
    $('faceMark').textContent='＋ Обвести лицо на кадре выше';
    editorDirty=true;updateOverlay();
    pulse(tool?'Проводи пальцем по кадру прямо в этом разделе. Мазок сохраняется при отпускании.':'Рисование выключено.');
@@ -771,7 +771,7 @@ function create(opts){
     });
    }
    $('faceMark').textContent=tool==='face'?'✓ Закончить выделение':'＋ Обвести лицо на кадре выше';
-   $('touchStartDrawing').textContent='✎ Начать рисовать на кадре ниже';
+   $('touchStartDrawing').textContent='✎ Начать рисовать на кадре выше';
    editorDirty=true;updateOverlay();
    pulse(tool?'Обведи лицо прямоугольником прямо на кадре в этом разделе.':'Выделение выключено.');
    if(tool)editStage.scrollIntoView({behavior:'smooth',block:'center'});
