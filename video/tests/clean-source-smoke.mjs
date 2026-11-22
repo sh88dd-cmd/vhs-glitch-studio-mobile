@@ -101,8 +101,8 @@ assert.ok(html.includes('clean-path.js?v=0.7.5'));
 assert.ok(sw.includes("'./clean-path.js'"));
 console.log('PASS: clean frames avoid 240px buffer, aspect ratio preserved, raw file copied only when untouched');
 
-assert.ok(html.includes('<div class="stageCanvas">\\n    <video id="source"') ||
- html.includes('<div class="stageCanvas">\n    <video id="source"'),
+assert.ok(html.indexOf('<video id="source"') > html.indexOf('<div class="stageCanvas">') &&
+ html.indexOf('<video id="source"') < html.indexOf('<canvas id="preview"'),
  'Visible stage must contain the source video for Safari decode');
 assert.ok(app.includes('const playback=source.play();'),
  'The source video must start synchronously from the tap, before awaiting Web Audio');
