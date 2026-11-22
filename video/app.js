@@ -2042,6 +2042,7 @@
    getSettings:()=>({
     masterBypass:state.masterBypass,
     vhsEnabled:state.vhsEnabled,master:state.master,
+    preset:state.preset,tape:state.tape,
     signal:state.signal,speed:state.speed,
     filmEnabled:state.filmEnabled,filmId:state.filmId,
     filmStrength:state.filmStrength,
