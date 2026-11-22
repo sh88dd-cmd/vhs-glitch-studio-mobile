@@ -165,6 +165,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   badge.textContent=recording?'● REC':resultBlob?'● ГОТОВО':'● LIVE';
   badge.classList.toggle('recording',recording);
   reviewPanel.hidden=!resultBlob;
+  dialog.classList.toggle('has-result',!!resultBlob);
   stage.classList.toggle('review',!!resultBlob);
   fx.hidden=!!resultBlob||!ready;
   video.hidden=!!resultBlob;
@@ -183,13 +184,18 @@ function mount({getSettings,getFilmProfile,onImport}){
   }
   release();clearResult();engine.reset();
   if(dialog.open)dialog.close();
+  document.documentElement.classList.remove('videoCameraLock');
+  document.body.classList.remove('videoCameraLock');
  }
  function fitStage(){
   const w=video.videoWidth||720,h=video.videoHeight||1280;
-  const fit=fitGeometry(w,h,
-   Math.min(dialog.clientWidth-20,window.innerWidth-24),window.innerHeight);
-  stage.style.width=fit.width+'px';
-  stage.style.height=fit.height+'px';
+  const viewport=$('videoLiveViewport');
+  const availableW=Math.max(1,viewport.clientWidth);
+  const availableH=Math.max(1,viewport.clientHeight);
+  const width=Math.max(1,Math.min(availableW,availableH*w/h));
+  const height=Math.max(1,Math.min(availableH,width*h/w));
+  stage.style.width=width+'px';
+  stage.style.height=height+'px';
   stage.style.aspectRatio=w+' / '+h;
   stage.dataset.frameRatio=(w/h).toFixed(5);
   return[w,h];
@@ -419,6 +425,8 @@ function mount({getSettings,getFilmProfile,onImport}){
   if(active)return;
   active=true;
   if(!dialog.open)dialog.showModal();
+  document.documentElement.classList.add('videoCameraLock');
+  document.body.classList.add('videoCameraLock');
   await startCamera();
  }
  function swapCamera(){
@@ -439,6 +447,8 @@ function mount({getSettings,getFilmProfile,onImport}){
   // Closing camera releases microphone, avoiding conflicts with editor.
   release();
   if(dialog.open)dialog.close();
+  document.documentElement.classList.remove('videoCameraLock');
+  document.body.classList.remove('videoCameraLock');
   try{await onImport(recorded);}
   finally{importBtn.disabled=false;}
  }
