@@ -79,7 +79,8 @@ function checkbox(id,name,checked,change){
 }
 function button(text,click,cls='btn mini'){
  const b=document.createElement('button');b.type='button';b.className=cls;
- b.textContent=text;b.addEventListener('click',click);return b;
+ b.textContent=text;if(text==='◎ Найти все лица на фото')b.id='photoDetectFaces';
+ b.addEventListener('click',click);return b;
 }
 function select(id,items,value,change){
  const s=document.createElement('select');s.id=id;
@@ -104,14 +105,18 @@ function mount(opts){
   return {vhsEnabled:copy.vhsEnabled,filmEnabled:copy.filmEnabled,
    master:copy.master,preset:copy.preset,fx:copy.fx,signal:copy.signal,
    film:copy.film,camera:copy.camera,edgeBurn:copy.edgeBurn,
+   extraCamera:copy.extraCamera,
    extras:{correction:copy.extras.correction,glitch:copy.extras.glitch,
-    damage:copy.extras.damage,colorCopy:copy.extras.colorCopy}};
+    damage:copy.extras.damage,colorCopy:copy.extras.colorCopy,
+    polaroid:copy.extras.polaroid}};
  }
  // Factory cassettes are stable presets, not a moving copy of whichever
  // cassette happens to be selected when the shelf redraws.
- const factoryBaseline=cassetteSnapshot();
+ const factoryBaseline=opts.factoryDefaults?
+  JSON.parse(JSON.stringify(opts.factoryDefaults)):cassetteSnapshot();
  factoryBaseline.extras.glitch=X.defaults().glitch;
  factoryBaseline.extras.damage=X.defaults().damage;
+ if(factoryBaseline.extras.polaroid)factoryBaseline.extras.polaroid.enabled=false;
  function applySnapshot(snapshot){
   const s=JSON.parse(JSON.stringify(snapshot));
   const current=extras.cassettes,selected=extras.selectedCassetteId,
@@ -121,7 +126,10 @@ function mount(opts){
   Object.assign(extras,X.hydrate(state.extras));
   extras.cassettes=current;extras.selectedCassetteId=selected;
   extras.beforeCassette=before;extras.masks=masks;
-  changed();
+  // Refresh actual sliders and film settings after choosing a cassette;
+  // they must represent the applied preset, not the prior selection.
+  refresh();changed();
+  notice('Кассета применена: параметры изображения обновлены.');
  }
  // ── CORRECTION ───────────────────────────────────────────────
  const correction=$('panel-correction');
@@ -336,7 +344,20 @@ function mount(opts){
    settings:(()=>{
     const s=JSON.parse(JSON.stringify(factoryBaseline));s.vhsEnabled=true;s.master=f.master;
     s.extras.glitch.enabled=true;s.extras.glitch.mode=f.mode;
-    s.extras.glitch.aging=f.aging;return s;
+    s.extras.glitch.modeStrength=f.mode==='vhs'?70:90;
+    s.extras.glitch.aging=f.aging;
+    const profiles={
+     home:{rf:12,dropouts:5,colorBurst:8},
+     rental:{tapeChew:42,dropouts:35,headClog:22,rf:26,colorBurst:15},
+     destroyed:{tapeChew:85,headClog:77,dropouts:83,rf:70,vhold:50,pixelSort:32},
+     hi8:{rf:10,colorBurst:16,dropouts:7,interlace:25},
+     crt:{rf:15,interlace:33,ghost:29},
+     night:{rf:18,dropouts:13,headClog:9}
+    };
+    Object.assign(s.extras.glitch.effects,profiles[f.id]||{});
+    s.vhsEnabled=f.id!=='night'&&f.id!=='crt'&&f.id!=='hi8';
+    s.filmEnabled=false;
+    return s;
    })()})),...extras.cassettes];
  }
  function renderCassetteShelf(){
@@ -414,28 +435,29 @@ function mount(opts){
   ['auto','Только автоматически найденные'],['manual','Только нарисованные вручную']],
   extras.masks.mode,v=>{extras.masks.mode=v;changed();markDirty();}));
  maskPanel.append(button('◎ Найти все лица на фото',async()=>{
-  const im=getOriginal();if(!im){status.textContent='Сначала открой фото.';return;}
-  status.textContent='Загрузка модели распознавания лиц…';
+  const im=getOriginal();
+  if(!im){status.textContent='Сначала открой фото.';return;}
+  const button=$('photoDetectFaces');
+  if(button)button.disabled=true;
+  status.textContent='Ищу лица. Сначала проверяю точную модель, затем встроенный поиск…';
   try{
-   const engine=await root.VHSVideoFaceAI.create();
-   status.textContent='Распознаю лица локально…';
-   const faces=await engine.detect(im),w=im.naturalWidth||im.width,h=im.naturalHeight||im.height;
+   const search=root.VHSPhotoFaceDetect;
+   if(!search?.detect)throw Error('Детектор не загрузился. Обнови приложение.');
+   const result=await search.detect(im,msg=>{status.textContent=msg;});
+   if(getOriginal()!==im)return; // Never apply old faces to a new photo.
    const manual=extras.masks.faces.filter(x=>!x.auto);
-   const unique=[];
-   for(const face of faces){
-    const r=face.boundingBox||face;
-    const x=clamp((r.x??r.originX)/w,0,1),y=clamp((r.y??r.originY)/h,0,1);
-    const rect={x,y,w:clamp(r.width/w,0,1-x),h:clamp(r.height/h,0,1-y),auto:true};
-    if(rect.w<.01||rect.h<.01)continue;
-    if(unique.some(a=>Math.hypot(a.x-rect.x,a.y-rect.y)<.035))continue;
-    unique.push(rect);
-   }
-   extras.masks.faces=[...manual,...unique].slice(0,16);extras.masks.enabled=true;
+   extras.masks.faces=[...manual,...result.faces].slice(0,16);
+   extras.masks.enabled=true;
    $('photoMaskEnabled').checked=true;
-   changed();markDirty();status.textContent='Найдено лиц: '+unique.length+'. Рамки можно дополнить вручную.';
-  }catch(e){status.textContent='Автопоиск недоступен: '+e.message+'. Используй «Обвести лицо».';}
+   changed();markDirty();
+   status.textContent=result.faces.length?
+    'Найдено лиц: '+result.faces.length+' · '+result.engine+'. Маски применены.':
+    'Лица автоматически не обнаружены. Обведи их вручную на кадре.';
+  }catch(e){
+   status.textContent='Поиск не сработал: '+e.message+'. Обведи лица пальцем.';
+  }finally{if(button)button.disabled=false;}
  },'btn primary full'));
- maskPanel.append(button('↶ Удалить последний мазок',()=>{
+  maskPanel.append(button('↶ Удалить последний мазок',()=>{
   extras.masks.strokes.pop();changed();markDirty();
  },'btn full'));
  maskPanel.append(button('✕ Очистить рисунки и лица',()=>{
