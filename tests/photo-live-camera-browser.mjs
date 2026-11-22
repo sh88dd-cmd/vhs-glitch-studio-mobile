@@ -91,6 +91,39 @@ try{
  });
  assert.ok(Math.abs(geometry.stage-geometry.frame)<0.02,
   'Viewfinder stage must match processed Polaroid frame aspect ratio');
+ // Camera is a fixed single screen: no scrolling, and the shutter stays
+ // within the viewport on compact and regular iPhone-sized displays.
+ for(const [width,height] of [[390,844],[375,667],[320,568]]){
+  await page.setViewportSize({width,height});
+  await page.waitForTimeout(120);
+  const fitted=await page.evaluate(()=>{
+   const dialog=document.getElementById('liveCameraDialog');
+   const viewport=document.getElementById('liveCameraViewport');
+   const stage=document.getElementById('liveCameraStage');
+   const shutter=document.getElementById('liveCameraShot');
+   const actions=document.querySelector('.liveCameraActions');
+   const rect=e=>e.getBoundingClientRect();
+   const d=rect(dialog),v=rect(viewport),s=rect(stage),b=rect(shutter),a=rect(actions);
+   dialog.scrollTop=500;
+   return {
+    scrollTop:dialog.scrollTop,
+    scrollHeight:dialog.scrollHeight,clientHeight:dialog.clientHeight,
+    dialogBottom:d.bottom,shutterBottom:b.bottom,shutterTop:b.top,
+    actionsBottom:a.bottom,stageBottom:s.bottom,stageTop:s.top,
+    viewportTop:v.top,viewportBottom:v.bottom
+   };
+  });
+  assert.equal(fitted.scrollTop,0,
+   `Photo camera must not scroll at ${width}x${height}`);
+  assert.ok(fitted.scrollHeight<=fitted.clientHeight+2,
+   `All UI must fit the fixed photo camera at ${width}x${height}: ${JSON.stringify(fitted)}`);
+  assert.ok(fitted.shutterTop>=0&&fitted.shutterBottom<=fitted.dialogBottom+1,
+   `Shutter must remain on-screen at ${width}x${height}: ${JSON.stringify(fitted)}`);
+  assert.ok(fitted.stageTop>=fitted.viewportTop-1&&
+   fitted.stageBottom<=fitted.viewportBottom+1,
+   `Preview may not push lower controls off-screen at ${width}x${height}`);
+ }
+ await page.setViewportSize({width:390,height:844});
  assert.equal(fast.cameraStillVisible,true);
  assert.equal(fast.newButtonVisible,true);
  await page.locator('#liveCameraNew').click();
