@@ -50,8 +50,8 @@ try{
   return {count:details.faces.length,faces:details.faces,engine:details.engine};
  });
  console.log('Real multi-face panorama:',JSON.stringify(group));
- assert.ok(group.count>=3,
-  'Full photo detector must find all 3 faces in a repeated real portrait triptych');
+ assert.equal(group.count,3,
+  'Detector must find ALL three real faces, without false extra masks from the fallback');
  const handwriting=await page.evaluate(async()=>{
   const P=window.VHSPhotoPolaroid;
   const source=document.createElement('canvas');
