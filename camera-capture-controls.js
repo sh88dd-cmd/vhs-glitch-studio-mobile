@@ -212,7 +212,9 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
  };
  stage.addEventListener('pointerdown',event=>{
   if(event.target.closest('button,input,label')||!usable()||event.button>0)return;
-  const p=point(event);pressPoint={...p,x0:event.clientX,y0:event.clientY,fired:false};
+  const p=point(event);
+  pressPoint={...p,x0:event.clientX,y0:event.clientY,startEV:brightness,
+   fired:false,dragging:false};
   clearTimeout(pointTimer);
   pointTimer=setTimeout(()=>{
    pointTimer=0;
@@ -222,13 +224,24 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
   },650);
  });
  stage.addEventListener('pointermove',event=>{
-  if(pressPoint&&Math.hypot(event.clientX-pressPoint.x0,event.clientY-pressPoint.y0)>12){
-   clearTimeout(pointTimer);pointTimer=0;pressPoint=null;
+  if(!pressPoint||!usable()||pressPoint.fired)return;
+  const dx=event.clientX-pressPoint.x0,dy=event.clientY-pressPoint.y0;
+  if(!pressPoint.dragging&&Math.hypot(dx,dy)>12){
+   clearTimeout(pointTimer);pointTimer=0;
+   if(Math.abs(dy)>=Math.abs(dx)*.8)pressPoint.dragging=true;
+   else{pressPoint=null;return;}
+  }
+  if(pressPoint?.dragging){
+   event.preventDefault();
+   // Vertical iPhone-style exposure gesture: up = brighter, down = darker.
+   const h=Math.max(100,stage.getBoundingClientRect().height);
+   setExposure(pressPoint.startEV-dy/(h*.25));
   }
  });
  stage.addEventListener('pointerup',event=>{
   clearTimeout(pointTimer);pointTimer=0;
-  if(pressPoint&&!pressPoint.fired)void focusAt(pressPoint.x,pressPoint.y);
+  if(pressPoint&&!pressPoint.fired&&!pressPoint.dragging)
+   void focusAt(pressPoint.x,pressPoint.y);
   pressPoint=null;
  });
  for(const type of ['pointercancel','pointerleave']){
