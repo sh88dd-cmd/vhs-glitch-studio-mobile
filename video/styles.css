@@ -1061,3 +1061,14 @@ html.videoCameraLock,body.videoCameraLock{overflow:hidden!important;overscroll-b
 .exportBanner span{flex:1;min-width:0}
 .exportBanner button{background:#454545;color:#fff;border:1px solid #777;border-radius:5px;
  padding:6px 9px;flex:0 0 auto;min-height:32px}
+
+/* 0.9.6: iOS decoders may throttle a <video> placed at left:-9999px.
+   Keep the native source inside the screen compositor but behind the fully
+   opaque processed export canvas. Never show the unprocessed frame on top. */
+.stageCanvas.is-exporting #source{
+ position:absolute!important;left:0!important;top:0!important;
+ width:100%!important;height:100%!important;
+ opacity:.01!important;object-fit:contain;pointer-events:none;z-index:0
+}
+.stageCanvas.is-exporting #recordCanvas{position:relative!important;z-index:1}
+.stageCanvas.is-exporting #openViewer,.stageCanvas.is-exporting #compareMain{display:none!important}
