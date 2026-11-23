@@ -10,7 +10,7 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.9.7">
+<link rel="stylesheet" href="./styles.css?v=0.9.8">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
@@ -518,9 +518,9 @@
     <span id="videoLiveFocusMarker" class="captureCameraFocusMarker" hidden aria-hidden="true"></span>
 <div class="captureCameraToolbar" aria-label="Свет, экспозиция и AE/AF">
  <button type="button" id="videoLiveFlash" class="captureCameraFlash" aria-pressed="false">⚡ ВЫКЛ</button>
- <button type="button" id="videoLiveAELock" class="captureCameraLock" aria-pressed="false">AE/AF LOCK</button>
- <label class="captureCameraExposureLabel">☀ <input id="videoLiveExposure" type="range" min="-2" max="2" step="0.1" value="0" aria-label="Экспозиция от минус двух до плюс двух EV"><output id="videoLiveExposureValue">0.0 EV</output></label>
- <button id="videoLiveExposureReset" class="captureCameraReset" type="button">СБРОС</button>
+ <label class="captureCameraExposureLabel">☀ <input id="videoLiveExposure" type="range" min="-2" max="2" step="0.1" value="0" aria-label="Экспозиция от минус двух до плюс двух EV"><output id="videoLiveExposureValue">0.0</output></label>
+ <button id="videoLiveExposureReset" class="captureCameraReset" type="button" aria-label="Сбросить экспозицию">↺</button>
+ <button type="button" id="videoLiveAELock" class="captureCameraLock" aria-pressed="false">◎ AE/AF</button>
 </div>
 <span id="videoLiveBadge">● LIVE</span>
     <button type="button" id="videoLiveNew" title="Новый рисунок VHS-помех без изменения других фильтров" aria-label="Новые помехи">NEW</button>
@@ -528,14 +528,19 @@
   </div>
   <div id="videoLiveStatus" class="videoLiveStatus" aria-live="polite" role="status">Камера не запущена</div>
   <div id="videoLiveMeta" class="videoLiveMeta">Видео обрабатывается на устройстве</div>
-  <div class="videoLiveControls">
-    <label><span>Микрофон</span><input type="checkbox" id="videoLiveMicrophone" checked></label>
-    <label><span>Качество</span><select id="videoLiveQuality"><option value="480">480p · плавнее</option><option value="720">720p · выше качество</option></select></label>
-    <label><span>Частота</span><select id="videoLiveFPS"><option value="20">20 кадров/с</option><option value="15">15 кадров/с</option><option value="24">24 кадра/с</option></select></label>
-     <label class="videoLiveCaptureModeLabel"><span>Тип записи</span><select id="videoLiveCaptureMode">
-      <option value="editable" selected>Цветной исходник · менять плёнки</option>
-      <option value="baked">Готовый VHS · эффекты в файле</option>
-     </select></label>
+  <div class="captureQuickBar videoCaptureQuick">
+    <label class="captureAspectSelect">ФОРМАТ <select id="videoLiveAspect"><option value="original">Оригинал</option><option value="9:16">9:16 · вертикальный</option><option value="16:9">16:9 · горизонтальный</option><option value="3:4">3:4 · вертикальный</option><option value="4:3">4:3 · горизонтальный</option><option value="1:1">1:1 · квадрат</option><option value="21:9">21:9 · кино</option></select></label>
+    <details class="captureSettings" id="videoLiveSettings"><summary>⚙ ПАРАМЕТРЫ</summary>
+     <div class="videoLiveControls">
+      <label><span>Микрофон</span><input type="checkbox" id="videoLiveMicrophone" checked></label>
+      <label><span>Качество</span><select id="videoLiveQuality"><option value="480">480p · плавнее</option><option value="720">720p · выше качество</option></select></label>
+      <label><span>Частота</span><select id="videoLiveFPS"><option value="20">20 кадров/с</option><option value="15">15 кадров/с</option><option value="24">24 кадра/с</option></select></label>
+      <label class="videoLiveCaptureModeLabel"><span>Тип записи</span><select id="videoLiveCaptureMode">
+       <option value="editable" selected>Цветной исходник · менять плёнки</option>
+       <option value="baked">Готовый VHS · эффекты в файле</option>
+      </select></label>
+     </div>
+    </details>
   </div>
   <div class="videoLiveButtons">
     <button id="videoLiveFlip" type="button" class="button">↻ ФРОНТ / ТЫЛ</button>
@@ -617,8 +622,8 @@
 <script src="./creative-ui.js?v=0.8.6" defer></script>
 <script src="./live-fx.js?v=0.9.2" defer></script>
 <script src="./film-gallery.js?v=0.9.2" defer></script>
-<script src="../camera-capture-controls.js?v=0.9.7" defer></script>
-<script src="./live-camera.js?v=0.9.7" defer></script>
+<script src="../camera-capture-controls.js?v=0.9.8" defer></script>
+<script src="./live-camera.js?v=0.9.8" defer></script>
 <script src="./app.js?v=0.9.6" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
