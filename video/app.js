@@ -59,7 +59,12 @@
  const holdPreviewProcessor=window.VHSVideoGlitchFX.createProcessor(),holdExportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const FILM_LIMIT=1200;
  const matches=(v,q)=>v.toLocaleLowerCase('ru').includes(q.toLocaleLowerCase('ru'));
- function persist(){try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}catch(e){console.warn('Unable to persist video settings',e);}syncSectionLights();}
+ function persist(){
+  try{localStorage.setItem('vhs.video.settings',JSON.stringify(state));}
+  catch(e){console.warn('Unable to persist video settings',e);}
+  if(exportBlob&&!recording)resetExportUi();
+  syncSectionLights();
+ }
  function setIndicator(el,on){
   if(!el)return;
   const enabled=!!on;
@@ -276,6 +281,18 @@
 
  function textStatus(s){$('status').textContent=s;}
  function exportStatus(s){$('exportStatus').textContent=s;}
+ function readyExportUi(){
+  $('exportResult').hidden=false;
+  $('export').disabled=false;
+  $('export').textContent='↓ СОХРАНИТЬ В «ФОТО» / «ФАЙЛЫ»';
+ }
+ function resetExportUi(){
+  if(recording)return;
+  exportBlob=null;exportMime='';exportOriginalFile=false;
+  $('exportResult').hidden=true;
+  $('export').textContent='↓ Создать обработанное видео';
+  if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl='';}
+ }
  function randomSeed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
  function timeString(sec){if(!Number.isFinite(sec))return'00:00';let n=Math.floor(sec);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}
  function videoDimensions(cap){const w=source.videoWidth||640,h=source.videoHeight||360,scale=Math.min(1,cap/Math.max(w,h));return[Math.max(2,Math.round(w*scale/2)*2),Math.max(2,Math.round(h*scale/2)*2)];}
@@ -1933,15 +1950,20 @@
  function finishExport(chunks,mime){
   exportOriginalFile=false;
   const blob=new Blob(chunks,{type:mime});
-  if(!blob.size){exportStatus('Не получены данные видео. Попробуй короткий MP4 или другой формат.');return;}
+  if(!blob.size){
+   $('export').textContent='↓ Создать обработанное видео';
+   exportStatus('Ошибка: Safari вернул пустой видеофайл. Попробуй 360p, 15 кадров/с или отключи звук.');
+   return;
+  }
   exportBlob=blob;exportMime=mime;
   if(downloadUrl)URL.revokeObjectURL(downloadUrl);
   downloadUrl=URL.createObjectURL(blob);
   const ext=mime.includes('mp4')?'mp4':'webm';
   const link=$('download');link.href=downloadUrl;
   link.download=(clips[0]?.file?.name||'clip').replace(/\.[^.]+$/,'').slice(0,80)+'_VHS_VIDEO.'+ext;
-  $('exportResult').hidden=false;
-  exportStatus('Готово: '+(blob.size/1048576).toFixed(1)+' МБ · '+ext.toUpperCase()+'. Выбери «Скачать» или «Поделиться».');
+  readyExportUi();
+  exportStatus('Файл создан: '+(blob.size/1048576).toFixed(1)+' МБ · '+ext.toUpperCase()+
+   '. НАЖМИ ЕЩЁ РАЗ «СОХРАНИТЬ В ФОТО / ФАЙЛЫ» или «Скачать результат».');
  }
  function stopExport(){
   if(!recording||recording.state==='inactive')return;
@@ -2007,13 +2029,13 @@
    downloadUrl=URL.createObjectURL(file);
    const link=$('download');link.href=downloadUrl;
    link.download=file.name||'original_video';
-   $('exportResult').hidden=false;
+   readyExportUi();
    $('cancel').hidden=true;$('progress').hidden=true;
-   exportStatus('Готово: оригинальный файл без фильтров и без повторного сжатия · '+
-    (file.size/1048576).toFixed(1)+' МБ. Исходное разрешение и кадры сохранены.');
+   exportStatus('Оригинал готов к сохранению без повторного сжатия · '+
+    (file.size/1048576).toFixed(1)+' МБ. Нажми ещё раз «Сохранить в Фото / Файлы».');
    return;
   }
-  if(!preview.captureStream){exportStatus('Захват Canvas недоступен в этом браузере. Нужен экспорт через WebCodecs.');return;}
+  if(!recordCanvas.captureStream){exportStatus('Safari не поддерживает экспорт обработанного видео через Canvas. Исходный файл не затронут.');return;}
   const mime=chooseMime();
   if(!mime){exportStatus('Этот браузер не поддерживает доступный видеокодек. Требуется альтернативный WebCodecs-экспорт.');return;}
   if(!Number.isFinite(source.duration)||source.duration<=0){exportStatus('Неизвестная длительность видео.');return;}
@@ -2079,14 +2101,24 @@
  }
  async function shareExport(){
   if(!exportBlob)return;
-  if(!navigator.share||typeof File==='undefined'){exportStatus('Используй «Скачать результат» и затем «Файлы» на iPhone.');return;}
+  if(!navigator.share||typeof File==='undefined'){
+   $('download').click();
+   exportStatus('Открыл загрузку в «Файлы». Если Safari не начал скачивание, нажми «Скачать результат».');
+   return;
+  }
   const ext=exportMime.includes('mp4')?'mp4':'webm',name=(clips[0]?.file?.name||'video').replace(/\.[^.]+$/,'')+'_VHS_VIDEO.'+ext;
   const f=exportOriginalFile&&exportBlob instanceof File?exportBlob:
    new File([exportBlob],name,{type:exportMime});
   try{
    if(navigator.canShare?.({files:[f]}))await navigator.share({files:[f],title:'VHS Video Lab'});
-   else exportStatus('Системная отправка недоступна для этого файла. Используй «Скачать».');
-  }catch(e){if(e.name!=='AbortError')exportStatus('Не удалось поделиться: '+e.message);}
+   else{
+    $('download').click();
+    exportStatus('Системная отправка недоступна. Попытался скачать файл; при необходимости нажми «Скачать результат».');
+   }
+  }catch(e){
+   if(e.name==='AbortError')exportStatus('Сохранение отменено. Файл готов ниже.');
+   else exportStatus('Не удалось открыть сохранение: '+e.message+'. Нажми «Скачать результат».');
+  }
  }
  function mountVideoCapture(){
   if(!window.VHSVideoLiveCamera?.mount){
@@ -2230,7 +2262,12 @@
    e.target.value='';
   };
   $('export').onclick=()=>{
-   exportStatus('Нажатие принято · начинаю сохранение…');
+   if(exportBlob&&!recording){
+    exportStatus('Открываю сохранение iPhone…');
+    void shareExport();
+    return;
+   }
+   exportStatus('Нажатие принято · создаю видео…');
    beginExport().catch(e=>{
     console.error('Export failed:',e);
     exportStatus('Ошибка экспорта: '+e.message);
