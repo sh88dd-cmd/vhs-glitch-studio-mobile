@@ -77,7 +77,8 @@
   const hasTracks=(hasMusic&&Number(state.mix.musicVolume)>0)||audioEngine.extraAudio.some(t=>Number(t.volume)>0);
   const actualVhs=engaged&&state.fxMode==='classic'&&state.vhsEnabled&&state.master>0;
   const actualMode=engaged&&state.fxMode==='classic'&&state.mode!=='vhs'&&state.modeStrength>0;
-  const actualGlitch=engaged&&state.fxMode==='classic'&&state.glitchEnabled&&state.glitchStrength>0;
+  const actualGlitch=engaged&&state.fxMode==='classic'&&state.glitchEnabled&&state.glitchStrength>0&&
+   window.VHSVideoGlitchFX.hasActiveSettings(state.glitches,state.eventDensity);
   const actualFilm=engaged&&state.filmEnabled&&state.filmStrength>0;
   const actualDamage=engaged&&state.filmDamage.enabled&&
    ['leak','dust','grain','scratches','flicker','halation'].some(k=>Number(state.filmDamage[k])>0);
@@ -1567,8 +1568,8 @@
   const lossySignal=!state.masterBypass&&(
    (frameState.fxMode==='classic'&&frameState.vhsEnabled&&frameState.master>0)||
    frameState.fxMode!=='classic'||
-   (frameState.glitchEnabled&&frameState.glitchStrength>0&&
-    Object.values(frameState.glitches||{}).some(v=>Number(v)>0))||
+   // Active GLITCH uses normal canvas resolution, not 192/240px VHS signal.
+
    (frameState.mode!=='vhs'&&frameState.modeStrength>0)||
    holdVideo>0
   );
@@ -1630,16 +1631,19 @@
    });
    ctx.putImageData(signal,0,0);
   }
-  if(!state.masterBypass&&(frameState.fxMode!=='classic'||frameState.glitchEnabled||frameState.mode!=='vhs')){
+  const runningGlitch=frameState.glitchEnabled&&frameState.glitchStrength>0&&
+   window.VHSVideoGlitchFX.hasActiveSettings(frameState.glitches,frameState.eventDensity);
+  if(!state.masterBypass&&(frameState.fxMode!=='classic'||runningGlitch||
+     (frameState.mode!=='vhs'&&frameState.modeStrength>0))){
    const signal=ctx.getImageData(0,0,iw,ih);
    const engine=forExport||recording?exportProcessor:previewProcessor;
    engine.apply(signal.data,iw,ih,{
     time,seed:clipSeed(),mode:state.fxMode==='classic'?state.mode:'vhs',
     modeStrength:state.modeStrength,splicePulse:state.fxMode==='classic'?splicePulse:0,
-    tape:state.tape,density:state.eventDensity,
+    tape:state.tape,density:frameState.eventDensity,
     manualEffects:state.fxMode==='classic'?null:specialEffectsAt(time),
-    strength:state.fxMode==='classic'?(frameState.glitchEnabled?frameState.glitchStrength/100:0):1,
-    effects:state.fxMode==='classic'&&frameState.glitchEnabled?state.glitches:{}
+    strength:frameState.fxMode==='classic'?(runningGlitch?frameState.glitchStrength/100:0):1,
+    effects:frameState.fxMode==='classic'&&runningGlitch?frameState.glitches:{}
    });
    ctx.putImageData(signal,0,0);
   }
