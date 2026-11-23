@@ -27,7 +27,17 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  let viewLongSide=340,lastRenderMs=0,averageRenderMs=0,lastWidth=0,lastHeight=0;
  const getDims=()=>[Number(video.videoWidth)||0,Number(video.videoHeight)||0];
  const setStatus=text=>{status.textContent=text;};
+ const controls=root.VHSCameraControls.mount({
+  prefix:'liveCamera',video,stage,onStatus:setStatus,
+  canInteract:()=>active&&ready&&!review&&!capturing,
+  onChange:()=>{
+   const filter=controls?.cssFilter?.()||'none';
+   video.style.filter=filter;
+   fx.style.filter=filter;
+  }
+ });
  const stopTracks=()=>{
+  controls.unbind();
   if(stream){for(const track of stream.getTracks()){try{track.stop();}catch{}}stream=null;}
   if(video.srcObject){video.pause();video.srcObject=null;}
  };
@@ -47,7 +57,8 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   newFx.hidden=review||frozen;
   newFx.disabled=!ready||capturing||review;
   // The actual photo engine already supplies color and VHS; never double-filter.
-  video.style.filter='none';
+  video.style.filter=controls.cssFilter();
+  fx.style.filter=controls.cssFilter();
   still.hidden=!(review||frozen);
   badge.textContent=review?'● ГОТОВЫЙ КАДР':frozen?'● СНЯТО':'● LIVE';
  };
@@ -109,7 +120,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   liveVisual=getVisualSettings()||{};
   // The photo engine draws real Polaroid paper; no fake CSS paper overlay.
   stage.classList.remove('instant');
-  video.style.filter='none';
+  video.style.filter=controls.cssFilter();
   viewLongSide=idealLongSide(liveVisual);
   fxReady=false;fx.hidden=true;fx.style.opacity='1';
   averageRenderMs=0;
@@ -211,6 +222,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    const setting=acquired.getVideoTracks()[0]?.getSettings?.()||{};
    res.textContent='Поток: '+w+' × '+h+
     (setting.facingMode?' · '+(setting.facingMode==='user'?'передняя':'задняя'):'');
+   controls.bind(acquired.getVideoTracks()[0]);
    liveSeed=getSeed();filmSeed=liveSeed;previewDraws=0;
    applyVisual();
    fitStage(w,h);
@@ -259,7 +271,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    // Selfie is mirrored in both the live view and the saved photograph.
    ctx.translate(sw,0);ctx.scale(-1,1);
   }
-  ctx.drawImage(source,0,0,sw,sh);
+  controls.filterDraw(ctx,source,sw,sh);
   return c;
  }
  async function takeRawPhoto(){
