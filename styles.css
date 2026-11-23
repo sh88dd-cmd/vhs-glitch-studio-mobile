@@ -318,9 +318,9 @@ html.photoCameraLock,body.photoCameraLock{overflow:hidden!important;overscroll-b
  background:#f6faf9;border-radius:50%;transition:transform .12s}
 .liveCameraShutter:active>span{transform:scale(.86)}
 .liveCameraShutter:disabled{opacity:.36;cursor:default}
-.liveCameraReviewActions{display:grid;grid-template-columns:1fr 1.25fr;
+.liveCameraReviewActions{display:grid;grid-template-columns:1fr 1.25fr 1fr;
  gap:8px;flex:0 0 auto}
-.liveCameraReviewActions .btn{min-height:47px;font-size:12px}
+.liveCameraReviewActions .btn{min-height:47px;font-size:10px;padding:8px 3px;line-height:1.15}
 .liveCameraNote{display:none}
 #liveCameraDialog.is-review .liveCameraActions{display:none}
 #liveCameraDialog.is-review .liveCameraReviewActions{min-height:78px}
@@ -376,3 +376,8 @@ html.photoCameraLock,body.photoCameraLock{overflow:hidden!important;overscroll-b
    underneath for startup, no-effects preview and processing failures. */
 #liveCameraVideo{will-change:transform}
 #liveCameraFx{pointer-events:none;contain:layout paint;image-rendering:auto}
+
+/* v1.8.0: fixed status height prevents the shutter controls from jumping. */
+#liveCameraDialog .liveCameraStatus{height:38px;min-height:38px;max-height:38px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+@media(max-height:730px){#liveCameraDialog .liveCameraStatus{height:30px;min-height:30px;max-height:30px}}
+@media(max-width:385px){.liveCameraReviewActions .btn{font-size:9px}}
