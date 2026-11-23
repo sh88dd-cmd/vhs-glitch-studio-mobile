@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icons/icon-192.png?v=0.5.1">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=0.5.1">
-<link rel="stylesheet" href="./styles.css?v=0.9.4">
+<link rel="stylesheet" href="./styles.css?v=0.9.5">
 <title>VHS Video Lab — бета</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.9.4 · КАМЕРА И МОНТАЖ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>БЕТА 0.9.5 · КАМЕРА И МОНТАЖ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -477,20 +477,21 @@
   <label>Частота кадров<select id="fps"><option value="15">15 кадров/с — быстрее</option><option value="24">24 кадра/с — плавнее</option></select></label>
   <label>Длительность экспорта<select id="exportScope"><option value="30">Первые 30 секунд / короткий тест</option><option value="full">Весь ролик / все выбранные клипы</option></select></label>
   <div class="switch"><span>Сохранить звук (оригинал или VHS-обработку)</span><input id="keepAudio" type="checkbox" checked></div>
-  <button class="button primary full" id="export" disabled>↓ Сохранить обработанное видео</button>
-  <p class="hint" id="exportStatus" role="status" aria-live="polite">Выбери видео, затем нажми «Сохранить».</p>
+  <button class="button primary full" id="export" disabled>↓ 1. СОЗДАТЬ ВИДЕО С ЭФФЕКТАМИ</button>
+  <p class="hint" id="exportStatus" role="status" aria-live="polite">1. Создай обработанный файл. 2. Сохрани его через появившуюся кнопку в «Фото» или «Файлы».</p>
   <button class="button danger full" id="cancel" hidden>Остановить экспорт</button>
   <progress id="progress" value="0" max="100" hidden></progress>
   <div id="exportResult" hidden>
-    <p class="hint">Файл создан. Сохрани или отправь его на iPhone:</p>
-    <a id="download" class="button primary full" href="#" download>↓ Скачать результат</a>
-    <button id="share" class="button full">Поделиться / Сохранить в «Фото»</button>
+    <p class="hint">Файл готов! Сохрани в «Фото» через системное меню iPhone или скачай в «Файлы»:</p>
+    <a id="download" class="button primary full" href="#" download>↓ СКАЧАТЬ В «ФАЙЛЫ»</a>
+    <button id="share" class="button full" type="button">↓ СОХРАНИТЬ В «ФОТО» / ПОДЕЛИТЬСЯ</button>
   </div>
   <p class="hint">Экспорт идёт в реальном времени. Не сворачивай приложение на iPhone. При долгой обработке сначала попробуй 360p или короткий тест. MP4 и WebM зависят от поддержки Safari.</p>
   <p class="hint">Для одного неизменённого ролика выбери «Весь ролик», чтобы скачать оригинальный файл без повторного сжатия. При экспорте с эффектами действует выбранное разрешение.</p>
 </section>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.9.4</span>
+  <span>VHS Video Lab · 0.9.5</span>
+  <button id="videoForceUpdate" class="button mini" type="button">↻ Обновить приложение</button>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
     <span class="helpToggleMark" aria-hidden="true">?</span>
@@ -605,7 +606,7 @@
 <script src="./creative-ui.js?v=0.8.6" defer></script>
 <script src="./live-fx.js?v=0.9.2" defer></script>
 <script src="./film-gallery.js?v=0.9.2" defer></script>
-<script src="./live-camera.js?v=0.9.4" defer></script>
-<script src="./app.js?v=0.9.4" defer></script>
+<script src="./live-camera.js?v=0.9.5" defer></script>
+<script src="./app.js?v=0.9.5" defer></script>
 </body>
 </html>
