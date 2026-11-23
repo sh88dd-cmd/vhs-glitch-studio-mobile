@@ -1,4 +1,4 @@
-/* Photo Studio 1.7 — real photo-engine previews and unchanged high-res
+/* Photo Studio 1.8.0 — real photo-engine previews and unchanged high-res
  * shutter capture. The live processor is adaptive and only runs one frame at
  * a time; the native video remains behind it for startup/error recovery.
  * The full-resolution still never uses the preview's smaller buffer.
@@ -7,7 +7,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings,onConfigure}){
+function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualSettings,onConfigure}){
  const dialog=$('liveCameraDialog');
  const video=$('liveCameraVideo'),fx=$('liveCameraFx'),still=$('liveCameraStill');
  const stage=$('liveCameraStage'),badge=$('liveCameraBadge');
@@ -16,12 +16,12 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
  const status=$('liveCameraStatus'),res=$('liveCameraResolution');
  const timer=$('liveCameraTimer'),previewToggle=$('liveCameraPreviewEnabled');
  const faces=$('liveCameraFaces'),again=$('liveCameraAgain');
- const save=$('liveCameraSave'),reviewButtons=$('liveCameraReviewActions');
+ const save=$('liveCameraSave'),edit=$('liveCameraEdit'),reviewButtons=$('liveCameraReviewActions');
  let stream=null,session=0,previewJob=null;
  let facing='environment',active=false,review=false,capturing=false;
  let lastRendered=null,lastFilename='',liveSeed=0,filmSeed=0;
  let liveVisual=null,previewDraws=0,ready=false,fxReady=false,previewBusy=false;
- let viewLongSide=720,lastRenderMs=0;
+ let viewLongSide=340,lastRenderMs=0,averageRenderMs=0,lastWidth=0,lastHeight=0;
  const getDims=()=>[Number(video.videoWidth)||0,Number(video.videoHeight)||0];
  const setStatus=text=>{status.textContent=text;};
  const stopTracks=()=>{
@@ -37,6 +37,7 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   flip.disabled=capturing||review;
   again.disabled=capturing;
   save.disabled=capturing||!lastRendered;
+  edit.disabled=capturing||!lastRendered;
   reviewButtons.hidden=!review;
   dialog.classList.toggle('is-review',review);
   fx.hidden=review||!previewToggle.checked||!fxReady;
@@ -94,12 +95,12 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
  }
  function idealLongSide(v){
   const analog=(v.vhsEnabled&&Number(v.master)>0)||v.glitch?.enabled;
-  return analog?420:800;
+  return analog?340:560;
  }
- const schedule=(token,ms=180)=>{
+ const schedule=(token,ms=36)=>{
   if(previewJob!==null)clearTimeout(previewJob);
   if(!active||review||!ready||token!==session||!previewToggle.checked)return;
-  previewJob=setTimeout(()=>{previewJob=null;void renderLive(token);},ms);
+  previewJob=setTimeout(()=>{previewJob=null;void renderLive(token);},Math.max(16,ms));
  };
  function applyVisual(){
   liveVisual=getVisualSettings()||{};
@@ -107,7 +108,8 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   stage.classList.remove('instant');
   video.style.filter='none';
   viewLongSide=idealLongSide(liveVisual);
-  fxReady=false;fx.hidden=true;
+  fxReady=false;fx.hidden=true;fx.style.opacity='1';
+  averageRenderMs=0;
  }
  async function renderLive(token){
   if(token!==session||!active||!ready||review||capturing||
@@ -128,16 +130,25 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
    if(token!==session||renderingSeed!==liveSeed||!active||review||capturing||!previewToggle.checked)return;
    if(!result||result.width<2||result.height<2)
     throw Error('Не получен обработанный кадр');
-   fx.width=result.width;fx.height=result.height;
+   // Reuse the video overlay buffer rather than reallocating it each frame.
+   if(fx.width!==result.width)fx.width=result.width;
+   if(fx.height!==result.height)fx.height=result.height;
    fx.getContext('2d',{alpha:true}).drawImage(result,0,0);
-   fxReady=true;fx.hidden=false;
-   fitStage(result.width,result.height);
-   previewDraws++;
    lastRenderMs=performance.now()-start;
+   averageRenderMs=averageRenderMs?averageRenderMs*.72+lastRenderMs*.28:lastRenderMs;
+   // The original video is always moving underneath the authentic photo effect.
+   // If processing slows, never obscure current motion with an old frozen frame.
+   // Saved photographs retain 100% effect strength and their export resolution.
+   fx.style.opacity=String(Math.max(.38,Math.min(1,100/averageRenderMs)));
+   fxReady=true;fx.hidden=false;
+   if(previewDraws===0||fx.width!==lastWidth||fx.height!==lastHeight)
+    fitStage(result.width,result.height);
+   lastWidth=fx.width;lastHeight=fx.height;
+   previewDraws++;
    const ideal=idealLongSide(liveVisual||{});
-   const minimum=ideal===420?320:560;
-   if(lastRenderMs>165)viewLongSide=Math.max(minimum,Math.round(viewLongSide*.85));
-   else if(lastRenderMs<85)viewLongSide=Math.min(ideal,Math.round(viewLongSide*1.12));
+   const minimum=ideal===340?220:360;
+   if(averageRenderMs>105)viewLongSide=Math.max(minimum,Math.round(viewLongSide*.84));
+   else if(averageRenderMs<55)viewLongSide=Math.min(ideal,Math.round(viewLongSide*1.10));
   }catch(err){
    if(token!==session||!active)return;
    fxReady=false;fx.hidden=true;
@@ -146,7 +157,7 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   }finally{
    previewBusy=false;
    if(active&&ready&&!review&&!capturing&&previewToggle.checked){
-    const delay=Math.max(100,Math.min(600,(performance.now()-start)*.85));
+    const delay=Math.max(20,Math.min(90,averageRenderMs*.25));
     schedule(session,delay);
    }
   }
@@ -163,7 +174,7 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   const token=++session;
   clearJobs();stopTracks();
   ready=false;capturing=false;review=false;lastRendered=null;
-  fxReady=false;fx.hidden=true;viewLongSide=720;
+  fxReady=false;fx.hidden=true;viewLongSide=340;lastWidth=0;lastHeight=0;
   stage.classList.toggle('selfie',facing==='user');
   refreshButtons();
   $('liveCameraProfile').textContent=getProfile();
@@ -332,6 +343,11 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
   }catch(err){if(active)setStatus('Ошибка сохранения: '+(err?.message||err));}
   finally{if(active)refreshButtons();}
  }
+ function editShot(){
+  if(!active||capturing||!review||!lastRendered)return;
+  // onCaptured already placed the raw photo into the main editor.
+  close();onEdit?.();
+ }
  function againShot(){
   if(!active||capturing)return;
   review=false;lastRendered=null;lastFilename='';
@@ -371,6 +387,7 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
  $('liveCameraShot').addEventListener('click',shoot);
  newFx.addEventListener('click',newInterference);
  $('liveCameraSave').addEventListener('click',saveShot);
+ edit.addEventListener('click',editShot);
  $('liveCameraAgain').addEventListener('click',againShot);
  $('liveCameraConfigure').addEventListener('click',configure);
  previewToggle.addEventListener('change',()=>{
@@ -399,7 +416,7 @@ function mount({onCaptured,onSave,onPreview,getSeed,getProfile,getVisualSettings
  return Object.freeze({open,close,isActive:()=>active,
   getState:()=>({active,ready,review,facing,hasStream:!!stream,
    hasRenderedShot:!!lastRendered,liveSeed,filmSeed,previewDraws,
-   previewMode:'exact-photo-pipeline',viewLongSide,lastRenderMs})});
+   previewMode:'real-photo-pipeline-over-live-video',viewLongSide,lastRenderMs,averageRenderMs})});
 }
 root.VHSPhotoCamera=Object.freeze({mount});
 })(window);
