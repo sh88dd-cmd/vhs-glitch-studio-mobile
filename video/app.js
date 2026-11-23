@@ -1963,7 +1963,12 @@
   link.download=(clips[0]?.file?.name||'clip').replace(/\.[^.]+$/,'').slice(0,80)+'_VHS_VIDEO.'+ext;
   readyExportUi();
   exportStatus('Файл создан: '+(blob.size/1048576).toFixed(1)+' МБ · '+ext.toUpperCase()+
-   '. НАЖМИ ЕЩЁ РАЗ «СОХРАНИТЬ В ФОТО / ФАЙЛЫ» или «Скачать результат».');
+   '. Попытка скачивания запущена. Если Safari не открыл загрузку, нажми «Сохранить в Фото / Файлы».');
+  // The browser may download directly without requiring a second tap.
+  // iPhone Safari may block asynchronous downloads; the visible Share/File
+  // controls remain the reliable user-gesture fallback.
+  try{$('download').click();}catch(e){console.warn('Auto download unavailable:',e);}
+  $('exportResult').scrollIntoView?.({block:'nearest',behavior:'smooth'});
  }
  function stopExport(){
   if(!recording||recording.state==='inactive')return;
@@ -2031,6 +2036,7 @@
    link.download=file.name||'original_video';
    readyExportUi();
    $('cancel').hidden=true;$('progress').hidden=true;
+   try{$('download').click();}catch(e){console.warn('Original download unavailable:',e);}
    exportStatus('Оригинал готов к сохранению без повторного сжатия · '+
     (file.size/1048576).toFixed(1)+' МБ. Нажми ещё раз «Сохранить в Фото / Файлы».');
    return;
@@ -2055,7 +2061,7 @@
   }
   const [w,h]=videoDimensions(Number(state.size));
   recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();adaptiveExportWidth=240;slowFrames=0;fastFrames=0;
-  let exportFailedReason='';
+  let exportFailedReason='',exportWatchdog=null;
   try{
    if(playbackUnlock){
     await Promise.race([playbackUnlock,
@@ -2096,6 +2102,7 @@
     exportStatus(exportFailedReason);
    };
    rec.onstop=()=>{
+    if(exportWatchdog!==null){clearInterval(exportWatchdog);exportWatchdog=null;}
     const contentType=rec.mimeType||mime;
     recording=null;
     source.loop=clips.length===1;
@@ -2120,7 +2127,20 @@
     throw Error(exportFailedReason);
    }
    exportStatus('Запись началась: '+w+' × '+h+' · '+state.fps+' кадр/с. Не блокируй экран. Сначала создаётся файл, затем сохраняется в «Фото».');
+   // Detect media decoders which claim to play but never advance on iOS.
+   let lastMediaTime=Number(source.currentTime)||0,lastAdvancedAt=performance.now();
+   exportWatchdog=setInterval(()=>{
+    if(!recording||recording.state==='inactive')return;
+    const t=Number(source.currentTime)||0;
+    if(t>lastMediaTime+.04||t<lastMediaTime-.3){
+     lastMediaTime=t;lastAdvancedAt=performance.now();
+    }else if(performance.now()-lastAdvancedAt>8000){
+     exportFailedReason='Safari завис при чтении кадров исходного видео. Файл не создан; попробуй 360p / 15 кадров/с или выбери ролик через «Файлы».';
+     stopExport();
+    }
+   },1200);
   }catch(e){
+   if(exportWatchdog!==null){clearInterval(exportWatchdog);exportWatchdog=null;}
    exportStatus('Экспорт не запустился: '+e.message);
    if(recording&&recording.state!=='inactive')try{recording.stop();}catch{}
    if(!recording){
