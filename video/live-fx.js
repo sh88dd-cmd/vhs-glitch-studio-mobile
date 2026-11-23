@@ -10,15 +10,15 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,Number(x)||0));
 function signalDimensions(outW,outH,state={},opts={}){
  const active=!state.masterBypass;
  const vhs=active&&!!state.vhsEnabled&&Number(state.master)>0;
- const temporal=active&&!!state.glitchEnabled&&Number(state.glitchStrength)>0 &&
-  Object.values(state.glitches||{}).some(value=>Number(value)>0);
+ const temporal=active&&!!state.glitchEnabled&&Number(state.glitchStrength)>0&&
+  !!root.VHSVideoGlitchFX?.hasActiveSettings(state.glitches,state.eventDensity);
  const mode=active&&String(state.mode||'vhs')!=='vhs'&&
   Number(state.modeStrength)>0;
  const hold=!!opts.holding;
- const reduce=vhs||temporal||mode||hold;
+ const reduce=vhs||mode||hold;
  const chosen=state.signalWidth==='auto'?240:Number(state.signalWidth);
- // VHS deliberately resembles a low-bandwidth composite signal. Glitch-only
- // receives more pixels to avoid falsely resembling damaged VHS.
+ // Only intentionally VHS/analogue-low-bandwidth paths reduce resolution.
+ // GLITCH-only and FILM retain full output frame dimensions.
  const longest=reduce?
   vhs?clamp(chosen||240,128,320):
   clamp(Math.max(480,chosen||480),360,640):
@@ -28,7 +28,7 @@ function signalDimensions(outW,outH,state={},opts={}){
   w:Math.max(2,Math.round(outW*factor/2)*2),
   h:Math.max(2,Math.round(outH*factor/2)*2),
   reduced:reduce,
-  reason:vhs?'VHS':hold?'ЗАЖМИ':temporal?'GLITCH':mode?'MODE':'native'
+  reason:vhs?'VHS':hold?'ЗАЖМИ':mode?'MODE':temporal?'GLITCH full resolution':'native'
  };
 }
 function create(){
@@ -55,7 +55,7 @@ function create(){
   // Do not force a CPU-heavy temporal processor on a FILM-only capture.
   const extra=active&&(
    (state.glitchEnabled&&Number(state.glitchStrength)>0&&
-    Object.values(state.glitches||{}).some(value=>Number(value)>0))||
+    !!root.VHSVideoGlitchFX?.hasActiveSettings(state.glitches,state.eventDensity))||
    (String(state.mode||'vhs')!=='vhs'&&Number(state.modeStrength)>0)
   );
   const transferred=active&&state.creative?.look?.enabled&&state.creative.look.target;
