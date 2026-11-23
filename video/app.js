@@ -2045,10 +2045,23 @@
   if(clips.length>1&&clips.some(c=>!Number.isFinite(c.duration)||c.duration<=0)){
    exportStatus('Не удалось определить длительность всех клипов. Проверь форматы каждого видео или попробуй по одному.');return;
   }
+  // Safari may forbid playback if the first video.play() occurs after await.
+  // Unlock it inside the original user tap, before seeking/audio setup.
+  source.loop=false;
+  let playbackUnlock=null;
+  if(clipIndex===0&&source.paused){
+   try{playbackUnlock=source.play();}
+   catch(e){exportStatus('Safari не разрешил запустить исходное видео: '+e.message);return;}
+  }
   const [w,h]=videoDimensions(Number(state.size));
-  source.loop=false; // A finite recording must never restart itself.
   recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();adaptiveExportWidth=240;slowFrames=0;fastFrames=0;
+  let exportFailedReason='';
   try{
+   if(playbackUnlock){
+    await Promise.race([playbackUnlock,
+     new Promise((_,reject)=>setTimeout(()=>reject(Error('Safari не начал воспроизведение за 8 секунд')),8000))
+    ]);
+   }
    source.pause();
    if(clipIndex!==0)await selectClip(0,false);
    await seekToStart();
@@ -2078,7 +2091,10 @@
    $('exportResult').hidden=true;$('export').disabled=true;$('cancel').hidden=false;$('progress').hidden=false;$('progress').value=0;
    $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();syncSectionLights();
    rec.ondataavailable=e=>{if(e.data?.size)blobs.push(e.data)};
-   rec.onerror=e=>{exportStatus('Ошибка записи: '+(e.error?.message||'неизвестная ошибка'));};
+   rec.onerror=e=>{
+    exportFailedReason='Ошибка видеокодировщика Safari: '+(e.error?.message||'неизвестная ошибка');
+    exportStatus(exportFailedReason);
+   };
    rec.onstop=()=>{
     const contentType=rec.mimeType||mime;
     recording=null;
@@ -2087,16 +2103,31 @@
     recordStream=null;
     $('cancel').hidden=true;$('progress').hidden=true;$('export').disabled=false;
     $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();syncSectionLights();
-    finishExport(blobs,contentType);
+    if(exportFailedReason)exportStatus(exportFailedReason+' · Файл не сохранён.');
+    else finishExport(blobs,contentType);
     renderCurrentFrame();
    };
-   rec.start(1000);
-   try{await source.play();}catch(err){stopExport();throw err;}
-   exportStatus('Запись началась. Не блокируй экран до завершения.');
+   try{rec.start(1000);}
+   catch(e){if(rec.state==='inactive')rec.start();else throw e;}
+   try{
+    await Promise.race([source.play(),
+     new Promise((_,reject)=>setTimeout(()=>reject(Error('Safari не начал экспортное воспроизведение за 8 секунд')),8000))
+    ]);
+   }catch(err){
+    exportFailedReason='Safari заблокировал воспроизведение для экспорта: '+err.message+
+     '. Нажми ▶ Просмотр и попробуй ещё раз.';
+    stopExport();
+    throw Error(exportFailedReason);
+   }
+   exportStatus('Запись началась: '+w+' × '+h+' · '+state.fps+' кадр/с. Не блокируй экран. Сначала создаётся файл, затем сохраняется в «Фото».');
   }catch(e){
    exportStatus('Экспорт не запустился: '+e.message);
    if(recording&&recording.state!=='inactive')try{recording.stop();}catch{}
-   if(!recording){source.loop=clips.length===1;$('export').disabled=false;$('cancel').hidden=true;$('progress').hidden=true;$('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();}
+   if(!recording){
+    if(recordStream){for(const tr of recordStream.getVideoTracks())try{tr.stop();}catch{};recordStream=null;}
+    source.loop=clips.length===1;$('export').disabled=false;$('cancel').hidden=true;$('progress').hidden=true;
+    $('play').disabled=false;$('seek').disabled=false;$('regenerate').disabled=false;$('undoGlitch').disabled=!seedHistory.length;updateClipNav();videoUI?.sync();
+   }
   }
  }
  async function shareExport(){
