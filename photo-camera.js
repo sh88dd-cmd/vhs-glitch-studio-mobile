@@ -27,7 +27,8 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  let viewLongSide=340,lastRenderMs=0,averageRenderMs=0,lastWidth=0,lastHeight=0;
  const getDims=()=>[Number(video.videoWidth)||0,Number(video.videoHeight)||0];
  const setStatus=text=>{status.textContent=text;};
- const controls=root.VHSCameraControls.mount({
+ let controls;
+ controls=root.VHSCameraControls.mount({
   prefix:'liveCamera',video,stage,onStatus:setStatus,
   canInteract:()=>active&&ready&&!review&&!capturing,
   onChange:()=>{
