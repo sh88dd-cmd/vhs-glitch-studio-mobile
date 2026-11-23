@@ -22,6 +22,11 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  const previewSource=document.createElement('canvas');
  try{if(localStorage.getItem('vhs.camera.captureMode')==='native')captureMode.value='native';}catch(e){}
  const faces=$('liveCameraFaces'),again=$('liveCameraAgain');
+ const doubleBtn=$('liveCameraDouble'),bestBtn=$('liveCameraBest');
+ const doubleLayer=$('liveCameraDoubleLayer'),choiceBar=$('liveCameraBestChoices');
+ let doubleEnabled=false,doubleFirst=null,bestEnabled=false;
+ let booth=null,boothRunning=false,choiceOpen=false;
+ let bestBuffer=[],bestTimer=null;
  const save=$('liveCameraSave'),edit=$('liveCameraEdit'),reviewButtons=$('liveCameraReviewActions');
  let stream=null,session=0,previewJob=null;
  let facing='environment',active=false,review=false,capturing=false,frozen=false;
@@ -30,6 +35,37 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  let liveVisual=null,previewDraws=0,ready=false,fxReady=false,previewBusy=false;
  let viewLongSide=340,lastRenderMs=0,averageRenderMs=0,lastWidth=0,lastHeight=0;
  const getDims=()=>[Number(video.videoWidth)||0,Number(video.videoHeight)||0];
+ const resetDouble=()=>{
+  doubleFirst=null;doubleLayer.hidden=true;
+  doubleEnabled=false;
+  doubleBtn.setAttribute('aria-pressed','false');
+  doubleBtn.classList.remove('active');
+ };
+ const stopBestBuffer=()=>{
+  if(bestTimer!==null){clearInterval(bestTimer);bestTimer=null;}
+  bestBuffer=[];
+ };
+ function startBestBuffer(){
+  stopBestBuffer();
+  if(!bestEnabled||!active||!ready||review||capturing||booth)return;
+  // The opt-in buffer stores video frames, never triggers a photo shutter.
+  bestTimer=setInterval(()=>{
+   if(!active||!ready||capturing||review||choiceOpen||!bestEnabled)return;
+   try{
+    bestBuffer.push(canvasFrom(video));
+    if(bestBuffer.length>3)bestBuffer.shift();
+   }catch(err){console.warn('BEST SHOT buffer skipped:',err);}
+  },260);
+ }
+ function updateCreativeButtons(){
+  doubleBtn.disabled=capturing||review||!!booth||choiceOpen;
+  bestBtn.disabled=capturing||review||!!booth||choiceOpen;
+  doubleBtn.setAttribute('aria-pressed',String(doubleEnabled));
+  bestBtn.setAttribute('aria-pressed',String(bestEnabled));
+  doubleBtn.classList.toggle('active',doubleEnabled);
+  bestBtn.classList.toggle('active',bestEnabled);
+  $('photoCreativeModes').hidden=!!booth||review;
+ }
  const setStatus=text=>{status.textContent=text;};
  let controls;
  controls=root.VHSCameraControls.mount({
@@ -51,7 +87,8 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   // The video compositor is never tied to our overlay timer.
  };
  const refreshButtons=()=>{
-  shutter.disabled=!ready||capturing||review;
+  shutter.disabled=!ready||capturing||review||choiceOpen;
+  updateCreativeButtons();
   aspect.disabled=capturing||review;
   flip.disabled=capturing||review;
   again.disabled=capturing;
@@ -70,6 +107,8 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  };
  const close=()=>{
   session++;active=false;ready=false;review=false;capturing=false;frozen=false;
+  stopBestBuffer();resetDouble();bestEnabled=false;choiceOpen=false;booth=null;boothRunning=false;
+  choiceBar.hidden=true;choiceBar.replaceChildren();
   clearJobs();stopTracks();
   lastRendered=null;lastFilename='';
   if(dialog.open)dialog.close();
@@ -248,6 +287,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
      'Камера готова · мгновенный спуск '+w+' × '+h+'.':
      'Камера готова · фото сенсора (возможна задержка).');
    schedule(token,50);
+   startBestBuffer();
   }catch(err){
    if(token!==session)return;
    stopTracks();ready=false;refreshButtons();
@@ -268,7 +308,8 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   await start();
  }
  async function flipLens(){
-  if(!active||capturing)return;
+  if(!active||capturing||choiceOpen)return;
+  doubleFirst=null;doubleLayer.hidden=true;stopBestBuffer();
   facing=facing==='user'?'environment':'user';
   await start();
  }
@@ -422,6 +463,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   }
   res.textContent='Камера работает · можно сделать следующий кадр';
   setStatus('Готово к следующему снимку с теми же настройками.');
+  startBestBuffer();
   schedule(session,70);
  }
  function newInterference(){
@@ -441,6 +483,37 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    renderLive(session);
   }
  }
+ async function openBooth(){
+  if(active)return;
+  booth={count:Number($('boothCount').value)===6?6:4,
+   interval:Math.max(2,Math.min(5,Number($('boothInterval').value)||3)),
+   paper:$('boothPaper').value==='black'?'black':'white',
+   caption:$('boothCaption').value.trim().slice(0,48)};
+  bestEnabled=false;resetDouble();stopBestBuffer();
+  await open();
+  if(active&&ready)setStatus('ФОТОБУДКА · нажми затвор один раз для серии из '+booth.count+' кадров.');
+ }
+ doubleBtn.addEventListener('click',()=>{
+  if(!active||!ready||capturing||review||booth)return;
+  if(doubleEnabled){resetDouble();setStatus('Двойная экспозиция выключена.');}
+  else{
+   bestEnabled=false;stopBestBuffer();
+   doubleEnabled=true;setStatus('DOUBLE · первый снимок, затем второй поверх него.');
+  }
+  updateCreativeButtons();
+ });
+ bestBtn.addEventListener('click',()=>{
+  if(!active||!ready||capturing||review||booth)return;
+  bestEnabled=!bestEnabled;resetDouble();
+  if(bestEnabled){
+   setStatus('BEST SHOT · после затвора можно выбрать один кадр из серии.');
+   startBestBuffer();
+  }else{
+   stopBestBuffer();setStatus('BEST SHOT выключен · обычный мгновенный спуск.');
+  }
+  updateCreativeButtons();
+ });
+ $('boothOpen').addEventListener('click',()=>void openBooth());
  function configure(){close();onConfigure();}
  $('liveCameraOpenTop').addEventListener('click',open);
  $('liveCameraOpenPanel').addEventListener('click',open);
