@@ -236,10 +236,10 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
  // Ignore actual UI controls; never block the range input or buttons.
  const controlTarget=target=>!!target?.closest?.('button,input,label,select,option,output,.captureCameraToolbar');
  stage.addEventListener('touchstart',event=>{
-  if(!controlTarget(event.target)&&event.cancelable)event.preventDefault();
+  if(usable()&&!controlTarget(event.target)&&event.cancelable)event.preventDefault();
  },{passive:false});
  stage.addEventListener('touchmove',event=>{
-  if(!controlTarget(event.target)&&event.cancelable)event.preventDefault();
+  if(usable()&&!controlTarget(event.target)&&event.cancelable)event.preventDefault();
  },{passive:false});
  stage.addEventListener('contextmenu',event=>{
   if(!controlTarget(event.target))event.preventDefault();
