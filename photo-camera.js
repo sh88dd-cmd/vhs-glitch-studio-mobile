@@ -66,7 +66,30 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   bestBtn.classList.toggle('active',bestEnabled);
   $('photoCreativeModes').hidden=!!booth||review;
  }
- const setStatus=text=>{status.textContent=text;};
+ // No persistent panels below the viewfinder. Messages are transient.
+ // Preserve important errors, countdowns and PHOTO BOOTH progress as overlays.
+ let statusTimer=null;
+ const hideStatus=()=>{
+  if(statusTimer!==null){clearTimeout(statusTimer);statusTimer=null;}
+  status.classList.remove('cameraToastVisible','cameraToastError');
+ };
+ const setStatus=text=>{
+  const message=String(text||'');
+  status.textContent=message;
+  hideStatus();
+  // Normal readiness should never cover live camera pixels.
+  if(!message||/^(Камера готова|Открываю камеру|Готово к следующему снимку|Камера работает)/i.test(message))
+   return;
+  const error=/(ошиб|не удалось|недоступ|нет разрешения|не дал доступ|не поддерж|Safari не разреш|не может)/i.test(message);
+  status.classList.toggle('cameraToastError',error);
+  status.classList.add('cameraToastVisible');
+  const interval=/(Снимок через|через \d+…|снято \d+\/\d+)/i.test(message)?1150:
+   error?6500:3200;
+  statusTimer=setTimeout(()=>{
+   status.classList.remove('cameraToastVisible','cameraToastError');
+   statusTimer=null;
+  },interval);
+ };
  let controls;
  controls=root.VHSCameraControls.mount({
   prefix:'liveCamera',video,stage,onStatus:setStatus,
@@ -106,6 +129,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   badge.textContent=review?'● ГОТОВЫЙ КАДР':frozen?'● СНЯТО':'● LIVE';
  };
  const close=()=>{
+  hideStatus();
   session++;active=false;ready=false;review=false;capturing=false;frozen=false;
   stopBestBuffer();resetDouble();bestEnabled=false;choiceOpen=false;booth=null;boothRunning=false;
   dialog.classList.remove('is-booth-review');
