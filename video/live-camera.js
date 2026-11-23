@@ -69,6 +69,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  const micToggle=$('videoLiveMicrophone'),quality=$('videoLiveQuality');
  const frames=$('videoLiveFPS'),sound=$('videoLiveAudioState');
  const captureMode=$('videoLiveCaptureMode'),aspect=$('videoLiveAspect');
+ const doubleBtn=$('videoLiveDouble'),doubleMix=$('videoLiveDoubleMix');
  const formats=root.VHSCameraFormats;
  try{const savedRatio=localStorage.getItem('vhs.video.captureRatio');
   if([...aspect.options].some(o=>o.value===savedRatio))aspect.value=savedRatio;}catch{}
@@ -88,6 +89,26 @@ function mount({getSettings,getFilmProfile,onImport}){
  let chunks=[],recordMime='',resultBlob=null,resultURL='',resultFilename='';
  let recordFrameCount=0,lastCompositorMs=0,recordFPS=20;
  let resultCaptureMode='editable',activeCaptureMode='editable';
+ let doubleEnabled=false,doubleBase=null;
+ const startDouble=()=>{
+  if(!active||!ready||recording||stopping||resultBlob)return;
+  if(doubleEnabled){
+   doubleEnabled=false;doubleBase=null;
+   message('Двойная экспозиция отключена.');
+  }else{
+   const w=video.videoWidth,h=video.videoHeight;
+   if(!w||!h){message('Кадр камеры ещё не готов.');return;}
+   doubleBase=document.createElement('canvas');
+   doubleBase.width=w;doubleBase.height=h;
+   doubleBase.getContext('2d').drawImage(video,0,0,w,h);
+   doubleEnabled=true;
+   message('DOUBLE · первый слой зафиксирован. Теперь снимай видео поверх него.');
+  }
+  doubleBtn.setAttribute('aria-pressed',String(doubleEnabled));
+  doubleBtn.classList.toggle('active',doubleEnabled);
+  if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
+  if(active&&ready)overlay(session);
+ };
  // Color originals retain the selected exposure yet never bake FILM/VHS.
  const editableCanvas=document.createElement('canvas');
  let editableLoop=0,editableLastFrame=0;
@@ -110,6 +131,12 @@ function mount({getSettings,getFilmProfile,onImport}){
    aspect.value,editableCanvas.width,editableCanvas.height);
   ctx.restore();
   if(!hasFilter)controls.bakeCanvas(editableCanvas);
+  if(doubleEnabled&&doubleBase){
+   ctx.save();ctx.globalAlpha=Number(doubleMix.value)/100;
+   formats.drawCropped(ctx,doubleBase,doubleBase.width,doubleBase.height,
+    aspect.value,editableCanvas.width,editableCanvas.height);
+   ctx.restore();
+  }
  }
  function paintEditableFrame(now){
   if(!recording||activeCaptureMode!=='editable')return;
@@ -132,6 +159,9 @@ function mount({getSettings,getFilmProfile,onImport}){
   resultBlob=null;resultFilename='';resultCaptureMode='editable';download.removeAttribute('href');
  }
  function stopTracks(){
+  doubleBase=null;doubleEnabled=false;
+  doubleBtn.setAttribute('aria-pressed','false');
+  doubleBtn.classList.remove('active');
   controls.unbind();
   if(cameraStream){
    for(const track of cameraStream.getTracks()){try{track.stop();}catch{}}
@@ -205,6 +235,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   quality.disabled=recording||stopping;
   frames.disabled=recording||stopping;
   captureMode.disabled=recording||stopping;
+  doubleBtn.disabled=!ready||recording||stopping||!!resultBlob;
   aspect.disabled=recording||stopping||!!resultBlob;
   badge.textContent=recording?'● REC':resultBlob?'● ГОТОВО':'● LIVE';
   badge.classList.toggle('recording',recording);
@@ -278,6 +309,12 @@ function mount({getSettings,getFilmProfile,onImport}){
     time,elapsed:time,seed,filmSeed,holding,
     mirrored:facing==='user',filmProfile,agingDuration:60
    });
+   if(doubleEnabled&&doubleBase){
+    const layer=processed.getContext('2d',{alpha:false});
+    layer.save();layer.globalAlpha=Number(doubleMix.value)/100;
+    layer.drawImage(doubleBase,0,0,processed.width,processed.height);
+    layer.restore();
+   }
    // One exposure pass is shared by the visible frame and baked recording.
    controls.bakeCanvas(processed);
    const ctx=fx.getContext('2d',{alpha:false});
@@ -393,13 +430,13 @@ function mount({getSettings,getFilmProfile,onImport}){
     if(!sensor||sensor.readyState!=='live')throw Error('Исходный видеопоток недоступен');
     // Camera-native dimensions; no VHS, grayscale or downsampling. Unlike
     // CSS-only exposure, these pixels also reach the recorded video.
-    if((aspect.value==='original'&&controls.cssFilter()==='none')||
+    if((aspect.value==='original'&&controls.cssFilter()==='none'&&!doubleEnabled)||
        typeof editableCanvas.captureStream!=='function'){
      // Keep the native sensor recording whenever the hardware can adjust EV;
      // also preserve the existing Safari path if CanvasCaptureStream is absent.
      stream=new MediaStream([sensor.clone()]);
-     if(aspect.value!=='original'||controls.cssFilter()!=='none')
-      message('Safari не поддерживает выбранный формат или программную экспозицию записи.');
+     if(aspect.value!=='original'||controls.cssFilter()!=='none'||doubleEnabled)
+      throw Error('Safari не поддерживает запись DOUBLE/формата без CanvasCaptureStream.');
     }else{
      const size=formats.croppedSize(video.videoWidth||1280,video.videoHeight||720,aspect.value);
      editableCanvas.width=size.width;editableCanvas.height=size.height;
@@ -548,6 +585,13 @@ function mount({getSettings,getFilmProfile,onImport}){
  recordBtn.addEventListener('click',onRecord);
  flipBtn.addEventListener('click',swapCamera);
  newBtn.addEventListener('click',updateNew);
+ doubleBtn.addEventListener('click',startDouble);
+ doubleMix.addEventListener('input',()=>{
+  if(active&&ready&&!resultBlob&&!recording){
+   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
+   overlay(session);
+  }
+ });
  holdBtn.addEventListener('pointerdown',beginHold);
  holdBtn.addEventListener('pointerup',stopHold);
  holdBtn.addEventListener('pointercancel',stopHold);
