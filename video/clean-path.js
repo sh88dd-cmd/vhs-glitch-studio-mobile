@@ -18,7 +18,8 @@ function hasVisualEffects(settings,holdVideo=0){
  if(CAMERA.some(k=>s.camera?.[k]===true))return true;
  if(s.fxMode!=='classic')return true;
  if(s.vhsEnabled&&num(s.master)>0)return true;
- if(s.glitchEnabled&&num(s.glitchStrength)>0)return true;
+ if(s.glitchEnabled&&num(s.glitchStrength)>0&&
+    root.VHSVideoGlitchFX?.hasActiveSettings(s.glitches,s.eventDensity))return true;
  if(s.mode&&s.mode!=='vhs'&&num(s.modeStrength)>0)return true;
  return false;
 }
