@@ -163,22 +163,43 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
    void old.applyConstraints({advanced:[{torch:false}]}).catch(()=>{});
   render();
  }
+ // Safari versions without CanvasRenderingContext2D.filter need a real
+ // pixel fallback: a CSS preview-only brightness does NOT affect exports.
+ function softwarePixels(ctx,w,h){
+  if(brightness===0||hardwareEV)return;
+  const image=ctx.getImageData(0,0,w,h),data=image.data;
+  const factor=Math.pow(2,brightness);
+  for(let i=0;i<data.length;i+=4){
+   data[i]=Math.min(255,Math.round(data[i]*factor));
+   data[i+1]=Math.min(255,Math.round(data[i+1]*factor));
+   data[i+2]=Math.min(255,Math.round(data[i+2]*factor));
+  }
+  ctx.putImageData(image,0,0);
+ }
+ function canvasFilterAvailable(ctx){
+  return 'filter' in ctx;
+ }
  function bakeCanvas(canvas){
   const filter=cssFilter();
   if(filter==='none')return;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!canvasFilterAvailable(ctx)){
+   softwarePixels(ctx,canvas.width,canvas.height);return;
+  }
   if(!scratch)scratch=document.createElement('canvas');
   if(scratch.width!==canvas.width)scratch.width=canvas.width;
   if(scratch.height!==canvas.height)scratch.height=canvas.height;
   const dst=scratch.getContext('2d',{alpha:false});
   dst.clearRect(0,0,scratch.width,scratch.height);
-  dst.filter=filter;
-  dst.drawImage(canvas,0,0);
-  dst.filter='none';
-  const ctx=canvas.getContext('2d');
+  dst.filter=filter;dst.drawImage(canvas,0,0);dst.filter='none';
   ctx.filter='none';ctx.drawImage(scratch,0,0);
  }
  function filterDraw(ctx,source,w,h){
-  ctx.save();ctx.filter=cssFilter();ctx.drawImage(source,0,0,w,h);ctx.restore();
+  ctx.save();
+  if(canvasFilterAvailable(ctx))ctx.filter=cssFilter();
+  ctx.drawImage(source,0,0,w,h);
+  if(!canvasFilterAvailable(ctx))softwarePixels(ctx,w,h);
+  ctx.restore();
  }
  flash.addEventListener('click',()=>void setFlash(!torchOn));
  ev.addEventListener('input',()=>setExposure(ev.value));
