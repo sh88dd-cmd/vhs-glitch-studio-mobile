@@ -1072,3 +1072,31 @@ html.videoCameraLock,body.videoCameraLock{overflow:hidden!important;overscroll-b
 }
 .stageCanvas.is-exporting #recordCanvas{position:relative!important;z-index:1}
 .stageCanvas.is-exporting #openViewer,.stageCanvas.is-exporting #compareMain{display:none!important}
+
+
+/* iPhone live camera: controls overlay picture without moving REC/shutter. */
+.captureCameraToolbar{position:absolute;z-index:8;left:6px;right:6px;bottom:7px;
+ display:grid;grid-template-columns:80px minmax(0,1fr) 66px;grid-template-rows:30px 32px;
+ gap:4px;padding:5px;background:#090d13e8;border:1px solid #bfcacb55;border-radius:10px;
+ backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.captureCameraToolbar button{min-width:0;padding:3px 4px;font-size:10px;font-weight:800;color:#f6f6f6;
+ border:1px solid #adbec3a1;border-radius:7px;background:#253039;touch-action:manipulation}
+.captureCameraToolbar button[aria-pressed="true"]{color:#111;background:#f3e1a1;border-color:#f3e1a1}
+.captureCameraToolbar button:disabled{opacity:.47}
+.captureCameraFlash{grid-column:1;grid-row:1}
+.captureCameraLock{grid-column:2/4;grid-row:1}
+.captureCameraExposureLabel{grid-column:1/3;grid-row:2;display:flex;align-items:center;gap:4px;
+ min-width:0;color:#f5f5f5;font-size:12px}
+.captureCameraExposureLabel input{flex:1;min-width:0;max-width:100%;margin:0;height:25px;accent-color:#eedbaa}
+.captureCameraExposureLabel output{min-width:44px;text-align:right;font-size:9px;font-variant-numeric:tabular-nums}
+.captureCameraReset{grid-column:3;grid-row:2}
+.captureCameraFocusMarker{position:absolute;z-index:7;width:44px;height:44px;left:50%;top:50%;
+ transform:translate(-50%,-50%);border:2px solid #f3e2a5;border-radius:5px;
+ box-shadow:0 0 0 1px #0007,0 0 12px #f3e2a566;pointer-events:none}
+.captureCameraFocusMarker:before,.captureCameraFocusMarker:after{content:"";position:absolute;background:#f3e2a5}
+.captureCameraFocusMarker:before{width:12px;height:1px;left:14px;top:20px}
+.captureCameraFocusMarker:after{height:12px;width:1px;top:14px;left:20px}
+.captureCameraFocusMarker[hidden]{display:none!important}
+.captureCameraFocusMarker.locked{border-color:#f4bd52}
+@media(max-width:370px){.captureCameraToolbar{grid-template-columns:71px minmax(0,1fr) 57px;left:3px;right:3px;padding:4px}
+ .captureCameraToolbar button{font-size:9px}.captureCameraExposureLabel output{min-width:39px;font-size:9px}}
