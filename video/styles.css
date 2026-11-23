@@ -1036,3 +1036,10 @@ html.videoCameraLock,body.videoCameraLock{overflow:hidden!important;overscroll-b
 .videoLiveControls .videoLiveCaptureModeLabel{min-width:0}
 .videoLiveCaptureModeLabel select{font-size:10px;width:100%}
 #exportStatus:not(:empty){border-left:3px solid #cfcfcf;background:#262626;padding:10px;border-radius:5px;line-height:1.5}
+
+/* 0.9.5: make the two real export stages visible. */
+#panel-export #export{font-weight:900;font-size:14px;min-height:55px}
+#panel-export #exportStatus{font-size:12px;background:#242424;border-left:4px solid #c8c8c8;color:#f7f7f7;padding:12px;border-radius:6px;margin:10px 0}
+#panel-export #exportResult{padding:12px;background:#202020;border:1px solid #666;border-radius:10px;margin-top:11px}
+#panel-export #exportResult .button{font-size:13px;min-height:52px}
+#videoForceUpdate{font-size:11px;min-height:36px}
