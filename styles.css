@@ -547,3 +547,321 @@ html.photoCameraLock,body.photoCameraLock{overflow:hidden!important;overscroll-b
 #liveCameraDialog.is-booth-review #liveCameraBadge,
 #liveCameraDialog.is-booth-review #liveCameraNew{display:none!important}
 #liveCameraDialog.is-booth-review #liveCameraStill{pointer-events:none}
+
+
+/* VHS PHOTO STUDIO 1.8.6 — black & white editorial interface.
+ * Match the four-column tile grid and charcoal design of VHS Video Lab,
+ * but use WHITE rather than orange. Never recolor photo or output pixels.
+ */
+:root{
+ --photo-white:#ffffff;
+ --photo-ice:#e9e9e9;
+ --photo-text:#f7f7f7;
+ --photo-muted:#b9b9b9;
+ --photo-ink:#080808;
+ --photo-card:#202020;
+ --photo-panel:#151515;
+ --photo-border:#454545;
+ background:var(--photo-ink);
+ color:var(--photo-text);
+ color-scheme:dark;
+}
+html,body{background:#080808!important;color:var(--photo-text)}
+body{
+ /* Old fixed bottom carousel reserved 73px; 4-column navigation is inline. */
+ padding-bottom:env(safe-area-inset-bottom)!important;
+ scroll-padding-top:calc(env(safe-area-inset-top) + 73px);
+}
+main{background:#090909}
+.top{
+ background:#111!important;border-bottom:2px solid #fff!important;
+ color:#f9f9f9;box-shadow:none!important;
+}
+.brand{color:#f7f7f7;font-weight:900;letter-spacing:.2px}
+.brand b{
+ background:#fff!important;color:#090909!important;
+ padding:2px 6px;border-radius:4px;letter-spacing:0;
+ font-weight:950;
+}
+.mark{color:#fff!important}
+.brand small{color:#bcbcbc!important;letter-spacing:.6px}
+.status{
+ color:#f7f7f7!important;border-color:#5c5c5c!important;
+ background:#242424!important;
+}
+.status.is-online{color:#fff!important}
+.preview{background:#0a0a0a}
+.previewHead,.previewHead span,.muted,.hint,.stateline{
+ color:var(--photo-muted);
+}
+.canvasWrap{
+ background:#000!important;border-color:#3e3e3e!important;
+}
+#emptyMsg,#emptyMsg b,.canvasWrap #emptyMsg,#emptyMsg span{
+ color:#bcbcbc!important;
+}
+.previewActions{gap:7px}
+.cameraEntry>span{color:#bcbcbc!important}
+.floatingPreview{
+ background:#121212fa!important;border-color:#5b5b5b!important;
+ box-shadow:0 6px 25px #000b;
+}
+.floatingPreviewTitle{color:#f1f1f1!important}
+.floatingPreviewPhoto{border-color:#424242!important;background:#000!important}
+.dockMiniButton{
+ background:#272727!important;color:#f5f5f5!important;
+ border-color:#626262!important;
+}
+
+/* Four equal section tiles per row, no horizontal swipe or fixed bottom strip. */
+main nav.tabs{
+ display:grid!important;
+ grid-template-columns:repeat(4,minmax(0,1fr))!important;
+ grid-auto-flow:row!important;
+ align-items:stretch!important;
+ gap:5px!important;
+ position:relative!important;
+ top:auto!important;bottom:auto!important;left:auto!important;right:auto!important;
+ width:100%!important;max-width:100%!important;
+ min-width:0!important;
+ z-index:4!important;
+ padding:10px 8px!important;margin:0!important;
+ overflow-x:visible!important;overflow-y:visible!important;
+ scroll-snap-type:none!important;
+ white-space:normal!important;
+ justify-content:stretch!important;
+ background:#101010!important;
+ border-top:1px solid #373737!important;
+ border-bottom:1px solid #3d3d3d!important;
+ box-shadow:none!important;
+}
+main nav.tabs button[data-tab]{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ min-width:0!important;max-width:100%!important;
+ width:100%!important;height:100%!important;
+ min-height:48px!important;flex:none!important;
+ padding:6px 3px!important;margin:0!important;
+ border:1px solid #3b3b3b!important;
+ border-radius:6px!important;
+ background:#262626!important;
+ color:#e2e2e2!important;
+ font-size:clamp(9px,2.5vw,12px)!important;font-weight:800!important;
+ letter-spacing:0!important;line-height:1.17!important;
+ text-align:center!important;
+ white-space:normal!important;text-wrap:balance!important;
+ overflow-wrap:anywhere!important;
+ scroll-snap-align:none!important;
+ box-shadow:none!important;
+ touch-action:manipulation;
+}
+main nav.tabs button[data-tab].active{
+ background:#fff!important;border-color:#fff!important;
+ color:#0b0b0b!important;font-weight:950!important;
+ box-shadow:inset 0 -2px 0 #c6c6c6!important;
+}
+main nav.tabs button[data-tab]:active:not(.active){
+ background:#484848!important;border-color:#ddd!important;
+}
+main nav.tabs button[data-tab].hasActivePhotoFx::after{
+ background:#fff!important;box-shadow:0 0 5px #fff9!important;
+ top:4px!important;right:6px!important;
+}
+main nav.tabs button[data-tab].active.hasActivePhotoFx::after{
+ background:#121212!important;box-shadow:none!important;
+}
+main nav.tabs button[data-tab]:focus-visible{
+ outline:2px solid #fff!important;outline-offset:2px;
+}
+@media(max-width:390px){
+ main nav.tabs{gap:4px!important;padding:8px 6px!important}
+ main nav.tabs button[data-tab]{
+  font-size:9px!important;line-height:1.14!important;
+  padding:5px 2px!important;min-height:47px!important;
+ }
+}
+@media(min-width:760px){
+ main nav.tabs{gap:8px!important;padding:12px!important}
+ main nav.tabs button[data-tab]{font-size:12px!important;min-height:45px!important}
+}
+.photoSectionGridHeading{
+ display:flex;justify-content:space-between;align-items:center;
+ gap:8px;background:#101010;padding:9px 11px 3px;
+ border-top:1px solid #343434;
+}
+.photoSectionGridHeading strong{
+ color:#fff;font-size:11px;letter-spacing:1px;
+ padding-left:8px;border-left:3px solid #fff;font-weight:950;
+}
+.photoSectionGridHeading span{font-size:10px;color:#b7b7b7;text-align:right}
+@media(max-width:390px){
+ .photoSectionGridHeading{padding:8px 7px 2px}
+ .photoSectionGridHeading span{font-size:9px}
+}
+
+/* Cards, editor sections, settings, film galleries. */
+.panel{background:#0c0c0c;color:#f5f5f5;scroll-margin-top:calc(env(safe-area-inset-top) + 76px)}
+.panel.active{display:block}
+.panel h2{color:#f8f8f8!important;letter-spacing:.3px;font-weight:900}
+.panel h2::before{
+ content:"";display:inline-block;vertical-align:-2px;
+ width:4px;height:15px;margin-right:9px;
+ background:#fff;border-radius:2px;
+}
+label{color:#e0e0e0}
+.switch{
+ background:#1a1a1a!important;border-color:#454545!important;
+ color:#f5f5f5;
+}
+.control{border-bottom-color:#3b3b3b!important}
+.control .r b,.photoFxHead strong{color:#f2f2f2!important}
+.control .r em,.photoFxHead output,.photoFxGroup h3,
+.photoFxControl output,.edgeBurnPanel h3,
+#photoFaceDiagnostics summary{
+ color:#fff!important;
+}
+input[type=range],input[type=checkbox],input[type=radio],progress,
+#panel-correction input[type=range],
+.captureCameraExposureLabel input[type=range]{
+ accent-color:#fff!important;
+}
+input:not([type=checkbox]):not([type=range]),select,textarea,
+#panel-photobooth input,#panel-photobooth select,
+.cameraSetting select{
+ background:#282828!important;border-color:#595959!important;
+ color:#fff!important;
+}
+input:not([type=checkbox]):not([type=range]):focus-visible,
+input[type=range]:focus-visible,select:focus-visible,textarea:focus-visible{
+ outline:2px solid #fff!important;outline-offset:1px;
+}
+details,.favoriteStrip,.cameraSetting,.photoFxGroup,.photoFxLayer,
+.edgeBurnPanel,.batchItem,.photoCassetteCard,
+#photoFaceDiagnostics,.photoMaskStage,.maskControlCard,
+#panel-polaroid .polaroidCard{
+ background:#191919!important;border-color:#474747!important;
+ color:#f0f0f0!important;
+}
+details>summary,.favoriteStrip>summary{color:#f3f3f3!important}
+.favoriteStrip>summary::before{color:#fff!important}
+.filmcard,.filmcard:hover{
+ background:#262626!important;color:#f3f3f3!important;
+}
+.filmcard.selected,.filmcardWrap .filmcard.selected{
+ border-color:#fff!important;
+}
+.filmcard span{color:#ececec!important}
+.favoriteToggle{
+ background:#1f1f1fee!important;color:#fff!important;
+ border-color:#626262!important;
+}
+.favoriteToggle[aria-pressed=true]{
+ background:#fff!important;color:#111!important;
+ border-color:#fff!important;
+}
+.photoFxGroup,.photoFxLayer,.photoCassetteCard{background-image:none!important}
+.photoFxControl{border-color:#393939!important}
+.photoFxControl input[type=range]{accent-color:#fff!important}
+#panel-masks .photoMaskStage.drawing{border-color:#fff!important}
+.batchItem{background:#1c1c1c!important}
+.batchItem canvas{background:#090909}
+.photoCassetteCard .btn{background:#303030!important;color:#f5f5f5!important;border-color:#595959!important}
+.photoCassetteCard .btn.primary{background:#fff!important;color:#111!important;border-color:#fff!important}
+
+/* White primary actions and graphite secondary buttons, without image filters. */
+.btn,.dockMiniButton,.captureSettings>summary,
+.batchItem button,.favoriteStrip button{
+ background:#2b2b2b;border:1px solid #606060;
+ color:#f6f6f6;
+}
+.btn.primary,.btn.primary:enabled,
+label.btn.primary,
+.cameraEntry>.btn.primary,
+#liveCameraOpenTop,
+#exportBatch,
+#backupExport,
+#checkForUpdates{
+ background:#fff!important;border:1px solid #fff!important;
+ color:#101010!important;font-weight:900;
+}
+.btn:focus-visible,.filmcard:focus-visible,
+button:focus-visible,summary:focus-visible{
+ outline:2px solid #fff!important;outline-offset:2px;
+}
+#allPhotoFxToggle{
+ background:#373737!important;color:#f9f9f9!important;border-color:#868686!important;
+}
+#undoPhotoFxReset{
+ background:#2c2c2c!important;color:#f5f5f5!important;
+ border-color:#6a6a6a!important;
+}
+.batchReroll,.batchItem .batchItemActions .batchReroll,
+#rerollDialog,#photoDialog #rerollDialog,
+#rerollMainViewer,#mainPreviewDialog #rerollMainViewer{
+ background:#fff!important;color:#101010!important;border-color:#fff!important;
+}
+.batchUndo,.batchItem .batchItemActions .batchUndo,
+#undoDialog,#photoDialog #undoDialog,
+#undoMainViewer,#mainPreviewDialog #undoMainViewer{
+ background:#333!important;color:#fff!important;border-color:#777!important;
+}
+.photoHelpMark{
+ background:#222!important;color:#fff!important;border-color:#fff!important;
+}
+.extraHelpText.expanded{border-color:#fff!important}
+.photoFxActions button.active,.photoFxLayer button.active{
+ background:#fff!important;color:#101010!important;
+}
+
+/* Camera, shooting modes and completed-photo review. */
+#liveCameraDialog{
+ background:#090909!important;color:#f6f6f6!important;
+}
+.liveCameraTop strong{color:#fff!important}
+.liveCameraTop small,.liveCameraNote,#liveCameraResolution{color:#bcbcbc!important}
+.liveCameraStage{background:#000!important;border-color:#4e4e4e!important}
+.liveCameraStatus{
+ background:#202020!important;color:#f6f6f6!important;
+ border-left-color:#fff!important;
+}
+.liveCameraOption,.captureSettings>.liveCameraOptions{
+ background:#1c1c1c!important;border-color:#515151!important;
+ color:#f0f0f0!important;
+}
+#liveCameraNew{
+ background:#222!important;border-color:#fff!important;color:#fff!important;
+}
+#liveCameraNew.is-new{animation:none;background:#fff!important;color:#111!important}
+.liveCameraShutter{border-color:#fff!important;box-shadow:0 0 0 2px #888!important}
+.liveCameraShutter>span{background:#fff!important}
+.captureCameraToolbar{
+ background:#0b0b0bef!important;border-color:#777!important;
+}
+.captureCameraToolbar button{
+ background:#282828!important;border-color:#747474!important;color:#fff!important;
+}
+.captureCameraToolbar button[aria-pressed=true]{
+ background:#fff!important;color:#111!important;border-color:#fff!important;
+}
+.captureSettings>summary{
+ background:#292929!important;color:#fff!important;border-color:#666!important;
+}
+.captureSettings[open]>summary{background:#fff!important;color:#111!important;border-color:#fff!important}
+.captureAspectSelect select{background:#282828!important;border-color:#777!important;color:#fff!important}
+.captureCameraFocusMarker{border-color:#fff!important;box-shadow:0 0 0 1px #0009!important}
+.captureCameraFocusMarker::before,.captureCameraFocusMarker::after{background:#fff!important}
+.captureModeRow button{background:#272727!important;border-color:#696969!important;color:#fff!important}
+.captureModeRow button[aria-pressed=true]{background:#fff!important;border-color:#fff!important;color:#111!important}
+.bestShotChoices{background:#171717!important;border-color:#666!important}
+.bestShotCandidate{background:#2a2a2a!important;border-color:#777!important;color:#fff!important}
+.liveCameraReviewActions .btn.primary{background:#fff!important;color:#111!important}
+
+/* Dialogs, viewer, photo booth, batch ZIP and footer */
+#photoDialog,#helpDialog,#mainPreviewDialog{
+ background:#121212!important;color:#f6f6f6!important;border-color:#606060!important;
+}
+.mainViewerStage{background:#000!important;border-color:#444!important}
+.dialogHead button{background:#292929!important;color:#fff!important;border:1px solid #777!important}
+#panel-photobooth .btn.primary{background:#fff!important;color:#101010!important}
+.footer{background:#0c0c0c!important;color:#bcbcbc;border-color:#444!important}
+.footer button{background:#292929;color:#fff;border-color:#666}
+a{color:#f4f4f4}
