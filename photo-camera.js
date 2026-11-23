@@ -108,6 +108,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  const close=()=>{
   session++;active=false;ready=false;review=false;capturing=false;frozen=false;
   stopBestBuffer();resetDouble();bestEnabled=false;choiceOpen=false;booth=null;boothRunning=false;
+  dialog.classList.remove('is-booth-review');
   choiceBar.hidden=true;choiceBar.replaceChildren();
   clearJobs();stopTracks();
   lastRendered=null;lastFilename='';
@@ -137,8 +138,12 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   // Never use the old fixed window height offset that hid the shutter.
   const maxWidth=Math.max(1,viewport.clientWidth||dialog.clientWidth-20);
   const maxHeight=Math.max(1,viewport.clientHeight);
-  const width=Math.max(1,Math.min(maxWidth,maxHeight*w/h));
-  const height=Math.max(1,Math.min(maxHeight,width*h/w));
+  // A tall photo strip needs readable full-width, scrollable review rather
+  // than a 200px-wide strip squeezed into a single phone viewport.
+  const stripReview=review&&!!booth;
+  const width=stripReview?maxWidth:Math.max(1,Math.min(maxWidth,maxHeight*w/h));
+  const height=stripReview?Math.max(1,width*h/w):
+   Math.max(1,Math.min(maxHeight,width*h/w));
   stage.style.width=width+'px';
   stage.style.height=height+'px';
   stage.style.aspectRatio=w+' / '+h;
@@ -389,12 +394,14 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    if(!active||token!==session)return;
    lastRendered=result.processed;
    lastFilename=result.filename;
-   drawResult(still,result.processed,1440);
-   fitStage(still.width,still.height,true);
+   drawResult(still,result.processed,booth?2400:1440);
    stage.classList.remove('selfie','instant');
    frozen=false;review=true;
+   dialog.classList.toggle('is-booth-review',!!booth);
    resetDouble();
    refreshButtons();
+   fitStage(still.width,still.height,true);
+   if(booth)$('liveCameraViewport').scrollTop=0;
    const final=result.processed;
    res.textContent='Готовый снимок: '+final.width+' × '+final.height+
     '. Исходник доступен в основном фоторедакторе.';
@@ -470,7 +477,12 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   ctx.fillRect(0,0,paper.width,paper.height);
   frames.forEach((frame,i)=>{
    const y=pad+i*(cellH+gap);
-   ctx.save();ctx.beginPath();ctx.rect(pad,y,cellW,cellH);ctx.clip();
+   // Translate the drawing origin into EACH photo cell before cropping.
+   // Previously drawCropped always painted at (0,0), so only the top cell
+   // received pixels and the remaining slots stayed blank.
+   ctx.save();
+   ctx.translate(pad,y);
+   ctx.beginPath();ctx.rect(0,0,cellW,cellH);ctx.clip();
    formats.drawCropped(ctx,frame,frame.width,frame.height,'4:5',cellW,cellH);
    ctx.restore();
   });
@@ -575,6 +587,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  function againShot(){
   if(!active||capturing)return;
   review=false;frozen=false;lastRendered=null;lastFilename='';
+  dialog.classList.remove('is-booth-review');
   stage.classList.toggle('selfie',facing==='user');
   applyVisual();
   const [vw,vh]=getDims();fitStage(vw,vh);
