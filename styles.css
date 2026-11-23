@@ -384,3 +384,6 @@ html.photoCameraLock,body.photoCameraLock{overflow:hidden!important;overscroll-b
 
 /* Honour the hidden state even when author styles use display:grid/block. */
 #liveCameraReviewActions[hidden],#liveCameraFx[hidden],#liveCameraStill[hidden],#liveCameraNew[hidden]{display:none!important}
+
+/* v1.8.1: prioritize immediate shutter activation on touch screens. */
+#liveCameraShot{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
