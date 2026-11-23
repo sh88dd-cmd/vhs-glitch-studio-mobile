@@ -85,10 +85,35 @@ function mount({getSettings,getFilmProfile,onImport}){
  let chunks=[],recordMime='',resultBlob=null,resultURL='',resultFilename='';
  let recordFrameCount=0,lastCompositorMs=0,recordFPS=20;
  let resultCaptureMode='editable',activeCaptureMode='editable';
+ // Color originals retain the selected exposure yet never bake FILM/VHS.
+ const editableCanvas=document.createElement('canvas');
+ let editableLoop=0,editableLastFrame=0;
+ let controls;
+ controls=root.VHSCameraControls.mount({
+  prefix:'videoLive',video,stage,onStatus:message,
+  canInteract:()=>active&&ready&&!stopping&&!resultBlob,
+  onChange:()=>{
+   video.style.filter=controls?.cssFilter?.()||'none';
+   // The effects overlay and baked recording have exposure in their pixels.
+   fx.style.filter='none';
+  }
+ });
+ function paintEditableFrame(now){
+  if(!recording||activeCaptureMode!=='editable')return;
+  if(now-editableLastFrame>=1000/(Number(frames.value)||20)-2&&video.readyState>=2){
+   editableLastFrame=now;
+   const ctx=editableCanvas.getContext('2d',{alpha:false});
+   ctx.filter=controls.cssFilter();
+   ctx.drawImage(video,0,0,editableCanvas.width,editableCanvas.height);
+   ctx.filter='none';
+  }
+  editableLoop=requestAnimationFrame(paintEditableFrame);
+ }
  function message(value){status.textContent=String(value);}
  function stopTimers(){
   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
   if(animation){cancelAnimationFrame(animation);animation=0;}
+  if(editableLoop){cancelAnimationFrame(editableLoop);editableLoop=0;}
   if(secondsTimer!==null){clearInterval(secondsTimer);secondsTimer=null;}
  }
  function clearResult(){
@@ -97,6 +122,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   resultBlob=null;resultFilename='';resultCaptureMode='editable';download.removeAttribute('href');
  }
  function stopTracks(){
+  controls.unbind();
   if(cameraStream){
    for(const track of cameraStream.getTracks()){try{track.stop();}catch{}}
    cameraStream=null;
@@ -237,6 +263,8 @@ function mount({getSettings,getFilmProfile,onImport}){
     time,elapsed:time,seed,filmSeed,holding,
     mirrored:facing==='user',filmProfile,agingDuration:60
    });
+   // One exposure pass is shared by the visible frame and baked recording.
+   controls.bakeCanvas(processed);
    const ctx=fx.getContext('2d',{alpha:false});
    ctx.drawImage(processed,0,0,fx.width,fx.height);
    fx.hidden=false;
@@ -347,7 +375,13 @@ function mount({getSettings,getFilmProfile,onImport}){
    if(activeCaptureMode==='editable'){
     const sensor=cameraStream?.getVideoTracks()?.[0];
     if(!sensor||sensor.readyState!=='live')throw Error('Исходный видеопоток недоступен');
-    stream=new MediaStream([sensor.clone()]);
+    // Camera-native dimensions; no VHS, grayscale or downsampling. Unlike
+    // CSS-only exposure, these pixels also reach the recorded video.
+    editableCanvas.width=video.videoWidth||1280;
+    editableCanvas.height=video.videoHeight||720;
+    controls.filterDraw(editableCanvas.getContext('2d',{alpha:false}),
+     video,editableCanvas.width,editableCanvas.height);
+    stream=editableCanvas.captureStream(recordFPS);
     const mic=cameraStream.getAudioTracks()?.[0];
     if(mic)stream.addTrack(mic.clone());
    }else{
@@ -364,6 +398,10 @@ function mount({getSettings,getFilmProfile,onImport}){
    durationStart=performance.now();lastFrameTime=0;recordFrameCount=0;
    recording=true;stopping=false;sync();
    rec.start(500);
+   if(activeCaptureMode==='editable'){
+    editableLastFrame=0;
+    editableLoop=requestAnimationFrame(paintEditableFrame);
+   }
    if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
    overlay(session);
    secondsTimer=setInterval(()=>{
@@ -436,7 +474,7 @@ function mount({getSettings,getFilmProfile,onImport}){
    meta.textContent=video.videoWidth+' × '+video.videoHeight+
     (media.getAudioTracks().length?' · микрофон':' · без звука');
    sound.textContent=media.getAudioTracks().length?'Микрофон включён':'Без звука';
-   ready=true;sync();overlay(token);
+   ready=true;controls.bind(media.getVideoTracks()[0]);sync();overlay(token);
    message('Камера готова · настоящие эффекты VHS, FILM, GLITCH и индикаторы на живом изображении и записи.');
   }catch(err){
    if(token!==session)return;
