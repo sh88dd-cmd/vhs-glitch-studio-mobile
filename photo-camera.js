@@ -405,7 +405,11 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    const final=result.processed;
    res.textContent='Готовый снимок: '+final.width+' × '+final.height+
     '. Исходник доступен в основном фоторедакторе.';
-   setStatus('Снимок готов. Редактируй, сохраняй или снимай ещё.');
+   setStatus(booth?
+    'ФОТОБУДКА · снято '+booth.count+
+     (booth.count===4?' кадра':' кадров')+
+     '. Листай фотополоску вниз, сохраняй или редактируй.':
+    'Снимок готов. Редактируй, сохраняй или снимай ещё.');
   }catch(error){
    if(token!==session||!active)return;
    frozen=false;stage.classList.toggle('selfie',facing==='user');
