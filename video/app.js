@@ -284,13 +284,13 @@
  function readyExportUi(){
   $('exportResult').hidden=false;
   $('export').disabled=false;
-  $('export').textContent='↓ СОХРАНИТЬ В «ФОТО» / «ФАЙЛЫ»';
+  $('export').textContent='↓ 2. СОХРАНИТЬ В «ФОТО» / «ФАЙЛЫ»';
  }
  function resetExportUi(){
   if(recording)return;
   exportBlob=null;exportMime='';exportOriginalFile=false;
   $('exportResult').hidden=true;
-  $('export').textContent='↓ Создать обработанное видео';
+  $('export').textContent='↓ 1. СОЗДАТЬ ВИДЕО С ЭФФЕКТАМИ';
   if(downloadUrl){URL.revokeObjectURL(downloadUrl);downloadUrl='';}
  }
  function randomSeed(){return crypto.getRandomValues(new Uint32Array(1))[0];}
@@ -1951,7 +1951,7 @@
   exportOriginalFile=false;
   const blob=new Blob(chunks,{type:mime});
   if(!blob.size){
-   $('export').textContent='↓ Создать обработанное видео';
+   $('export').textContent='↓ 1. СОЗДАТЬ ВИДЕО С ЭФФЕКТАМИ';
    exportStatus('Ошибка: Safari вернул пустой видеофайл. Попробуй 360p, 15 кадров/с или отключи звук.');
    return;
   }
@@ -2326,6 +2326,21 @@
   };
   $('cancel').onclick=stopExport;
   $('share').onclick=shareExport;
+  $('videoForceUpdate').onclick=async()=>{
+   const button=$('videoForceUpdate');
+   button.disabled=true;button.textContent='Проверяю обновление…';
+   try{
+    if('caches'in window&&navigator.onLine){
+     const names=await caches.keys();
+     await Promise.all(names.filter(name=>name.startsWith('vhs-video-lab-')).map(name=>caches.delete(name)));
+    }
+    if('serviceWorker'in navigator){
+     const reg=await navigator.serviceWorker.getRegistration('./');
+     await reg?.update();
+    }
+   }catch(e){console.warn('Update reload:',e);}
+   location.reload();
+  };
  }
  async function init(){
   mountControls();mountKeyframes();initEvents();mountVideoCapture();
