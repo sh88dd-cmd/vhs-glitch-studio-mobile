@@ -280,7 +280,20 @@
  }
 
  function textStatus(s){$('status').textContent=s;}
- function exportStatus(s){$('exportStatus').textContent=s;}
+ function exportStatus(s){
+  const message=String(s||'');
+  const node=$('exportStatus');
+  if(node&&node.textContent!==message)node.textContent=message;
+  const banner=$('exportBanner'),label=$('exportBannerMessage');
+  if(banner&&label){
+   if(label.textContent!==message)label.textContent=message;
+   banner.hidden=false;
+  }
+ }
+ function markExportCanvas(active){
+  const view=$('videoStage')?.querySelector('.stageCanvas');
+  view?.classList.toggle('is-exporting',!!active);
+ }
  function readyExportUi(){
   $('exportResult').hidden=false;
   $('export').disabled=false;
@@ -1952,7 +1965,7 @@
   const blob=new Blob(chunks,{type:mime});
   if(!blob.size){
    $('export').textContent='↓ 1. СОЗДАТЬ ВИДЕО С ЭФФЕКТАМИ';
-   exportStatus('Ошибка: Safari вернул пустой видеофайл. Попробуй 360p, 15 кадров/с или отключи звук.');
+   exportStatus('Ошибка: Safari вернул пустой видеофайл. Это сбой кодировщика, а не причина уменьшать качество. Исходное видео сохранено без изменений.');
    return;
   }
   exportBlob=blob;exportMime=mime;
@@ -2061,6 +2074,9 @@
   }
   const [w,h]=videoDimensions(Number(state.size));
   recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();adaptiveExportWidth=240;slowFrames=0;fastFrames=0;
+  // Safari may suspend capture from a 1x1 offscreen Canvas.
+  // The actual capture canvas is made VISIBLE while encoding.
+  markExportCanvas(true);
   let exportFailedReason='',exportWatchdog=null;
   try{
    if(playbackUnlock){
@@ -2092,7 +2108,11 @@
    // A playable processed frame is present before encoding starts.
    drawFrame(recordCanvas,true);
    const blobs=[];
-   const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:3_000_000});
+   const rec=new MediaRecorder(stream,{
+    mimeType:mime,
+    videoBitsPerSecond:Number(state.size)>=720?8_000_000:
+     Number(state.size)>=480?5_000_000:3_000_000
+   });
    recording=rec;exportStopRequested=false;
    $('exportResult').hidden=true;$('export').disabled=true;$('cancel').hidden=false;$('progress').hidden=false;$('progress').value=0;
    $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();syncSectionLights();
@@ -2103,6 +2123,7 @@
    };
    rec.onstop=()=>{
     if(exportWatchdog!==null){clearInterval(exportWatchdog);exportWatchdog=null;}
+    markExportCanvas(false);
     const contentType=rec.mimeType||mime;
     recording=null;
     source.loop=clips.length===1;
@@ -2135,12 +2156,13 @@
     if(t>lastMediaTime+.04||t<lastMediaTime-.3){
      lastMediaTime=t;lastAdvancedAt=performance.now();
     }else if(performance.now()-lastAdvancedAt>8000){
-     exportFailedReason='Safari завис при чтении кадров исходного видео. Файл не создан; попробуй 360p / 15 кадров/с или выбери ролик через «Файлы».';
+     exportFailedReason='Safari перестал передавать видеокадры кодировщику. Экспорт не состоялся; исходный ролик не изменён.';
      stopExport();
     }
    },1200);
   }catch(e){
    if(exportWatchdog!==null){clearInterval(exportWatchdog);exportWatchdog=null;}
+   if(!recording||recording.state==='inactive')markExportCanvas(false);
    exportStatus('Экспорт не запустился: '+e.message);
    if(recording&&recording.state!=='inactive')try{recording.stop();}catch{}
    if(!recording){
@@ -2330,6 +2352,8 @@
   };
   $('cancel').onclick=stopExport;
   $('share').onclick=shareExport;
+  $('exportBannerClose').onclick=()=>{$('exportBanner').hidden=true;};
+  window.__vhsVideoExportReady=true;
   $('videoForceUpdate').onclick=async()=>{
    const button=$('videoForceUpdate');
    button.disabled=true;button.textContent='Проверяю обновление…';
