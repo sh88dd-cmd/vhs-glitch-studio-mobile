@@ -6,7 +6,7 @@
 'use strict';
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,Number(x)||0));
 const $=id=>document.getElementById(id);
-const ratioMap={'9:16':9/16,'16:9':16/9,'3:4':3/4,'4:3':4/3,'1:1':1,'21:9':21/9};
+const ratioMap={'9:16':9/16,'16:9':16/9,'3:4':3/4,'4:3':4/3,'4:5':4/5,'1:1':1,'21:9':21/9};
 function requestedRatio(value,sourceW,sourceH){
  return ratioMap[value]||sourceW/sourceH;
 }
