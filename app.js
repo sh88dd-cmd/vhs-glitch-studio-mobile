@@ -1167,7 +1167,7 @@
     }
     return active.length?active.join(' · '):'Без фильтров — оригинал';
   }
-  async function onCameraCaptured(raw,seed,faceStyle,showProgress,{filmSeed}={}){
+  async function onCameraCaptured(raw,seed,faceStyle,showProgress,{filmSeed,fullSize=false}={}){
     // The raw source canvas remains editable in the main photo editor.
     // A masked/colored preview from an unrelated opened photo is NOT reused.
     const masks=state.extras.masks;
@@ -1189,7 +1189,7 @@
     // the raw camera frame remains in the editor for later re-export.
     const output=await processImage(raw,seed,
      {cameraCapture:true,captureMasks:selectedMasks,filmSeed:filmSeed??seed},
-     state.singleSize||'3200');
+     fullSize?'full':(state.singleSize||'3200'));
     const stamp=new Date();
     const filename='CAM_'+stamp.getFullYear()+
       String(stamp.getMonth()+1).padStart(2,'0')+
