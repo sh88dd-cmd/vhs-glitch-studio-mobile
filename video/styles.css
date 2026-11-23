@@ -1043,3 +1043,21 @@ html.videoCameraLock,body.videoCameraLock{overflow:hidden!important;overscroll-b
 #panel-export #exportResult{padding:12px;background:#202020;border:1px solid #666;border-radius:10px;margin-top:11px}
 #panel-export #exportResult .button{font-size:13px;min-height:52px}
 #videoForceUpdate{font-size:11px;min-height:36px}
+
+/* 0.9.6: keep canvas CAPTURE physically onscreen while encoding for WebKit. */
+.stageCanvas #recordCanvas{display:none}
+.stageCanvas.is-exporting #preview{display:none!important}
+.stageCanvas.is-exporting #recordCanvas{
+ display:block!important;position:static!important;left:auto!important;top:auto!important;
+ width:auto!important;height:auto!important;max-width:100%;max-height:100%;
+ object-fit:contain;pointer-events:none
+}
+.exportBanner{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 12px);left:12px;right:12px;
+ z-index:2000;border:1px solid #a6a6a6;background:rgba(20,20,20,.96);
+ padding:12px 14px;border-radius:10px;color:#fff;box-shadow:0 4px 18px #0009;
+ display:flex;align-items:center;gap:12px;max-width:650px;margin-inline:auto;
+ font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.exportBanner[hidden]{display:none!important}
+.exportBanner span{flex:1;min-width:0}
+.exportBanner button{background:#454545;color:#fff;border:1px solid #777;border-radius:5px;
+ padding:6px 9px;flex:0 0 auto;min-height:32px}
