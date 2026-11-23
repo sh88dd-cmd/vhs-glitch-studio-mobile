@@ -1,4 +1,4 @@
-/* Photo Studio 1.8.0 — real photo-engine previews and unchanged high-res
+/* Photo Studio 1.8.1 — real photo-engine previews and unchanged high-res
  * shutter capture. The live processor is adaptive and only runs one frame at
  * a time; the native video remains behind it for startup/error recovery.
  * The full-resolution still never uses the preview's smaller buffer.
@@ -15,10 +15,13 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  const shutter=$('liveCameraShot'),flip=$('liveCameraFlip');
  const status=$('liveCameraStatus'),res=$('liveCameraResolution');
  const timer=$('liveCameraTimer'),previewToggle=$('liveCameraPreviewEnabled');
+ const captureMode=$('liveCameraCaptureMode');
+ try{if(localStorage.getItem('vhs.camera.captureMode')==='native')captureMode.value='native';}catch(e){}
  const faces=$('liveCameraFaces'),again=$('liveCameraAgain');
  const save=$('liveCameraSave'),edit=$('liveCameraEdit'),reviewButtons=$('liveCameraReviewActions');
  let stream=null,session=0,previewJob=null;
- let facing='environment',active=false,review=false,capturing=false;
+ let facing='environment',active=false,review=false,capturing=false,frozen=false;
+ let lastPointerShotAt=0;
  let lastRendered=null,lastFilename='',liveSeed=0,filmSeed=0;
  let liveVisual=null,previewDraws=0,ready=false,fxReady=false,previewBusy=false;
  let viewLongSide=340,lastRenderMs=0,averageRenderMs=0,lastWidth=0,lastHeight=0;
@@ -40,16 +43,16 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   edit.disabled=capturing||!lastRendered;
   reviewButtons.hidden=!review;
   dialog.classList.toggle('is-review',review);
-  fx.hidden=review||!previewToggle.checked||!fxReady;
-  newFx.hidden=review;
+  fx.hidden=review||frozen||!previewToggle.checked||!fxReady;
+  newFx.hidden=review||frozen;
   newFx.disabled=!ready||capturing||review;
   // The actual photo engine already supplies color and VHS; never double-filter.
   video.style.filter='none';
-  still.hidden=!review;
-  badge.textContent=review?'● ГОТОВЫЙ КАДР':'● LIVE';
+  still.hidden=!(review||frozen);
+  badge.textContent=review?'● ГОТОВЫЙ КАДР':frozen?'● СНЯТО':'● LIVE';
  };
  const close=()=>{
-  session++;active=false;ready=false;review=false;capturing=false;
+  session++;active=false;ready=false;review=false;capturing=false;frozen=false;
   clearJobs();stopTracks();
   lastRendered=null;lastFilename='';
   if(dialog.open)dialog.close();
@@ -173,7 +176,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  async function start(){
   const token=++session;
   clearJobs();stopTracks();
-  ready=false;capturing=false;review=false;lastRendered=null;
+  ready=false;capturing=false;review=false;frozen=false;lastRendered=null;
   fxReady=false;fx.hidden=true;viewLongSide=340;lastWidth=0;lastHeight=0;
   stage.classList.toggle('selfie',facing==='user');
   refreshButtons();
@@ -182,7 +185,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    setStatus('Этот браузер не дал доступ к камере. Используй Safari через HTTPS или системную камеру.');
    return;
   }
-  setStatus('Запрашиваю разрешение iPhone на камеру…');
+  setStatus('Открываю камеру…');
   const opts={audio:false,video:{
    facingMode:{ideal:facing},
    width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:30}
@@ -212,7 +215,9 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    applyVisual();
    fitStage(w,h);
    ready=true;refreshButtons();
-   setStatus('Камера готова · реальные эффекты LIVE. Фото в высоком разрешении.');
+   setStatus(captureMode.value==='instant'?
+     'Камера готова · мгновенный спуск '+w+' × '+h+'.':
+     'Камера готова · фото сенсора (возможна задержка).');
    schedule(token,50);
   }catch(err){
    if(token!==session)return;
@@ -294,19 +299,39 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  async function captureNow(){
   if(!active||!ready||capturing||review)return;
   const token=session;
-  capturing=true;clearJobs();refreshButtons();
-  setStatus('Фиксирую кадр…');
+  const instant=captureMode.value!=='native';
+  let raw=null;
+  // Crucial: copy the actual sensor video frame BEFORE any DOM updates,
+  // asynchronous takePhoto(), film rendering, or face analysis. Moving the
+  // phone after this call can no longer change which moment was captured.
+  if(instant){
+   try{raw=canvasFrom(video);}
+   catch(err){setStatus('Не удалось зафиксировать кадр: '+(err?.message||err));return;}
+  }
+  capturing=true;clearJobs();
+  if(raw){
+   frozen=true;
+   // An immediate frozen frame is visible while the chosen effects render.
+   drawResult(still,raw,1100);
+   stage.classList.remove('selfie');
+  }
+  refreshButtons();
+  setStatus(raw?'Кадр зафиксирован · обрабатываю эффекты…':'Снимаю фото сенсора…');
   try{
-   const raw=await takeRawPhoto();
+   if(!raw)raw=await takeRawPhoto();
    if(!active||token!==session)return;
-   setStatus('Применяю выбранные эффекты к снимку '+raw.width+' × '+raw.height+'…');
+   // Let the frozen frame paint before the synchronous filter pipeline starts.
+   if(frozen)await pause(28);
+   if(!active||token!==session)return;
+   setStatus('Применяю эффекты к снятому кадру '+raw.width+' × '+raw.height+'…');
    const result=await onCaptured(raw,liveSeed,faces.value,setStatus,{filmSeed});
    if(!active||token!==session)return;
    lastRendered=result.processed;
    lastFilename=result.filename;
    drawResult(still,result.processed,1440);
    fitStage(still.width,still.height);
-   stage.classList.remove('selfie','instant');review=true;
+   stage.classList.remove('selfie','instant');
+   frozen=false;review=true;
    refreshButtons();
    const final=result.processed;
    res.textContent='Готовый снимок: '+final.width+' × '+final.height+
@@ -314,6 +339,8 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    setStatus('Снимок готов. Редактируй, сохраняй или снимай ещё.');
   }catch(error){
    if(token!==session||!active)return;
+   frozen=false;stage.classList.toggle('selfie',facing==='user');
+   const [w,h]=getDims();fitStage(w,h);
    setStatus('Ошибка снимка: '+(error?.message||error)+'. Повтори съёмку.');
   }finally{
    capturing=false;if(token===session&&active)refreshButtons();
@@ -350,7 +377,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  }
  function againShot(){
   if(!active||capturing)return;
-  review=false;lastRendered=null;lastFilename='';
+  review=false;frozen=false;lastRendered=null;lastFilename='';
   stage.classList.toggle('selfie',facing==='user');
   applyVisual();
   const [vw,vh]=getDims();fitStage(vw,vh);
@@ -384,7 +411,25 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  $('liveCameraOpenPanel').addEventListener('click',open);
  $('liveCameraClose').addEventListener('click',close);
  $('liveCameraFlip').addEventListener('click',flipLens);
- $('liveCameraShot').addEventListener('click',shoot);
+ // Touch-first shutter: do not wait for finger release / synthesized click.
+ shutter.addEventListener('pointerdown',event=>{
+  if(!active||!ready||capturing||review||(Number(timer.value)||0)>0)return;
+  if(event.pointerType==='mouse'&&event.button!==0)return;
+  lastPointerShotAt=performance.now();
+  event.preventDefault();
+  void captureNow();
+ });
+ // Keyboard accessibility and browsers without Pointer Events.
+ shutter.addEventListener('click',()=>{
+  if(performance.now()-lastPointerShotAt<900)return;
+  void shoot();
+ });
+ captureMode.addEventListener('change',()=>{
+  try{localStorage.setItem('vhs.camera.captureMode',captureMode.value);}catch(e){}
+  if(active&&ready&&!review)setStatus(captureMode.value==='instant'?
+   'Мгновенно: кадр фиксируется в момент нажатия.':
+   'Фото сенсора: выше разрешение, но возможна задержка.');
+ });
  newFx.addEventListener('click',newInterference);
  $('liveCameraSave').addEventListener('click',saveShot);
  edit.addEventListener('click',editShot);
@@ -415,7 +460,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  refreshButtons();
  return Object.freeze({open,close,isActive:()=>active,
   getState:()=>({active,ready,review,facing,hasStream:!!stream,
-   hasRenderedShot:!!lastRendered,liveSeed,filmSeed,previewDraws,
+   hasRenderedShot:!!lastRendered,liveSeed,filmSeed,previewDraws,captureMode:captureMode.value,
    previewMode:'real-photo-pipeline-over-live-video',viewLongSide,lastRenderMs,averageRenderMs})});
 }
 root.VHSPhotoCamera=Object.freeze({mount});
