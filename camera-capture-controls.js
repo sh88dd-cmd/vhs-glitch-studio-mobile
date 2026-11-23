@@ -6,6 +6,28 @@
 'use strict';
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,Number(x)||0));
 const $=id=>document.getElementById(id);
+const ratioMap={'9:16':9/16,'16:9':16/9,'3:4':3/4,'4:3':4/3,'1:1':1,'21:9':21/9};
+function requestedRatio(value,sourceW,sourceH){
+ return ratioMap[value]||sourceW/sourceH;
+}
+function cropRect(w,h,format){
+ const target=requestedRatio(format,w,h),actual=w/h;
+ if(!Number.isFinite(target)||!w||!h)return{x:0,y:0,w,h};
+ if(Math.abs(actual-target)<.002)return{x:0,y:0,w,h};
+ if(actual>target){const width=h*target;return{x:(w-width)/2,y:0,w:width,h};}
+ const height=w/target;return{x:0,y:(h-height)/2,w,h:height};
+}
+function croppedSize(w,h,format){
+ const c=cropRect(w,h,format);
+ const even=n=>Math.max(2,Math.round(n/2)*2);
+ return {width:even(c.w),height:even(c.h)};
+}
+function drawCropped(ctx,source,sourceW,sourceH,format,outW,outH){
+ const c=cropRect(sourceW,sourceH,format);
+ ctx.drawImage(source,c.x,c.y,c.w,c.h,0,0,outW,outH);
+}
+root.VHSCameraFormats=Object.freeze({requestedRatio,cropRect,croppedSize,drawCropped});
+
 function mount({prefix,video,stage,onStatus,onChange,canInteract}){
  const flash=$(prefix+'Flash'),ev=$(prefix+'Exposure'),value=$(prefix+'ExposureValue');
  const reset=$(prefix+'ExposureReset'),lock=$(prefix+'AELock');
@@ -25,14 +47,14 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
  const cssFilter=()=>!hardwareEV&&brightness!==0?
   'brightness('+Math.pow(2,brightness).toFixed(5)+')':'none';
  const render=()=>{
-  value.textContent=(brightness>0?'+':'')+brightness.toFixed(1)+' EV';
+  value.textContent=(brightness>0?'+':'')+brightness.toFixed(1);
   ev.value=String(brightness);
   flash.textContent=torchOn?'⚡ ВКЛ':'⚡ ВЫКЛ';
   flash.setAttribute('aria-pressed',String(torchOn));
   flash.disabled=!usable()||!torchSupported();
   flash.title=!torchSupported()?'Устройство не предоставляет фонарик браузеру':
    'Аппаратный фонарик. В фото он подсвечивает кадр до нажатия без задержки затвора';
-  lock.textContent=locked?'AE/AF LOCK 🔒':'AE/AF LOCK';
+  lock.textContent=locked?'🔒 AE/AF':'◎ AE/AF';
   lock.setAttribute('aria-pressed',String(locked));
   lock.disabled=!usable()||!canLock();
   lock.title=!canLock()?'Браузер не предоставляет блокировку экспозиции и фокуса':
@@ -210,8 +232,25 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
   return{x:clamp((event.clientX-rect.left)/Math.max(rect.width,1),0,1),
    y:clamp((event.clientY-rect.top)/Math.max(rect.height,1),0,1)};
  };
+ // iOS touch-and-hold selection and callout otherwise steal the 650ms gesture.
+ // Ignore actual UI controls; never block the range input or buttons.
+ const controlTarget=target=>!!target?.closest?.('button,input,label,select,option,output,.captureCameraToolbar');
+ stage.addEventListener('touchstart',event=>{
+  if(!controlTarget(event.target)&&event.cancelable)event.preventDefault();
+ },{passive:false});
+ stage.addEventListener('touchmove',event=>{
+  if(!controlTarget(event.target)&&event.cancelable)event.preventDefault();
+ },{passive:false});
+ stage.addEventListener('contextmenu',event=>{
+  if(!controlTarget(event.target))event.preventDefault();
+ });
+ stage.addEventListener('selectstart',event=>{
+  if(!controlTarget(event.target))event.preventDefault();
+ });
  stage.addEventListener('pointerdown',event=>{
-  if(event.target.closest('button,input,label')||!usable()||event.button>0)return;
+  if(controlTarget(event.target)||!usable()||event.button>0)return;
+  if(event.cancelable)event.preventDefault();
+  try{stage.setPointerCapture?.(event.pointerId);}catch{}
   const p=point(event);
   pressPoint={...p,x0:event.clientX,y0:event.clientY,startEV:brightness,
    fired:false,dragging:false};
@@ -242,6 +281,7 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
   clearTimeout(pointTimer);pointTimer=0;
   if(pressPoint&&!pressPoint.fired&&!pressPoint.dragging)
    void focusAt(pressPoint.x,pressPoint.y);
+  try{stage.releasePointerCapture?.(event.pointerId);}catch{}
   pressPoint=null;
  });
  for(const type of ['pointercancel','pointerleave']){
