@@ -24,7 +24,7 @@
 <div class="row slim"><button class="btn mini" id="allPhotoFxToggle" type="button">✕ СБРОСИТЬ ВСЁ</button><button class="btn mini" id="undoPhotoFxReset" type="button" disabled>↶ Отменить сброс</button><button class="btn mini" id="compare">◩ До / После</button><button class="btn mini" id="openMainPreview">⛶ Открыть крупно</button><button class="btn mini" id="dockEnable" aria-pressed="true">▣ Превью: вкл</button><span id="renderStatus" class="muted">Локальная обработка · фото не загружаются на сервер</span><span id="renderTime" class="muted"></span></div></section>
 <details id="favoritesStrip" class="favoriteStrip"><summary><span>★ ИЗБРАННЫЕ ПЛЁНКИ</span><span id="favoritesCount" class="muted" role="status">Пока пусто</span></summary><p class="hint">Нажми ☆ у понравившейся плёнки в разделе FILM. Коснись карточки здесь, чтобы сразу применить её к фото.</p><div id="favoritesGrid" class="filmGrid"></div><div class="row"><button class="btn mini" id="prevFavoritesPage">← Назад</button><span id="favoritesPageLabel" class="muted"></span><button class="btn mini" id="nextFavoritesPage">Вперёд →</button></div></details>
 
-<nav class="tabs" aria-label="Разделы"><button data-tab="vhs" class="active">VHS</button><button data-tab="film">FILM</button><button data-tab="glitch">GLITCH</button><button data-tab="cassettes">КАССЕТЫ</button><button data-tab="masks">МАСКИ</button><button data-tab="correction">КОРРЕКЦИЯ</button><button data-tab="polaroid">POLAROID</button><button data-tab="shoot">СЪЁМКА</button><button data-tab="batch">BATCH</button><button data-tab="camera">КАМЕРА</button></nav>
+<nav class="tabs" aria-label="Разделы"><button data-tab="vhs" class="active">VHS</button><button data-tab="film">FILM</button><button data-tab="glitch">GLITCH</button><button data-tab="cassettes">КАССЕТЫ</button><button data-tab="masks">МАСКИ</button><button data-tab="correction">КОРРЕКЦИЯ</button><button data-tab="polaroid">POLAROID</button><button data-tab="shoot">СЪЁМКА</button><button data-tab="photobooth">🎞 ФОТОБУДКА</button><button data-tab="batch">BATCH</button><button data-tab="camera">КАМЕРА</button></nav>
 <section class="panel active" id="panel-vhs"><h2>VHS / ANALOG TAPE</h2><div class="row switch"><span>Включить VHS</span><input id="vhsEnabled" type="checkbox" checked></div>
 <label>Стиль записи<select id="vhsPreset"><option>VHS 90s</option><option>Camcorder 90s</option><option>VHS — мягкий</option><option>VHS — повреждённая кассета</option><option>Dirty VHS Extreme</option><option>Tracking Error</option><option>Аналоговый шум</option><option>Цветные помехи</option><option>RGB Split</option></select></label>
 <div id="masterControl"></div><p class="hint">Аналоговая обработка фотографии по принципам ntsc-rs (самостоятельная офлайн-реализация). Все параметры сохраняются.</p>
@@ -61,6 +61,16 @@
 <p class="hint">Съёмка работает на HTTPS в Safari с разрешением камеры. Настоящее разрешение определяется возможностями браузера. Если прямой доступ недоступен, можно использовать системную камеру:</p>
 <label class="btn full">＋ Системная камера (без живого предпросмотра)<input id="cameraFallbackFile" type="file" accept="image/*" capture="environment" hidden></label>
 <p class="hint">В системной камере фильтры появятся после снимка в приложении. В режиме живой камеры кадры и фильтры обрабатываются локально, без сервера.</p></section>
+<section class="panel" id="panel-photobooth">
+<h2>🎞 ФОТОБУДКА / PHOTO BOOTH</h2>
+<p class="hint">Отдельный режим серии: 4 или 6 снимков с обратным отсчётом. Готовая фотополоска сохраняется как фотография с выбранными VHS/FILM-эффектами.</p>
+<label>Количество кадров <select id="boothCount"><option value="4" selected>4 кадра</option><option value="6">6 кадров</option></select></label>
+<label>Интервал между снимками <select id="boothInterval"><option value="2">2 секунды</option><option value="3" selected>3 секунды</option><option value="5">5 секунд</option></select></label>
+<label>Цвет бумаги <select id="boothPaper"><option value="white" selected>Белая фотополоска</option><option value="black">Чёрная фотополоска</option></select></label>
+<label>Подпись <input type="text" id="boothCaption" maxlength="48" value="PHOTO BOOTH" autocomplete="off"></label>
+<button class="btn primary full" type="button" id="boothOpen">📷 ОТКРЫТЬ ФОТОБУДКУ</button>
+<p class="hint">После открытия нажми затвор один раз: камера проведёт всю серию. Готовую полоску можно сохранить или редактировать. Серия не включается при обычной фотосъёмке.</p>
+</section>
 <section class="panel" id="panel-batch"><h2>BATCH / ДО 50 ФОТОГРАФИЙ</h2><p class="hint">Один стиль VHS + FILM + КАМЕРА для серии. Маленькая ↻ под фото обновляет только его помехи, ↶ возвращает предыдущий вариант. Общая ↻ — сразу для всех. Шесть превью на странице.</p>
 <label class="btn primary full">＋ Выбрать до 50 фото<input type="file" id="batchFiles" accept="image/*" multiple hidden></label>
 <div class="row"><span id="batchStatus">Фотографии не выбраны</span><button id="batchRegen" class="btn mini">↻ Новые помехи</button></div><div class="batchGrid" id="batchGrid"></div>
@@ -86,6 +96,7 @@
  <canvas id="liveCameraFx" width="2" height="2" aria-label="Предпросмотр эффектов"></canvas>
  <canvas id="liveCameraStill" width="2" height="2" hidden aria-label="Готовый снимок"></canvas>
  <span id="liveCameraFocusMarker" class="captureCameraFocusMarker" hidden aria-hidden="true"></span>
+ <canvas id="liveCameraDoubleLayer" width="2" height="2" hidden aria-hidden="true"></canvas>
 <div class="captureCameraToolbar" aria-label="Свет, экспозиция и AE/AF">
  <button type="button" id="liveCameraFlash" class="captureCameraFlash" aria-pressed="false">⚡ ВЫКЛ</button>
  <label class="captureCameraExposureLabel">☀ <input id="liveCameraExposure" type="range" min="-2" max="2" step="0.1" value="0" aria-label="Экспозиция от минус двух до плюс двух EV"><output id="liveCameraExposureValue">0.0</output></label>
@@ -112,6 +123,11 @@
  <button class="liveCameraShutter" type="button" id="liveCameraShot" aria-label="Сделать фотографию"><span></span></button>
  <button class="btn" type="button" id="liveCameraConfigure">⚙ НАСТРОЙКИ</button>
  </div>
+ <div class="captureModeRow" id="photoCreativeModes">
+ <button type="button" id="liveCameraDouble" aria-pressed="false">◉ DOUBLE</button>
+ <button type="button" id="liveCameraBest" aria-pressed="false">◎ BEST SHOT</button>
+ </div>
+ <div id="liveCameraBestChoices" class="bestShotChoices" hidden></div>
  <div id="liveCameraReviewActions" class="liveCameraReviewActions" hidden>
  <button class="btn" id="liveCameraAgain" type="button">↶ ЕЩЁ СНИМОК</button>
  <button class="btn primary" id="liveCameraEdit" type="button">✎ РЕДАКТИРОВАТЬ</button>
