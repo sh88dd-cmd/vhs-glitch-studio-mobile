@@ -865,3 +865,48 @@ button:focus-visible,summary:focus-visible{
 .footer{background:#0c0c0c!important;color:#bcbcbc;border-color:#444!important}
 .footer button{background:#292929;color:#fff;border-color:#666}
 a{color:#f4f4f4}
+
+
+/* Photo 1.8.7 — fullscreen camera: messages never consume viewport height.
+   Camera readiness and stream dimensions remain available to JS but no longer
+   occupy two stacked rows under the live image. */
+#liveCameraDialog #liveCameraResolution{
+ display:none!important;height:0!important;min-height:0!important;
+ padding:0!important;margin:0!important;
+}
+#liveCameraDialog .liveCameraViewport{
+ position:relative!important;flex:1 1 0!important;min-height:0!important;
+}
+#liveCameraDialog .liveCameraViewport>.cameraToast{
+ position:absolute!important;z-index:22!important;
+ top:48px!important;left:12px!important;right:12px!important;
+ width:auto!important;height:auto!important;
+ max-height:70px!important;min-height:0!important;
+ margin:0!important;padding:7px 10px!important;
+ border:1px solid #777!important;border-left:3px solid #fff!important;
+ border-radius:8px!important;
+ background:rgba(18,18,18,.91)!important;color:#fff!important;
+ font-size:11px!important;line-height:1.35!important;
+ text-align:center!important;word-break:break-word!important;
+ display:block!important;overflow:hidden!important;
+ opacity:0!important;visibility:hidden!important;
+ pointer-events:none!important;transform:translateY(-4px);
+ transition:opacity .13s ease,transform .13s ease,visibility .13s ease;
+ -webkit-user-select:none!important;user-select:none!important;
+}
+#liveCameraDialog .liveCameraViewport>.cameraToast.cameraToastVisible{
+ opacity:1!important;visibility:visible!important;transform:translateY(0);
+}
+#liveCameraDialog .liveCameraViewport>.cameraToast.cameraToastError{
+ border-left-color:#ff6868!important;
+}
+#liveCameraDialog[open]{gap:5px!important}
+#liveCameraDialog.is-booth-review .liveCameraViewport>.cameraToast{
+ position:sticky!important;top:5px!important;left:auto!important;right:auto!important;
+ margin:5px 8px -42px!important;
+}
+@media(max-height:620px){
+ #liveCameraDialog .liveCameraViewport>.cameraToast{
+  top:37px!important;font-size:10px!important;padding:5px 7px!important;
+ }
+}
