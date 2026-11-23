@@ -311,7 +311,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    const final=result.processed;
    res.textContent='Готовый снимок: '+final.width+' × '+final.height+
     '. Исходник доступен в основном фоторедакторе.';
-   setStatus('Снимок обработан. Сохрани в «Фото» или сделай ещё один.');
+   setStatus('Снимок готов. Редактируй, сохраняй или снимай ещё.');
   }catch(error){
    if(token!==session||!active)return;
    setStatus('Ошибка снимка: '+(error?.message||error)+'. Повтори съёмку.');
