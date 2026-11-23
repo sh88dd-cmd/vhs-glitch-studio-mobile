@@ -1,6 +1,6 @@
 {
-  "name": "VHS Video Lab — Monochrome",
-  "short_name": "VHS Video",
+  "name": "VHS Video Lab",
+  "short_name": "VHS Video Lab",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",
@@ -11,13 +11,9 @@
     {
       "src": "./icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "./icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
-  "description": "Черно-белый видеоредактор VHS: живые помехи, плёнки и полный экран"
+  "description": "VHS Video Lab: видеосъёмка, плёнки, помехи и монтаж"
 }
