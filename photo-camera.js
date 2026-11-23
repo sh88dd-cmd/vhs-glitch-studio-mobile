@@ -34,6 +34,84 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  let lastRendered=null,lastFilename='',liveSeed=0,filmSeed=0;
  let liveVisual=null,previewDraws=0,ready=false,fxReady=false,previewBusy=false;
  let viewLongSide=340,lastRenderMs=0,averageRenderMs=0,lastWidth=0,lastHeight=0;
+ // On some iPhone WebKit camera sessions a portrait sensor frame contains
+ // opaque black margins on all FOUR sides. CSS object-fit:cover cannot remove
+ // black pixels already baked into the MediaStream, so detect that geometry
+ // conservatively and zoom only when actual symmetric black mattes exist.
+ let liveMatte=null,matteTimer=null,matteCandidate='',matteHits=0;
+ const matteProbe=document.createElement('canvas');
+ matteProbe.width=90;matteProbe.height=160;
+ function clearMatte(){
+  if(matteTimer!==null){clearInterval(matteTimer);matteTimer=null;}
+  liveMatte=null;matteCandidate='';matteHits=0;
+  video.style.transform='';
+ }
+ function detectMatte(){
+  if(!active||!ready||review||capturing||video.readyState<2)return null;
+  const w=matteProbe.width,h=matteProbe.height;
+  try{
+   const cx=matteProbe.getContext('2d',{willReadFrequently:true});
+   cx.drawImage(video,0,0,w,h);
+   const data=cx.getImageData(0,0,w,h).data;
+   const dark=(x,y)=>{
+    const i=(y*w+x)*4;
+    return data[i]<=7&&data[i+1]<=7&&data[i+2]<=7;
+   };
+   const rowBlack=y=>{
+    let count=0;
+    for(let x=0;x<w;x++)if(dark(x,y))count++;
+    return count>=w-2;
+   };
+   const colBlack=x=>{
+    let count=0;
+    for(let y=0;y<h;y++)if(dark(x,y))count++;
+    return count>=h-3;
+   };
+   let top=0,bottom=0,left=0,right=0;
+   while(top<h*.4&&rowBlack(top))top++;
+   while(bottom<h*.4&&rowBlack(h-1-bottom))bottom++;
+   while(left<w*.4&&colBlack(left))left++;
+   while(right<w*.4&&colBlack(w-1-right))right++;
+   const l=left/w,r=right/w,t=top/h,b=bottom/h;
+   // A genuine WebKit padding bug has symmetric near-pure-black borders
+   // horizontally AND vertically. Never crop an ordinary dark photograph.
+   if(Math.min(l,r,t,b)<.10||Math.abs(l-r)>.06||Math.abs(t-b)>.06)return null;
+   const visibleW=1-l-r,visibleH=1-t-b;
+   if(visibleW<.33||visibleH<.33||Math.abs(visibleW-visibleH)>.10)return null;
+   const center=(Math.floor(h/2)*w+Math.floor(w/2))*4;
+   if(data[center]+data[center+1]+data[center+2]<36)return null;
+   return {x:l,y:t,w:visibleW,h:visibleH};
+  }catch{return null;}
+ }
+ function refreshMatte(){
+  if(!active||!ready||review||capturing)return;
+  const detected=detectMatte();
+  const signature=detected?
+   [detected.x,detected.y,detected.w,detected.h].map(x=>Math.round(x*20)).join(':'):'none';
+  if(signature!==matteCandidate){matteCandidate=signature;matteHits=1;return;}
+  if(++matteHits<2)return;
+  // Never alternate between two zoom levels while filming a dark subject.
+  const old=liveMatte;
+  if(signature==='none')liveMatte=null;
+  else liveMatte=detected;
+  const zoom=liveMatte?Math.min(2.5,1/Math.min(liveMatte.w,liveMatte.h)):1;
+  video.style.transform=zoom>1.12?
+   (facing==='user'?'scale('+(-zoom)+','+zoom+')':'scale('+zoom+')'):'';
+  if((!!old)!=(!!liveMatte)||old&&liveMatte&&Math.abs(old.w-liveMatte.w)>.05){
+   fxReady=false;fx.hidden=true;previewDraws=0;
+   if(active&&ready&&!review&&previewToggle.checked)schedule(session,30);
+  }
+ }
+ function runMatteProbe(){
+  clearMatte();
+  matteTimer=setInterval(refreshMatte,1500);
+ }
+ function liveCrop(w,h,format){
+  const m=liveMatte||{x:0,y:0,w:1,h:1};
+  const origin={x:w*m.x,y:h*m.y,w:w*m.w,h:h*m.h};
+  const c=formats.cropRect(origin.w,origin.h,format);
+  return{x:origin.x+c.x,y:origin.y+c.y,w:c.w,h:c.h};
+ }
  const getDims=()=>[Number(video.videoWidth)||0,Number(video.videoHeight)||0];
  const resetDouble=()=>{
   doubleFirst=null;doubleLayer.hidden=true;
@@ -101,6 +179,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   }
  });
  const stopTracks=()=>{
+  clearMatte();
   controls.unbind();
   if(stream){for(const track of stream.getTracks()){try{track.stop();}catch{}}stream=null;}
   if(video.srcObject){video.pause();video.srcObject=null;}
@@ -216,13 +295,13 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    // no fake CSS FILM lookup, and no backlog of stale camera frames.
    const renderingSeed=liveSeed;
    let source=video;
-   if(aspect.value!=='original'){
-    const size=formats.croppedSize(vw,vh,aspect.value);
-    const scale=Math.min(1,Math.max(280,viewLongSide)/Math.max(size.width,size.height));
-    previewSource.width=Math.max(2,Math.round(size.width*scale));
-    previewSource.height=Math.max(2,Math.round(size.height*scale));
-    formats.drawCropped(previewSource.getContext('2d'),video,vw,vh,aspect.value,
-     previewSource.width,previewSource.height);
+   if(aspect.value!=='original'||liveMatte){
+    const crop=liveCrop(vw,vh,aspect.value);
+    const scale=Math.min(1,Math.max(280,viewLongSide)/Math.max(crop.w,crop.h));
+    previewSource.width=Math.max(2,Math.round(crop.w*scale));
+    previewSource.height=Math.max(2,Math.round(crop.h*scale));
+    previewSource.getContext('2d').drawImage(video,
+     crop.x,crop.y,crop.w,crop.h,0,0,previewSource.width,previewSource.height);
     source=previewSource;
    }
    const result=await onPreview(source,renderingSeed,filmSeed,viewLongSide);
@@ -240,8 +319,11 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    // Saved photographs retain 100% effect strength and their export resolution.
    fx.style.opacity=String(Math.max(.38,Math.min(1,100/averageRenderMs)));
    fxReady=true;fx.hidden=false;
+   // Processed overlays can change pixel dimensions (film borders, adaptive
+   // preview resolution). Never resize the LIVE stage to an overlay buffer.
+   // The viewfinder itself always follows camera stream + chosen aspect.
    if(previewDraws===0||fx.width!==lastWidth||fx.height!==lastHeight)
-    fitStage(result.width,result.height,true);
+    fitStage(vw,vh);
    lastWidth=fx.width;lastHeight=fx.height;
    previewDraws++;
    const ideal=idealLongSide(liveVisual||{});
@@ -312,6 +394,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    applyVisual();
    fitStage(w,h);
    ready=true;refreshButtons();
+   runMatteProbe();
    setStatus(captureMode.value==='instant'?
      'Камера готова · мгновенный спуск '+w+' × '+h+'.':
      'Камера готова · фото сенсора (возможна задержка).');
@@ -350,7 +433,8 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   // while this canvas pipeline should stay within mobile Safari memory.
   const safeScale=Math.min(1,3800/Math.max(w,h),
    Math.sqrt(12500000/(w*h)));
-  const crop=formats.cropRect(w,h,aspect.value);
+  const crop=source===video?liveCrop(w,h,aspect.value):
+   formats.cropRect(w,h,aspect.value);
   const sw=Math.max(1,Math.round(crop.w*safeScale));
   const sh=Math.max(1,Math.round(crop.h*safeScale));
   const c=document.createElement('canvas');c.width=sw;c.height=sh;
@@ -362,7 +446,9 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   const hasCanvasFilter=('filter' in ctx);
   ctx.save();
   if(hasCanvasFilter)ctx.filter=controls.cssFilter();
-  formats.drawCropped(ctx,source,w,h,aspect.value,sw,sh);
+  if(source===video&&liveMatte){
+   ctx.drawImage(source,crop.x,crop.y,crop.w,crop.h,0,0,sw,sh);
+  }else formats.drawCropped(ctx,source,w,h,aspect.value,sw,sh);
   ctx.restore();
   if(!hasCanvasFilter)controls.bakeCanvas(c);
   return c;
@@ -719,11 +805,17 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  });
  function fitCurrentStage(){
   if(!active)return;
-  if(review&&still.width>2&&still.height>2)fitStage(still.width,still.height,true);
-  else if(fxReady)fitStage(fx.width,fx.height,true);
-  else{const [w,h]=getDims();fitStage(w,h);}
+  if(review&&still.width>2&&still.height>2){
+   fitStage(still.width,still.height,true);return;
+  }
+  // Always derive LIVE geometry from the sensor and requested crop, NOT
+  // the (possibly letterboxed or dynamically resized) processed canvas.
+  const [w,h]=getDims();
+  fitStage(w,h);
  }
  window.addEventListener('resize',fitCurrentStage);
+ video.addEventListener('resize',fitCurrentStage);
+ video.addEventListener('loadedmetadata',fitCurrentStage);
  if(window.ResizeObserver){
   const observer=new ResizeObserver(fitCurrentStage);
   observer.observe($('liveCameraViewport'));
