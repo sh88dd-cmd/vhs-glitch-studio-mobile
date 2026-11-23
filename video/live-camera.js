@@ -68,7 +68,10 @@ function mount({getSettings,getFilmProfile,onImport}){
  const newBtn=$('videoLiveNew'),flipBtn=$('videoLiveFlip');
  const micToggle=$('videoLiveMicrophone'),quality=$('videoLiveQuality');
  const frames=$('videoLiveFPS'),sound=$('videoLiveAudioState');
- const captureMode=$('videoLiveCaptureMode');
+ const captureMode=$('videoLiveCaptureMode'),aspect=$('videoLiveAspect');
+ const formats=root.VHSCameraFormats;
+ try{const savedRatio=localStorage.getItem('vhs.video.captureRatio');
+  if([...aspect.options].some(o=>o.value===savedRatio))aspect.value=savedRatio;}catch{}
  try{captureMode.value=localStorage.getItem('vhs.video.captureMode')==='baked'?'baked':'editable';}
  catch{captureMode.value='editable';}
  const download=$('videoLiveDownload'),share=$('videoLiveShare');
@@ -98,14 +101,21 @@ function mount({getSettings,getFilmProfile,onImport}){
    fx.style.filter='none';
   }
  });
+ function drawEditable(){
+  const ctx=editableCanvas.getContext('2d',{alpha:false});
+  const hasFilter='filter' in ctx;
+  ctx.save();
+  if(hasFilter)ctx.filter=controls.cssFilter();
+  formats.drawCropped(ctx,video,video.videoWidth,video.videoHeight,
+   aspect.value,editableCanvas.width,editableCanvas.height);
+  ctx.restore();
+  if(!hasFilter)controls.bakeCanvas(editableCanvas);
+ }
  function paintEditableFrame(now){
   if(!recording||activeCaptureMode!=='editable')return;
   if(now-editableLastFrame>=1000/(Number(frames.value)||20)-2&&video.readyState>=2){
    editableLastFrame=now;
-   const ctx=editableCanvas.getContext('2d',{alpha:false});
-   ctx.filter=controls.cssFilter();
-   ctx.drawImage(video,0,0,editableCanvas.width,editableCanvas.height);
-   ctx.filter='none';
+   drawEditable();
   }
   editableLoop=requestAnimationFrame(paintEditableFrame);
  }
@@ -195,6 +205,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   quality.disabled=recording||stopping;
   frames.disabled=recording||stopping;
   captureMode.disabled=recording||stopping;
+  aspect.disabled=recording||stopping||!!resultBlob;
   badge.textContent=recording?'● REC':resultBlob?'● ГОТОВО':'● LIVE';
   badge.classList.toggle('recording',recording);
   reviewPanel.hidden=!resultBlob;
@@ -223,7 +234,9 @@ function mount({getSettings,getFilmProfile,onImport}){
   document.body.classList.remove('videoCameraLock');
  }
  function fitStage(){
-  const w=video.videoWidth||720,h=video.videoHeight||1280;
+  const sourceW=video.videoWidth||720,sourceH=video.videoHeight||1280;
+  const target=formats.croppedSize(sourceW,sourceH,aspect.value);
+  const w=target.width,h=target.height;
   const viewport=$('videoLiveViewport');
   const availableW=Math.max(1,viewport.clientWidth);
   const availableH=Math.max(1,viewport.clientHeight);
@@ -248,10 +261,12 @@ function mount({getSettings,getFilmProfile,onImport}){
   }
   if(processed.width!==w||processed.height!==h){
    processed.width=w;processed.height=h;
-   fx.width=w;fx.height=h;
    engine.reset();
   }
-  return[w,h];
+  const cropped=formats.croppedSize(w,h,aspect.value);
+  if(fx.width!==cropped.width)fx.width=cropped.width;
+  if(fx.height!==cropped.height)fx.height=cropped.height;
+  return[cropped.width,cropped.height];
  }
  function overlay(token){
   if(!active||!ready||resultBlob||token!==session)return;
@@ -266,7 +281,8 @@ function mount({getSettings,getFilmProfile,onImport}){
    // One exposure pass is shared by the visible frame and baked recording.
    controls.bakeCanvas(processed);
    const ctx=fx.getContext('2d',{alpha:false});
-   ctx.drawImage(processed,0,0,fx.width,fx.height);
+   formats.drawCropped(ctx,processed,processed.width,processed.height,
+    aspect.value,fx.width,fx.height);
    fx.hidden=false;
    if(recording)recordFrameCount++;
    lastCompositorMs=lastFxReport.duration;
@@ -377,24 +393,25 @@ function mount({getSettings,getFilmProfile,onImport}){
     if(!sensor||sensor.readyState!=='live')throw Error('Исходный видеопоток недоступен');
     // Camera-native dimensions; no VHS, grayscale or downsampling. Unlike
     // CSS-only exposure, these pixels also reach the recorded video.
-    if(controls.isHardwareEV()||typeof editableCanvas.captureStream!=='function'){
+    if((aspect.value==='original'&&controls.cssFilter()==='none')||
+       typeof editableCanvas.captureStream!=='function'){
      // Keep the native sensor recording whenever the hardware can adjust EV;
      // also preserve the existing Safari path if CanvasCaptureStream is absent.
      stream=new MediaStream([sensor.clone()]);
-     if(!controls.isHardwareEV()&&controls.getEV()!==0)
-      message('Safari не может записать программную экспозицию без CanvasCaptureStream.');
+     if(aspect.value!=='original'||controls.cssFilter()!=='none')
+      message('Safari не поддерживает выбранный формат или программную экспозицию записи.');
     }else{
-     editableCanvas.width=video.videoWidth||1280;
-     editableCanvas.height=video.videoHeight||720;
-     controls.filterDraw(editableCanvas.getContext('2d',{alpha:false}),
-      video,editableCanvas.width,editableCanvas.height);
+     const size=formats.croppedSize(video.videoWidth||1280,video.videoHeight||720,aspect.value);
+     editableCanvas.width=size.width;editableCanvas.height=size.height;
+     drawEditable();
      stream=editableCanvas.captureStream(recordFPS);
      useEditableCanvas=true;
     }
     const mic=cameraStream.getAudioTracks()?.[0];
     if(mic)stream.addTrack(mic.clone());
    }else{
-    stream=processed.captureStream(recordFPS);
+    // Visible FX is already cropped and never stretched.
+    stream=fx.captureStream(recordFPS);
     attachMicrophoneAudio(stream);
    }
    const rec=new MediaRecorder(stream,{mimeType:mime,
@@ -564,6 +581,15 @@ function mount({getSettings,getFilmProfile,onImport}){
   // Keep the blob until the user explicitly starts another recording.
  });
  share.addEventListener('click',saveShare);
+ aspect.addEventListener('change',()=>{
+  if(recording||stopping||resultBlob)return;
+  try{localStorage.setItem('vhs.video.captureRatio',aspect.value);}catch{}
+  if(active&&ready){
+   ensureOutput();fitStage();
+   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
+   overlay(session);
+  }
+ });
  captureMode.addEventListener('change',()=>{
   if(recording||stopping)return;
   try{localStorage.setItem('vhs.video.captureMode',captureMode.value);}catch{}
