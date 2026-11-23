@@ -944,3 +944,32 @@ a{color:#f4f4f4}
  max-width:none!important;max-height:none!important;
  object-position:center center!important;
 }
+
+/* PHOTO VHS FOOTER UPDATE 1.8.10 — always visible at the end of the page. */
+.footer #photoFooterUpdate{
+ display:flex!important;
+ width:100%!important;
+ min-height:54px!important;
+ margin:18px 0 0!important;
+ padding:14px 16px!important;
+ justify-content:center!important;
+ align-items:center!important;
+ border:1px solid #fff!important;
+ border-radius:11px!important;
+ background:#fff!important;
+ color:#111!important;
+ font-size:14px!important;
+ font-weight:900!important;
+ letter-spacing:.4px!important;
+ text-align:center!important;
+ cursor:pointer;
+ touch-action:manipulation;
+}
+.footer #photoFooterUpdate:disabled{
+ opacity:.7!important;
+ cursor:wait!important;
+}
+.footer #photoFooterUpdate:focus-visible{
+ outline:2px solid #fff!important;
+ outline-offset:3px!important;
+}
