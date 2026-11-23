@@ -1888,7 +1888,7 @@
    $('empty').querySelector('strong').textContent='ВИДЕО ПОЛУЧЕНО';
    $('empty').querySelector('span').textContent='Нажми ▶ для загрузки первого кадра';
   }
-  $('play').disabled=!!recording;$('export').disabled=!!recording||!frameReady;
+  $('play').disabled=!!recording;$('export').disabled=!!recording||!file;
   $('regenerate').disabled=!!recording;$('seek').disabled=!!recording;
   $('timeTotal').textContent=timeString(source.duration);
   videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();renderKeyframes();creativeUI?.refresh();
@@ -1981,7 +1981,13 @@
   beatAudioCache={file:selected,buffer};return buffer;
  }
  async function beginExport(){
-  if(!file||recording)return;
+  if(recording){exportStatus('Экспорт уже выполняется.');return;}
+  if(!file){exportStatus('Сначала сними или выбери видео.');return;}
+  exportStatus('Подготовка экспорта · проверяю видео и кодировщик…');
+  if(source.readyState<2){
+   exportStatus('Safari ещё подготавливает видео. Нажми ▶ Просмотр, затем повтори сохранение.');
+   return;
+  }
   if(state.creative.speed.enabled&&state.creative.speed.reverse){
     exportStatus('Реверс пока доступен только в предпросмотре. Для экспорта назад необходим отдельный покадровый кодировщик.');
     return;
@@ -2223,7 +2229,13 @@
    for(const f of [...(e.target.files||[])])try{await importPresets(f)}catch(err){$('filmImportStatus').textContent='Ошибка: '+err.message;}
    e.target.value='';
   };
-  $('export').onclick=()=>beginExport().catch(e=>exportStatus('Ошибка экспорта: '+e.message));
+  $('export').onclick=()=>{
+   exportStatus('Нажатие принято · начинаю сохранение…');
+   beginExport().catch(e=>{
+    console.error('Export failed:',e);
+    exportStatus('Ошибка экспорта: '+e.message);
+   });
+  };
   $('cancel').onclick=stopExport;
   $('share').onclick=shareExport;
  }
