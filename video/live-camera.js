@@ -377,11 +377,19 @@ function mount({getSettings,getFilmProfile,onImport}){
     if(!sensor||sensor.readyState!=='live')throw Error('Исходный видеопоток недоступен');
     // Camera-native dimensions; no VHS, grayscale or downsampling. Unlike
     // CSS-only exposure, these pixels also reach the recorded video.
-    editableCanvas.width=video.videoWidth||1280;
-    editableCanvas.height=video.videoHeight||720;
-    controls.filterDraw(editableCanvas.getContext('2d',{alpha:false}),
-     video,editableCanvas.width,editableCanvas.height);
-    stream=editableCanvas.captureStream(recordFPS);
+    if(controls.isHardwareEV()||typeof editableCanvas.captureStream!=='function'){
+     // Keep the native sensor recording whenever the hardware can adjust EV;
+     // also preserve the existing Safari path if CanvasCaptureStream is absent.
+     stream=new MediaStream([sensor.clone()]);
+     if(!controls.isHardwareEV()&&controls.getEV()!==0)
+      message('Safari не может записать программную экспозицию без CanvasCaptureStream.');
+    }else{
+     editableCanvas.width=video.videoWidth||1280;
+     editableCanvas.height=video.videoHeight||720;
+     controls.filterDraw(editableCanvas.getContext('2d',{alpha:false}),
+      video,editableCanvas.width,editableCanvas.height);
+     stream=editableCanvas.captureStream(recordFPS);
+    }
     const mic=cameraStream.getAudioTracks()?.[0];
     if(mic)stream.addTrack(mic.clone());
    }else{
@@ -398,7 +406,9 @@ function mount({getSettings,getFilmProfile,onImport}){
    durationStart=performance.now();lastFrameTime=0;recordFrameCount=0;
    recording=true;stopping=false;sync();
    rec.start(500);
-   if(activeCaptureMode==='editable'){
+   if(activeCaptureMode==='editable'&&stream.getVideoTracks()[0]?.getSettings?.().width===editableCanvas.width&&
+      stream.getVideoTracks()[0]?.getSettings?.().height===editableCanvas.height&&
+      !controls.isHardwareEV()&&typeof editableCanvas.captureStream==='function'){
     editableLastFrame=0;
     editableLoop=requestAnimationFrame(paintEditableFrame);
    }
