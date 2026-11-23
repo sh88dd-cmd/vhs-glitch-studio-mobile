@@ -37,7 +37,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  const getDims=()=>[Number(video.videoWidth)||0,Number(video.videoHeight)||0];
  const resetDouble=()=>{
   doubleFirst=null;doubleLayer.hidden=true;
-  doubleEnabled=false;
+  doubleEnabled=false;doubleBtn.textContent='◉ DOUBLE';
   doubleBtn.setAttribute('aria-pressed','false');
   doubleBtn.classList.remove('active');
  };
