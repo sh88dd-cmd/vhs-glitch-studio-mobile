@@ -153,7 +153,7 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
   track=device?.readyState==='live'?device:null;
   try{caps=track?.getCapabilities?.()||{};}catch(err){caps={};}
   active=!!track;hardwareEV=false;render();
-  if(active&&brightness!==0)setExposure(brightness);
+  if(active)setExposure(brightness);
  }
  function unbind(){
   serial++;evSerial++;
