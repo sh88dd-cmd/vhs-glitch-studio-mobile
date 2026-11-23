@@ -3,10 +3,10 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#080808"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="VHS Studio">
 <meta name="description" content="Офлайн редактор фотографий: VHS, FILM, REC, batch до 50 изображений">
-<link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icons/icon-180.png"><link rel="icon" type="image/png" href="./icons/icon-192.png"><link rel="stylesheet" href="./styles.css?v=1.8.7">
+<link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icons/icon-180.png"><link rel="icon" type="image/png" href="./icons/icon-192.png"><link rel="stylesheet" href="./styles.css?v=1.8.8">
 <title>VHS Glitch Studio Mobile</title>
 </head><body>
-<header class="top"><div class="brand"><span class="mark">▥</span><div>VHS <b>GLITCH</b><small>STUDIO MOBILE · 1.8.7</small></div></div><span class="status" id="onlineState">ПРОВЕРКА…</span></header>
+<header class="top"><div class="brand"><span class="mark">▥</span><div>VHS <b>GLITCH</b><small>STUDIO MOBILE · 1.8.8</small></div></div><span class="status" id="onlineState">ПРОВЕРКА…</span></header>
 <aside id="floatingPreview" class="floatingPreview" aria-label="Закреплённый предпросмотр фотографии" hidden>
   <div class="floatingPreviewBar">
     <span class="floatingPreviewTitle">▣ КАДР ПРИ НАСТРОЙКЕ</span>
@@ -83,7 +83,7 @@
 <section class="panel" id="panel-settings"><h2>НАСТРОЙКИ И РЕЗЕРВНАЯ КОПИЯ</h2><p class="hint">Для надёжного восстановления сохрани файл резервной копии в «Файлы» на iPhone или на компьютере. Он содержит твои настройки и импортированные XMP/LUT, но не личные фотографии.</p>
 <button class="btn primary full" id="backupExport">↓ Скачать резервную копию настроек и плёнок</button><label class="btn full">↑ Восстановить из резервной копии<input type="file" id="backupImport" accept=".json,application/json" hidden></label>
 <label>Формат отдельной фотографии<select id="exportFormat"><option value="image/jpeg">JPEG — меньший размер</option><option value="image/png">PNG — без JPEG-сжатия</option></select></label><label>Размер экспорта отдельной фотографии<select id="singleSize"><option value="3200">До 3200 px (рекомендуется)</option><option value="full">Исходный размер (больше памяти)</option><option value="2000">До 2000 px</option></select></label>
-<div class="row"><span>Версия приложения</span><span class="muted">Mobile 1.8.7</span></div><p class="hint" id="offlineDetail">Проверка офлайн-ресурсов…</p>
+<div class="row"><span>Версия приложения</span><span class="muted">Mobile 1.8.8</span></div><p class="hint" id="offlineDetail">Проверка офлайн-ресурсов…</p>
 <button class="btn primary full" id="checkForUpdates" type="button">↻ Обновить приложение без удаления данных</button>
 <button class="btn mini full" id="protectStorage">Попробовать защитить данные от очистки iOS</button><button class="btn mini full" id="installHelp">Как установить через Safari?</button></section>
 <p class="hint" id="extrasStatus" role="status" aria-live="polite">Новые функции сохраняются вместе с настройками. Исходная фотография не изменяется.</p><footer class="footer"><button type="button" id="photoHelpToggle" class="btn mini">? Показать объяснения</button><p id="notice">Все фотографии обрабатываются на устройстве без отправки на сервер.</p><button class="btn mini" id="openSettings">Резервная копия · Настройки</button></footer>
@@ -164,5 +164,5 @@
 <script src="./photo-extras-ui.js?v=1.3.0" defer></script>
 <script src="./photo-polaroid-ui.js?v=1.4.0" defer></script>
 <script src="./camera-capture-controls.js?v=1.8.5" defer></script>
-<script src="./photo-camera.js?v=1.8.7" defer></script>
+<script src="./photo-camera.js?v=1.8.8" defer></script>
 <script src="./app.js?v=1.8.4" defer></script></body></html>
