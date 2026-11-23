@@ -1299,6 +1299,11 @@
        {cameraLive:true,filmSeed},String(size)),
       onCaptured:onCameraCaptured,
       onSave:saveCameraOutput,
+      onEdit:()=>{
+       showTab('vhs');
+       requestAnimationFrame(()=>window.scrollTo({top:0,behavior:'auto'}));
+       notify('Снимок открыт в редакторе. Меняй VHS, FILM, GLITCH, коррекцию и рамки, затем сохраняй.');
+      },
       getSeed:()=>randomSeed(),
       getProfile:cameraCurrentProfile,
       onConfigure:()=>showTab('vhs')
