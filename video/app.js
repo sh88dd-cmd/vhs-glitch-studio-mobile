@@ -2158,8 +2158,12 @@
    return;
   }
   const ext=exportMime.includes('mp4')?'mp4':'webm',name=(clips[0]?.file?.name||'video').replace(/\.[^.]+$/,'')+'_VHS_VIDEO.'+ext;
+  // The file-sharing API expects a normal MIME type. MediaRecorder may
+  // report a codec-qualified type such as video/mp4;codecs=avc1..., which
+  // some iPhone share targets reject as an unsupported video file.
+  const shareType=ext==='mp4'?'video/mp4':'video/webm';
   const f=exportOriginalFile&&exportBlob instanceof File?exportBlob:
-   new File([exportBlob],name,{type:exportMime});
+   new File([exportBlob],name,{type:shareType});
   try{
    if(navigator.canShare?.({files:[f]}))await navigator.share({files:[f],title:'VHS Video Lab'});
    else{
