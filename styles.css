@@ -415,3 +415,77 @@ html.photoCameraLock,body.photoCameraLock{overflow:hidden!important;overscroll-b
 .captureCameraFocusMarker.locked{border-color:#f4bd52}
 @media(max-width:370px){.captureCameraToolbar{grid-template-columns:71px minmax(0,1fr) 57px;left:3px;right:3px;padding:4px}
  .captureCameraToolbar button{font-size:9px}.captureCameraExposureLabel output{min-width:39px;font-size:9px}}
+
+
+/* Camera 1.8.3 / Video 0.9.8: compact viewfinder UI and iOS touch safety. */
+#liveCameraDialog,#videoLiveCameraDialog,
+#liveCameraStage,#videoLiveStage,
+#liveCameraStage *,#videoLiveStage *{
+ -webkit-user-select:none!important;user-select:none!important;
+ -webkit-touch-callout:none!important;-webkit-tap-highlight-color:transparent}
+#liveCameraStage,#videoLiveStage{touch-action:none}
+#liveCameraVideo,#videoLiveVideo{object-fit:cover!important}
+#liveCameraStage .captureCameraToolbar,#videoLiveStage .captureCameraToolbar{
+ display:flex!important;grid-template-columns:none!important;grid-template-rows:none!important;
+ align-items:center;gap:3px;left:5px;right:5px;bottom:5px;
+ padding:3px 4px;height:37px;max-height:37px;border-radius:8px}
+.captureCameraToolbar button{flex:0 0 auto;min-height:29px;height:29px;
+ padding:2px 4px;font-size:9px;line-height:1.1}
+.captureCameraToolbar .captureCameraFlash{width:56px}
+.captureCameraToolbar .captureCameraLock{width:63px}
+.captureCameraToolbar .captureCameraReset{width:28px;font-size:17px}
+.captureCameraToolbar .captureCameraExposureLabel{
+ display:flex!important;grid-column:auto!important;grid-row:auto!important;
+ flex:1 1 auto;align-items:center;gap:3px;min-width:0;
+ padding:0 2px;font-size:12px;white-space:nowrap}
+.captureCameraToolbar .captureCameraExposureLabel input{min-width:20px;flex:1 1 auto;
+ height:30px;touch-action:pan-x!important;accent-color:#ffda95}
+.captureCameraToolbar .captureCameraExposureLabel output{min-width:27px;
+ font-size:9px;font-variant-numeric:tabular-nums}
+.captureQuickBar{position:relative;display:flex;flex:0 0 auto;align-items:center;
+ justify-content:space-between;gap:6px;min-height:34px;max-height:34px;
+ padding:0 2px;z-index:12}
+.captureAspectSelect{display:flex;flex:1 1 auto;align-items:center;gap:7px;
+ min-width:0;color:#d8dddf;font-size:10px;font-weight:700;letter-spacing:.2px}
+.captureAspectSelect select{flex:1;min-width:0;max-width:100%;height:32px;
+ min-height:32px;margin:0;padding:4px 19px 4px 5px;background:#1b2227;
+ color:#f3f3f3;border:1px solid #737d82;border-radius:7px;
+ font-size:11px;touch-action:manipulation;-webkit-user-select:auto!important}
+.captureSettings{position:relative;flex:0 0 116px;min-width:0;z-index:20}
+.captureSettings>summary{display:flex;align-items:center;justify-content:center;
+ min-height:32px;padding:5px 6px;border:1px solid #686e73;
+ border-radius:7px;background:#24282e;color:#f6f6f6;
+ font-size:10px;font-weight:800;cursor:pointer;list-style:none;white-space:nowrap}
+.captureSettings>summary::-webkit-details-marker{display:none}
+.captureSettings>summary::marker{display:none}
+.captureSettings[open]>summary{border-color:#e8d29c;color:#ffdfa2}
+.captureSettings>.liveCameraOptions,
+.captureSettings>.videoLiveControls{position:absolute!important;right:0;bottom:38px;
+ width:min(90vw,370px);max-height:55dvh;overflow:auto;
+ padding:9px!important;margin:0!important;display:grid!important;
+ grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px;
+ background:#131820;border:1px solid #777;border-radius:12px;
+ box-shadow:0 6px 25px #000b;z-index:25}
+.captureSettings>.liveCameraOptions .liveCameraOption{min-height:44px}
+.captureSettings>.liveCameraOptions .liveCameraOption:first-child{flex-direction:row}
+.captureSettings>.videoLiveControls label{padding:7px;min-height:48px}
+#liveCameraDialog .captureQuickBar,#videoLiveCameraDialog .captureQuickBar{
+ flex:0 0 34px}
+#videoLiveCameraDialog .videoLiveTop{height:35px!important;
+ min-height:35px!important;max-height:35px!important}
+#videoLiveCameraDialog .videoLiveTop small{white-space:nowrap;overflow:hidden;
+ text-overflow:ellipsis;-webkit-line-clamp:1}
+#videoLiveCameraDialog .videoLiveStatus{height:30px!important;
+ min-height:30px!important;max-height:30px!important;flex-basis:30px!important}
+#videoLiveCameraDialog .videoLiveMeta,#videoLiveCameraDialog .videoLiveAudioState{
+ display:none!important}
+#videoLiveCameraDialog .videoLiveButtons{min-height:67px!important}
+#videoLiveCameraDialog .videoLiveRecord{width:66px!important;height:66px!important}
+#videoLiveCameraDialog[open]{gap:4px!important}
+#videoLiveCameraDialog .videoLiveControls{flex:initial}
+@media(max-width:365px){
+ .captureCameraToolbar .captureCameraFlash{width:51px}
+ .captureCameraToolbar .captureCameraLock{width:56px;font-size:8px}
+ .captureCameraToolbar .captureCameraExposureLabel output{min-width:24px;font-size:8px}
+ .captureSettings{flex-basis:106px}
+}
