@@ -1030,3 +1030,9 @@ html.videoCameraLock,body.videoCameraLock{overflow:hidden!important;overscroll-b
  .videoLiveCameraDialog .videoLiveButtons{min-height:64px}
  .videoLiveCameraDialog.has-result .videoLiveReviewActions{min-height:118px}
 }
+
+/* v0.9.4: editor-friendly native recording mode selector. */
+.videoLiveControls{grid-template-columns:repeat(2,minmax(0,1fr))}
+.videoLiveControls .videoLiveCaptureModeLabel{min-width:0}
+.videoLiveCaptureModeLabel select{font-size:10px;width:100%}
+#exportStatus:not(:empty){border-left:3px solid #cfcfcf;background:#262626;padding:10px;border-radius:5px;line-height:1.5}
