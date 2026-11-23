@@ -372,35 +372,20 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   if(w<2||h<2)throw Error('Кадр камеры ещё не готов');
   return canvasFrom(video);
  }
- async function captureNow(){
-  if(!active||!ready||capturing||review)return;
-  const token=session;
-  const instant=captureMode.value!=='native';
-  let raw=null;
-  // Crucial: copy the actual sensor video frame BEFORE any DOM updates,
-  // asynchronous takePhoto(), film rendering, or face analysis. Moving the
-  // phone after this call can no longer change which moment was captured.
-  if(instant){
-   try{raw=canvasFrom(video);}
-   catch(err){setStatus('Не удалось зафиксировать кадр: '+(err?.message||err));return;}
-  }
-  capturing=true;clearJobs();
-  if(raw){
-   frozen=true;
-   // An immediate frozen frame is visible while the chosen effects render.
-   drawResult(still,raw,1100);
-   stage.classList.remove('selfie');
-  }
+ async function processRaw(raw,token,fullSize=false){
+  if(!active||token!==session)return;
+  capturing=true;choiceOpen=false;clearJobs();stopBestBuffer();
+  choiceBar.hidden=true;choiceBar.replaceChildren();
+  frozen=true;
+  drawResult(still,raw,1100);
+  stage.classList.remove('selfie');
   refreshButtons();
-  setStatus(raw?'Кадр зафиксирован · обрабатываю эффекты…':'Снимаю фото сенсора…');
+  setStatus('Кадр зафиксирован · применяю выбранные эффекты…');
   try{
-   if(!raw)raw=await takeRawPhoto();
+   await pause(28);
    if(!active||token!==session)return;
-   // Let the frozen frame paint before the synchronous filter pipeline starts.
-   if(frozen)await pause(28);
-   if(!active||token!==session)return;
-   setStatus('Применяю эффекты к снятому кадру '+raw.width+' × '+raw.height+'…');
-   const result=await onCaptured(raw,liveSeed,faces.value,setStatus,{filmSeed});
+   const result=await onCaptured(raw,liveSeed,faces.value,setStatus,
+    {filmSeed,fullSize});
    if(!active||token!==session)return;
    lastRendered=result.processed;
    lastFilename=result.filename;
@@ -408,6 +393,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    fitStage(still.width,still.height,true);
    stage.classList.remove('selfie','instant');
    frozen=false;review=true;
+   resetDouble();
    refreshButtons();
    const final=result.processed;
    res.textContent='Готовый снимок: '+final.width+' × '+final.height+
@@ -421,6 +407,141 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   }finally{
    capturing=false;if(token===session&&active)refreshButtons();
   }
+ }
+ function doubleBlend(raw){
+  if(!doubleFirst)return raw;
+  const result=document.createElement('canvas');
+  result.width=raw.width;result.height=raw.height;
+  const ctx=result.getContext('2d');
+  ctx.drawImage(raw,0,0);
+  ctx.globalAlpha=.5;
+  ctx.drawImage(doubleFirst,0,0,result.width,result.height);
+  ctx.globalAlpha=1;
+  doubleFirst=null;doubleLayer.hidden=true;
+  doubleBtn.textContent='◉ DOUBLE';
+  return result;
+ }
+ async function presentBestShot(now,token){
+  // Prior frames are captured before the shutter, plus two frames immediately
+  // afterwards. BEST SHOT never activates without tapping its own button.
+  let candidates=[...bestBuffer,now];stopBestBuffer();
+  capturing=true;refreshButtons();
+  setStatus('BEST SHOT · собираю последние кадры…');
+  for(let i=0;i<2;i++){
+   await pause(190);
+   if(!active||token!==session)return;
+   try{candidates.push(canvasFrom(video));}catch{}
+  }
+  if(!active||token!==session)return;
+  // Bound memory: discard old references after drawing the thumbnails.
+  candidates=candidates.slice(-6);
+  choiceOpen=true;capturing=false;refreshButtons();
+  choiceBar.replaceChildren();
+  candidates.forEach((frame,index)=>{
+   const button=document.createElement('button');
+   button.type='button';button.className='bestShotCandidate';
+   const thumb=document.createElement('canvas');
+   const scale=Math.min(1,110/Math.max(frame.width,frame.height));
+   thumb.width=Math.max(1,Math.round(frame.width*scale));
+   thumb.height=Math.max(1,Math.round(frame.height*scale));
+   thumb.getContext('2d').drawImage(frame,0,0,thumb.width,thumb.height);
+   const label=document.createElement('span');
+   label.textContent=index===candidates.length-3?'НАЖАТИЕ':String(index+1);
+   button.append(thumb,label);
+   button.addEventListener('click',()=>{
+    if(!choiceOpen||!active||token!==session)return;
+    const selected=frame;candidates=[];
+    choiceOpen=false;
+    void processRaw(selected,token);
+   },{once:true});
+   choiceBar.append(button);
+  });
+  choiceBar.hidden=false;
+  setStatus('BEST SHOT · выбери лучший момент на миниатюрах.');
+ }
+ function makePhotoStrip(frames,config){
+  const paper=document.createElement('canvas'),pad=34,gap=20;
+  const cellW=720,cellH=900,footer=116;
+  paper.width=cellW+pad*2;
+  paper.height=pad+frames.length*(cellH+gap)+footer;
+  const ctx=paper.getContext('2d');
+  const dark=config.paper==='black';
+  ctx.fillStyle=dark?'#111111':'#faf7f1';
+  ctx.fillRect(0,0,paper.width,paper.height);
+  frames.forEach((frame,i)=>{
+   const y=pad+i*(cellH+gap);
+   ctx.save();ctx.beginPath();ctx.rect(pad,y,cellW,cellH);ctx.clip();
+   formats.drawCropped(ctx,frame,frame.width,frame.height,'4:5',cellW,cellH);
+   ctx.restore();
+  });
+  ctx.fillStyle=dark?'#faf7f1':'#222222';
+  ctx.font='bold 32px sans-serif';ctx.textAlign='center';
+  ctx.fillText(config.caption||'PHOTO BOOTH',paper.width/2,
+   paper.height-65,paper.width-85);
+  ctx.font='20px monospace';
+  ctx.fillText(new Date().toLocaleDateString('ru-RU'),paper.width/2,
+   paper.height-30,paper.width-85);
+  return paper;
+ }
+ async function captureBooth(token){
+  if(boothRunning||!booth)return;
+  boothRunning=true;capturing=true;clearJobs();stopBestBuffer();
+  refreshButtons();let frames=[];
+  try{
+   for(let i=0;i<booth.count;i++){
+    const seconds=i===0?3:booth.interval;
+    for(let n=seconds;n>0;n--){
+     if(!active||token!==session)return;
+     setStatus('ФОТОБУДКА · кадр '+(i+1)+'/'+booth.count+
+      ' через '+n+'…');
+     await pause(1000);
+    }
+    if(!active||token!==session)return;
+    frames.push(canvasFrom(video));
+    setStatus('ФОТОБУДКА · снято '+frames.length+'/'+booth.count);
+   }
+   if(!active||token!==session)return;
+   const strip=makePhotoStrip(frames,booth);
+   frames=[];capturing=false;boothRunning=false;
+   await processRaw(strip,token,true);
+  }catch(err){
+   if(active&&token===session)
+    setStatus('Ошибка фотобудки: '+(err?.message||err));
+  }finally{
+   boothRunning=false;capturing=false;frames=[];
+   if(active&&token===session)refreshButtons();
+  }
+ }
+ async function captureNow(){
+  if(!active||!ready||capturing||review||choiceOpen)return;
+  const token=session;
+  if(booth){await captureBooth(token);return;}
+  let raw;
+  try{
+   // Normal instant and opt-in creative modes capture the frame synchronously.
+   // Native sensor capture is kept unchanged for ordinary photography.
+   raw=(captureMode.value!=='native'||doubleEnabled||bestEnabled)?
+    canvasFrom(video):await takeRawPhoto();
+  }catch(err){
+   setStatus('Не удалось зафиксировать кадр: '+(err?.message||err));return;
+  }
+  if(!active||token!==session)return;
+  if(doubleEnabled){
+   if(!doubleFirst){
+    doubleFirst=raw;
+    drawResult(doubleLayer,raw,1100);
+    doubleLayer.hidden=false;
+    doubleBtn.textContent='◉ 2-Й КАДР';
+    setStatus('DOUBLE · первый кадр сохранён. Совмести изображение и сними второй.');
+    refreshButtons();
+    return;
+   }
+   raw=doubleBlend(raw);
+  }else if(bestEnabled){
+   await presentBestShot(raw,token);
+   return;
+  }
+  await processRaw(raw,token);
  }
  async function shoot(){
   if(!active||!ready||capturing||review)return;
