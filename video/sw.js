@@ -10,28 +10,44 @@ self.addEventListener('activate',event=>{
 });
 // Prefer genuinely fresh HTML/JS on online launches; older app versions
 // were served cache-first even after the user requested an update.
+// Offline-first for pre-cached JS/assets, but revalidate the HTML online so
+// an installed iOS PWA never stays indefinitely on an obsolete export engine.
 self.addEventListener('fetch',event=>{
  const request=event.request;
  if(request.method!=='GET'||new URL(request.url).origin!==location.origin)return;
  event.respondWith((async()=>{
   const cache=await caches.open(VERSION);
   const url=new URL(request.url);
-  const isNavigation=request.mode==='navigate';
-  const liveAsset=/\.(?:js|css|json|webmanifest)$/.test(url.pathname);
-  if(isNavigation||liveAsset){
+  if(request.mode==='navigate'){
+   const timeout=new AbortController();
+   const timer=setTimeout(()=>timeout.abort(),1800);
    try{
-    const response=await fetch(request,{cache:'no-store'});
+    const response=await fetch(request,{cache:'no-store',signal:timeout.signal});
+    clearTimeout(timer);
     if(response.ok)event.waitUntil(cache.put(request,response.clone()));
     return response;
-   }catch(err){
-    const cached=await cache.match(request,{ignoreSearch:true})||
-      (isNavigation?await cache.match('./index.html'):null);
-    if(cached)return cached;
+   }catch{
+    clearTimeout(timer);
+    const offline=await cache.match(request,{ignoreSearch:true})||
+     await cache.match('./index.html');
+    if(offline)return offline;
     return Response.error();
    }
   }
-  const cached=await cache.match(request,{ignoreSearch:true});
-  if(cached)return cached;
+  // Versioned SW precaches all scripts on install. Use its newest assets
+  // immediately, then fetch an update in the background when online.
+  const script=/\.(?:js|css|json|webmanifest)$/.test(url.pathname);
+  if(script){
+   const cached=await cache.match(request,{ignoreSearch:true});
+   if(cached){
+    event.waitUntil(fetch(request,{cache:'no-store'}).then(response=>{
+     if(response.ok)return cache.put(request,response.clone());
+    }).catch(()=>{}));
+    return cached;
+   }
+  }
+  const offline=await cache.match(request,{ignoreSearch:true});
+  if(offline)return offline;
   try{
    const response=await fetch(request);
    if(response.ok)event.waitUntil(cache.put(request,response.clone()));
