@@ -1,4 +1,4 @@
-/* VHS Video Lab 0.9 — mobile camera and real-time analog recording.
+/* VHS Video Lab 0.9.4 — editable video originals and real-time analog recording.
  * All processing stays in the browser. The display video is composited
  * natively for minimum motion latency. Its lightweight interference layer
  * is copied into a CanvasCaptureStream only WHILE RECORDING, and the encoded
@@ -68,6 +68,9 @@ function mount({getSettings,getFilmProfile,onImport}){
  const newBtn=$('videoLiveNew'),flipBtn=$('videoLiveFlip');
  const micToggle=$('videoLiveMicrophone'),quality=$('videoLiveQuality');
  const frames=$('videoLiveFPS'),sound=$('videoLiveAudioState');
+ const captureMode=$('videoLiveCaptureMode');
+ try{captureMode.value=localStorage.getItem('vhs.video.captureMode')==='baked'?'baked':'editable';}
+ catch{captureMode.value='editable';}
  const download=$('videoLiveDownload'),share=$('videoLiveShare');
  const importBtn=$('videoLiveImport'),again=$('videoLiveAgain');
  const openTop=$('videoLiveOpenTop'),openPanel=$('videoLiveOpenPanel');
@@ -81,6 +84,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  let frameIndex=0,lastFrameTime=0,durationStart=0,secondsTimer=null;
  let chunks=[],recordMime='',resultBlob=null,resultURL='',resultFilename='';
  let recordFrameCount=0,lastCompositorMs=0,recordFPS=20;
+ let resultCaptureMode='editable',activeCaptureMode='editable';
  function message(value){status.textContent=String(value);}
  function stopTimers(){
   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
@@ -90,7 +94,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  function clearResult(){
   review.pause();review.removeAttribute('src');review.load();
   if(resultURL){URL.revokeObjectURL(resultURL);resultURL='';}
-  resultBlob=null;resultFilename='';download.removeAttribute('href');
+  resultBlob=null;resultFilename='';resultCaptureMode='editable';download.removeAttribute('href');
  }
  function stopTracks(){
   if(cameraStream){
@@ -144,7 +148,9 @@ function mount({getSettings,getFilmProfile,onImport}){
  }
  function releaseRecordStream(){
   if(recordStream){
-   for(const track of recordStream.getVideoTracks()){try{track.stop();}catch{}}
+   // Editable mode owns cloned sensor/video and microphone tracks.
+   const tracks=activeCaptureMode==='editable'?recordStream.getTracks():recordStream.getVideoTracks();
+   for(const track of tracks){try{track.stop();}catch{}}
    recordStream=null;
   }
   releaseAudioGraph();
@@ -162,6 +168,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   micToggle.disabled=recording||stopping;
   quality.disabled=recording||stopping;
   frames.disabled=recording||stopping;
+  captureMode.disabled=recording||stopping;
   badge.textContent=recording?'● REC':resultBlob?'● ГОТОВО':'● LIVE';
   badge.classList.toggle('recording',recording);
   reviewPanel.hidden=!resultBlob;
@@ -308,16 +315,19 @@ function mount({getSettings,getFilmProfile,onImport}){
   recordMime=String(resultBlob.type||recordMime||'video/webm');
   const ext=recordMime.includes('mp4')?'mp4':'webm';
   const stamp=new Date().toISOString().replace(/[:.]/g,'-');
-  resultFilename='VHS_LIVE_'+stamp+'.'+ext;
+  resultFilename=(resultCaptureMode==='editable'?'VHS_EDIT_RAW_':'VHS_LIVE_')+stamp+'.'+ext;
   resultURL=URL.createObjectURL(resultBlob);
   review.src=resultURL;review.load();
   download.href=resultURL;download.download=resultFilename;
   stopping=false;sync();
-  message('Готовое видео с записанными эффектами · '+(resultBlob.size/1048576).toFixed(2)+' МБ. Можно сохранить или открыть в редакторе.');
+  message((resultCaptureMode==='editable'?
+   'Записан цветной исходник. Плёнку можно заменить в редакторе.':
+   'Записано видео с несменяемыми эффектами.')+
+   ' · '+(resultBlob.size/1048576).toFixed(2)+' МБ.');
  }
  function supported(){
   if(typeof MediaRecorder!=='function')throw Error('Этот Safari не поддерживает MediaRecorder.');
-  if(!processed.captureStream)throw Error('Этот Safari не поддерживает запись Canvas. Включи обновлённый Safari.');
+  if(captureMode.value==='baked'&&!processed.captureStream)throw Error('Canvas-запись недоступна. Выбери режим цветного исходника.');
   const mime=mimeChoice();
   if(!mime)throw Error('Не найден подходящий формат видеозаписи Safari (MP4/WebM).');
   return mime;
@@ -330,12 +340,23 @@ function mount({getSettings,getFilmProfile,onImport}){
    clearResult();
    const[w,h]=captureSize();
    recordFPS=Number(frames.value)||20;
-   // Current exact selected-FX frame is already present on processed.
-   // No raw frame or simplified CSS-only filter enters the encoder.
-   stream=processed.captureStream(recordFPS);
-   attachMicrophoneAudio(stream);
+   // Both modes show real FILM/VHS/GLITCH live, but only the baked mode
+   // permanently writes the effect into the encoded file.
+   activeCaptureMode=captureMode.value==='baked'?'baked':'editable';
+   resultCaptureMode=activeCaptureMode;
+   if(activeCaptureMode==='editable'){
+    const sensor=cameraStream?.getVideoTracks()?.[0];
+    if(!sensor||sensor.readyState!=='live')throw Error('Исходный видеопоток недоступен');
+    stream=new MediaStream([sensor.clone()]);
+    const mic=cameraStream.getAudioTracks()?.[0];
+    if(mic)stream.addTrack(mic.clone());
+   }else{
+    stream=processed.captureStream(recordFPS);
+    attachMicrophoneAudio(stream);
+   }
    const rec=new MediaRecorder(stream,{mimeType:mime,
-    videoBitsPerSecond:quality.value==='720'?3000000:1650000});
+    videoBitsPerSecond:activeCaptureMode==='editable'?5000000:
+     quality.value==='720'?3000000:1650000});
    recorder=rec;recordStream=stream;chunks=[];recordMime=mime;
    rec.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data);};
    rec.onerror=e=>message('Ошибка записи: '+(e.error?.message||'неизвестно'));
@@ -350,9 +371,11 @@ function mount({getSettings,getFilmProfile,onImport}){
     const seconds=Math.floor((performance.now()-durationStart)/1000);
     badge.textContent='● REC '+String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
    },1000);
-   message('REC · настоящие выбранные эффекты применяются к каждому кадру предпросмотра и видео. ЗАЖМИ — усиление.');
+   message(activeCaptureMode==='editable'?
+   'REC · эффекты видны LIVE, пишется цветной исходник для редактора.':
+   'REC · VHS/FILM записываются в файл без возможности отмены.');
   }catch(err){
-   if(stream)for(const track of stream.getVideoTracks())try{track.stop();}catch{}
+   if(stream)for(const track of stream.getTracks())try{track.stop();}catch{}
    releaseAudioGraph();
    recording=false;stopping=false;recorder=null;recordStream=null;
    sync();message('Запись недоступна: '+(err?.message||err));
@@ -494,6 +517,13 @@ function mount({getSettings,getFilmProfile,onImport}){
   // Keep the blob until the user explicitly starts another recording.
  });
  share.addEventListener('click',saveShare);
+ captureMode.addEventListener('change',()=>{
+  if(recording||stopping)return;
+  try{localStorage.setItem('vhs.video.captureMode',captureMode.value);}catch{}
+  message(captureMode.value==='editable'?
+   'Для монтажа: цветной исходник, эффекты LIVE и смена плёнок после съёмки.':
+   'Готовый VHS: фильтры сохраняются в файл без возможности отмены.');
+ });
  importBtn.addEventListener('click',importIntoEditor);
  again.addEventListener('click',()=>{
   if(!active||recording||stopping)return;
@@ -514,7 +544,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  sync();
  return Object.freeze({open,close,getState:()=>({
   active,ready,recording,holding,seed,filmSeed,recordFrameCount,
-  hasResult:!!resultBlob,recordMime,lastCompositorMs,
+  hasResult:!!resultBlob,recordMime,lastCompositorMs,activeCaptureMode,resultCaptureMode,
   fxReport:lastFxReport,streamRatio:video.videoWidth/video.videoHeight,
   stageRatio:stage.clientWidth/stage.clientHeight,
   width:processed.width,height:processed.height
