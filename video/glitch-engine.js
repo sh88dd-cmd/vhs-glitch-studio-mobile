@@ -21,7 +21,14 @@ const defs=[
  {id:'interlace',name:'Чересстрочная съёмка / Interlacing',group:'temporal',default:32,continuous:true},
  {id:'datamosh',name:'Цифровой распад / Datamosh',group:'digital',default:28,period:3.5,duration:.85},
  {id:'pixelSort',name:'Растянутые пиксели / Pixel Sorting',group:'digital',default:22,period:3.3,duration:.46},
- {id:'rf',name:'Эфирные помехи / RF Interference',group:'analogue',default:37,period:2.8,duration:.62}
+ {id:'rf',name:'Эфирные помехи / RF Interference',group:'analogue',default:37,period:2.8,duration:.62},
+ // All VCR faults start OFF and are independently editable in ГЛИТЧ.
+ {id:'vcrBlue',name:'Синий экран / пропал сигнал',group:'vcr',default:0,period:5.0,duration:1.3},
+ {id:'vcrTracking',name:'Поиск дорожки / TRACKING',group:'vcr',default:0,period:4.2,duration:.9},
+ {id:'vcrPower',name:'Обрыв питания / чёрный экран',group:'vcr',default:0,period:6.0,duration:1.0},
+ {id:'vcrSearch',name:'Поиск / быстрая перемотка',group:'vcr',default:0,period:3.5,duration:.8},
+ {id:'vcrSnow',name:'Потеря канала / белый шум',group:'vcr',default:0,period:5.4,duration:1.5},
+ {id:'vcrEject',name:'Сбой кассеты / зажёвывание',group:'vcr',default:0,period:6.0,duration:1.2}
 ];
 const modes=[
  {id:'vhs',name:'VHS / Кассета'},
@@ -299,6 +306,51 @@ function crt(p,w,h,amt){
   }
  }
 }
+// Distinct time-local VCR failure sequences. Deterministic for editor/export.
+function vcrFault(p,w,h,id,amount,t,seed){
+ const a=C(amount,0,1.5),tick=Math.floor(t*18),fade=C(a,0,1);
+ if(id==='vcrBlue'){
+  for(let i=0;i<p.length;i+=4){
+   p[i]=p[i]*(1-fade)+9*fade;
+   p[i+1]=p[i+1]*(1-fade)+48*fade;
+   p[i+2]=p[i+2]*(1-fade)+156*fade;
+  }
+  // Sparse tape-head streaks across the low-signal screen.
+  rf(p,w,h,a*.12,t,seed);
+ }else if(id==='vcrPower'){
+  const flicker=C((.7+.3*Math.sin(t*57))*a,0,1);
+  for(let i=0;i<p.length;i+=4)
+   for(let c=0;c<3;c++)p[i+c]=p[i+c]*(1-flicker);
+ }else if(id==='vcrTracking'){
+  rollRows(p,w,h,h*.12*a,(t*51)%h);
+  headClog(p,w,h,a,t,seed);
+  dropouts(p,w,h,a,t,seed);
+ }else if(id==='vcrSearch'){
+  const jump=Math.sin(t*35)*h*.14*a;
+  rollRows(p,w,h,jump,((t*110)%h+h)%h);
+  ghost(p,w,h,a*.85,t);
+  for(let y=0;y<h;y++){
+   if((y+tick*7)%Math.max(5,Math.round(25-a*15))<2)
+    for(let x=0;x<w;x++){const i=(y*w+x)*4;
+     for(let c=0;c<3;c++)p[i+c]=p[i+c]*.45+108*a;}
+  }
+ }else if(id==='vcrSnow'){
+  const grainScale=a*.94;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const i=(y*w+x)*4,n=hash(seed,x+y*w,tick)> .5?239:15;
+   for(let c=0;c<3;c++)p[i+c]=p[i+c]*(1-grainScale)+n*grainScale;
+  }
+ }else if(id==='vcrEject'){
+  tapeChew(p,w,h,a,t,seed);
+  const yc=Math.floor((.18+.56*hash(seed,91,Math.floor(t/2)))*h);
+  const thickness=Math.max(2,Math.round(h*.11*a));
+  for(let y=yc;y<Math.min(h,yc+thickness);y++)
+   for(let x=0;x<w;x++){const i=(y*w+x)*4;
+    const v=(x+tick*17)%28<12?22:205;
+    for(let c=0;c<3;c++)p[i+c]=p[i+c]*(1-a*.7)+v*a*.7;
+   }
+ }
+}
 class Processor{
  constructor(){this.previous=null;this.previousTime=-1;this.lastWidth=0;this.lastHeight=0;this.heldFrame=null;this.history=[];}
  reset(){this.previous=null;this.previousTime=-1;this.heldFrame=null;this.history=[];}
@@ -341,6 +393,8 @@ class Processor{
   if(amt.datamosh)datamosh(p,prev,w,h,amt.datamosh,t,seed);
   if(amt.pixelSort)pixelSort(p,w,h,amt.pixelSort,t,seed);
   if(amt.rf)rf(p,w,h,C(amt.rf*level,0,1),t,seed);
+  for(const id of ['vcrBlue','vcrTracking','vcrPower','vcrSearch','vcrSnow','vcrEject'])
+   if(amt[id])vcrFault(p,w,h,id,amt[id],t,seed);
   const modeAmt=C(Number(options.modeStrength??70)/100,0,1);
   if(mode==='minidv')minidv(p,w,h,modeAmt,t,seed);
   if(mode==='crt')crt(p,w,h,modeAmt);
