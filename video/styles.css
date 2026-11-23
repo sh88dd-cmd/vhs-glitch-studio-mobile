@@ -1511,3 +1511,24 @@ a:not(.button){accent-color:var(--hub-orange)}
 :where(button,a,input,select,textarea):focus-visible{
  outline:2px solid var(--hub-orange-light)!important;outline-offset:2px;
 }
+
+
+/* Grid-panel title for all 15 tools */
+.sectionGridHeading{
+ display:flex;align-items:center;justify-content:space-between;gap:8px;
+ padding:9px 11px 3px;background:#0f0f0f;
+ border-top:1px solid #343434;
+ color:#fff;
+}
+.sectionGridHeading strong{
+ font-size:11px;font-weight:950;letter-spacing:1.1px;
+ border-left:3px solid var(--hub-orange);padding-left:8px;
+}
+.sectionGridHeading span{font-size:10px;color:#adadad;text-align:right}
+body.help-visible main nav.tabs button[data-tab].is-lit::after{
+ top:auto!important;bottom:3px!important;right:4px!important
+}
+@media(max-width:390px){
+ .sectionGridHeading{padding:8px 7px 2px}
+ .sectionGridHeading span{font-size:9px}
+}
