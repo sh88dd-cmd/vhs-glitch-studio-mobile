@@ -1181,3 +1181,333 @@ html.videoCameraLock,body.videoCameraLock{overflow:hidden!important;overscroll-b
 .captureSettings:not([open])>.videoLiveControls{display:none!important}
 .captureSettings[open]>.liveCameraOptions,
 .captureSettings[open]>.videoLiveControls{display:grid!important}
+
+
+/* VHS VIDEO LAB / BLACK + ORANGE UI 0.9.12
+   Consistent black/charcoal/orange treatment for the whole application.
+   Video image pixels, effect engines, editor settings and exports unchanged.
+   Main section navigation becomes four tiles per row, including ? wrappers.
+*/
+:root{
+ --hub-orange:#ff9900;
+ --hub-orange-light:#ffc04d;
+ --hub-orange-dark:#b56a00;
+ --hub-black:#090909;
+ --hub-panel:#141414;
+ --hub-card:#202020;
+ --hub-border:#414141;
+ --hub-text:#f6f6f6;
+ --hub-muted:#b7b7b7;
+ --status-led:#ff9900;
+ --status-glow:rgba(255,153,0,.42);
+ color-scheme:dark;
+ color:var(--hub-text);
+ background:var(--hub-black);
+}
+html,body{background:var(--hub-black);color:var(--hub-text);}
+body{scroll-padding-top:12px;}
+main{background:var(--hub-black);}
+.top{
+ background:#111!important;
+ border-bottom:2px solid var(--hub-orange)!important;
+ color:var(--hub-text);
+}
+.logo{font-size:16px;font-weight:900;letter-spacing:.3px;}
+.logo b{
+ color:#111!important;background:var(--hub-orange)!important;
+ padding:2px 6px;border-radius:4px;font-weight:950;
+ letter-spacing:0;
+}
+.logo small{color:var(--hub-muted);letter-spacing:.7px}
+.logo .mark,.mark{color:var(--hub-orange)}
+.photoLink{
+ color:var(--hub-orange-light)!important;
+ border-color:#76511f!important;
+ background:#24201b!important;
+}
+.photoLink:active{background:var(--hub-orange)!important;color:#111!important}
+
+/* Four-across, full-width section selector: never sideways-scroll. */
+main nav.tabs{
+ display:grid!important;
+ grid-template-columns:repeat(4,minmax(0,1fr))!important;
+ grid-auto-flow:row!important;
+ align-items:stretch!important;
+ justify-content:stretch!important;
+ column-gap:5px!important;
+ row-gap:5px!important;
+ width:100%!important;
+ min-width:0!important;
+ padding:10px 8px!important;
+ margin:0!important;
+ border-top:1px solid #333!important;
+ border-bottom:1px solid #3b3b3b!important;
+ background:#0f0f0f!important;
+ overflow:visible!important;
+ overflow-x:visible!important;
+ white-space:normal!important;
+ position:relative!important;
+ top:auto!important;
+ z-index:3!important;
+}
+body.dock-visible main nav.tabs{position:relative!important;top:auto!important}
+main nav.tabs > button[data-tab],
+main nav.tabs > .helpNavSlot{
+ min-width:0!important;
+ max-width:100%!important;
+ width:100%!important;
+ height:100%!important;
+ margin:0!important;
+ flex:none!important;
+ display:flex!important;
+ align-items:stretch!important;
+}
+main nav.tabs > .helpNavSlot{position:relative!important}
+main nav.tabs button[data-tab],
+main nav.tabs > .helpNavSlot > button[data-tab]{
+ display:flex!important;
+ align-items:center!important;
+ justify-content:center!important;
+ width:100%!important;
+ min-width:0!important;
+ max-width:100%!important;
+ min-height:49px!important;
+ height:100%!important;
+ margin:0!important;
+ padding:6px 3px!important;
+ border:1px solid #3a3a3a!important;
+ border-bottom:1px solid #3a3a3a!important;
+ border-radius:6px!important;
+ background:#262626!important;
+ color:#e1e1e1!important;
+ font-size:clamp(9px,2.5vw,12px)!important;
+ font-weight:800!important;
+ letter-spacing:0!important;
+ line-height:1.18!important;
+ text-align:center!important;
+ text-wrap:balance;
+ white-space:normal!important;
+ overflow-wrap:anywhere!important;
+ word-break:normal!important;
+ text-transform:uppercase;
+ box-shadow:none!important;
+ touch-action:manipulation;
+}
+main nav.tabs button[data-tab].active{
+ border-color:var(--hub-orange)!important;
+ background:var(--hub-orange)!important;
+ color:#141414!important;
+ font-weight:950!important;
+ box-shadow:inset 0 -2px 0 #d27e05!important;
+}
+main nav.tabs button[data-tab]:active:not(.active){background:#503514!important;border-color:#ce861c!important}
+main nav.tabs button[data-tab]:focus-visible{
+ outline:2px solid var(--hub-orange-light)!important;outline-offset:2px
+}
+main nav.tabs button[data-tab].is-lit::after{
+ top:3px!important;bottom:auto!important;right:4px!important;
+ width:5px!important;height:5px!important;
+ background:var(--hub-orange-light)!important;
+ box-shadow:0 0 5px var(--hub-orange)!important;
+}
+main nav.tabs button[data-tab].active.is-lit::after{
+ background:#171717!important;box-shadow:none!important
+}
+main nav.tabs > .helpNavSlot > button[data-tab]{padding-right:3px!important}
+body.help-visible main nav.tabs > .helpNavSlot > button[data-tab]{padding-right:18px!important}
+main nav.tabs > .helpNavSlot > .helpIcon{
+ top:2px!important;right:2px!important;
+ border-color:#b97c25!important;
+ background:#262626!important;
+ color:var(--hub-orange-light)!important;
+}
+@media(max-width:390px){
+ main nav.tabs{column-gap:4px!important;row-gap:4px!important;padding:8px 6px!important}
+ main nav.tabs button[data-tab],main nav.tabs > .helpNavSlot > button[data-tab]{
+  min-height:47px!important;font-size:9px!important;line-height:1.14!important;padding:5px 2px!important;
+ }
+ body.help-visible main nav.tabs > .helpNavSlot > button[data-tab]{padding-right:17px!important}
+}
+/* Keep 4 columns even when the viewer is wide; the tiles simply grow. */
+@media(min-width:760px){
+ main nav.tabs{gap:8px!important;padding:12px!important}
+ main nav.tabs button[data-tab],main nav.tabs > .helpNavSlot > button[data-tab]{
+  min-height:44px!important;font-size:12px!important;
+ }
+}
+
+/* Panels, cards and collapsible controls share one visual system. */
+main .panel{background:#0d0d0d;color:var(--hub-text);border-color:#353535}
+main .panel.active{display:block}
+main .panel h2,.audioArea h2,.additionalTrackSection h2{
+ color:#f5f5f5;letter-spacing:.3px;font-weight:900;
+}
+main .panel h2::before,.audioArea h2::before{
+ content:"";display:inline-block;width:4px;height:15px;
+ margin-right:9px;vertical-align:-2px;
+ background:var(--hub-orange);border-radius:2px;
+}
+main .panel .hint,main .hint,.stageMeta,.stageMeta span,
+.videoLiveNote,.videoLiveMeta,.videoLiveAudioState{
+ color:var(--hub-muted);
+}
+main .panel details,main details,
+#glitchControls details,
+#eventControls,
+.cameraCard,.extraAudioCard,.creativeCard,
+.audioArea,.musicSelection,.musicMeter,.keyframeItem,.timelineEvent,
+.cassetteCard,.filmCard,.onlineMusicResult,.frameCard{
+ background:var(--hub-panel);
+ border-color:var(--hub-border);
+ color:var(--hub-text);
+}
+main details>summary,#glitchControls details>summary{
+ background:#262626;color:#f0f0f0;border-color:#444;
+}
+main details[open]>summary,#glitchControls details[open]>summary{
+ color:var(--hub-orange-light);
+}
+main .control{border-bottom-color:#393939}
+main .controlHead strong{color:#f3f3f3}
+main .controlHead em{color:var(--hub-orange-light);font-weight:800}
+main .switch{
+ background:var(--hub-panel)!important;
+ color:#f0f0f0;border-color:#454545!important;
+}
+main .switch.is-lit{border-color:#9b6216!important;background:#20190f!important}
+main .control.is-lit,.cameraCard.is-lit{
+ border-color:#8d5b1b!important;
+}
+main label{color:#e2e2e2}
+main input[type=search],main input[type=text],main input[type=number],
+main input[type=datetime-local],main select,main textarea,
+.videoLiveControls input,.videoLiveControls select{
+ background:#272727!important;border-color:#555!important;color:#fff!important;
+ border-radius:7px;
+}
+main :is(input,select,textarea):focus-visible{
+ outline:2px solid var(--hub-orange)!important;
+ outline-offset:1px;border-color:var(--hub-orange)!important;
+}
+input[type=range],input[type=checkbox],input[type=radio],
+progress,.switch input[type=checkbox],.holdBlendRange,
+.captureCameraExposureLabel input,
+#videoLiveMicrophone{
+ accent-color:var(--hub-orange)!important;
+}
+main input[type=range]:focus-visible{outline-color:var(--hub-orange)!important}
+
+/* Controls: strong orange calls to action, charcoal secondary controls. */
+.button,button.button,
+.modeChoice,.audioSubtabs button,
+.viewerButtons button,.dockButton,.helpVisibilityToggle,
+#videoForceUpdate{
+ background:#2b2b2b;border-color:#565656;color:#f3f3f3;
+}
+.button.primary,.button.primary:enabled,
+label.button.primary,
+#videoLiveOpenTop,
+#panel-export #export,
+#panel-export #share,
+#panel-export #download,
+.videoLiveEntry .button.primary{
+ background:var(--hub-orange)!important;
+ border-color:var(--hub-orange)!important;
+ color:#111!important;font-weight:900!important;
+}
+.button:active:not(:disabled),.modeChoice:active:not(:disabled){
+ border-color:var(--hub-orange)!important;
+}
+.specialModeBar{background:#121212!important;border-color:#343434!important}
+.specialModeButtons .modeChoice.active,.audioSubtabs button.active,
+.creativeSubnav button.active{
+ color:#151515!important;background:var(--hub-orange)!important;
+ border-color:var(--hub-orange)!important;font-weight:900;
+}
+.specialModeLabel strong{color:var(--hub-orange-light)!important}
+.masterFxBar{
+ background:#181818!important;border-color:#54412b!important;
+ box-shadow:inset 3px 0 0 var(--hub-orange);
+}
+.masterFxExplanation strong{color:#f8f8f8}
+.masterFxActions .allEffectsToggle{
+ background:#312215;border-color:#b47520;color:#ffbc62;
+}
+.masterFxActions .allEffectsCross{background:var(--hub-orange);color:#151515}
+.masterFxActions .restoreEffects{border-color:#62523b}
+.masterFxActions .restoreEffects:not(:disabled){color:var(--hub-orange-light)}
+#glitchControls details.is-lit>summary{border-left-color:var(--hub-orange)}
+.cassetteCard.is-lit,.filmCard.is-selected{border-color:var(--hub-orange)!important}
+
+/* Video monitor and timeline: retain native media fidelity unchanged. */
+.stage{background:#0b0b0b}
+.stageCanvas,.dockScreen,.videoLiveStage{
+ background:#000!important;border-color:#373737!important;
+}
+.stageCanvas .stageExpand,
+.monitorDock .dockExpand,.dockButton{
+ border-color:#66533a;color:#fff;
+}
+.monitorDock{
+ background:#111111fa!important;border-bottom:1px solid #69451d!important;
+ box-shadow:0 9px 25px #000c!important;
+}
+.dockPlay,.viewerButtons .viewerPlay,.viewerPlay{
+ background:var(--hub-orange)!important;color:#111!important;
+ border-color:var(--hub-orange)!important;
+}
+.viewerHead,.viewerControls{background:#151515!important;border-color:#404040!important}
+.viewerHead button,.viewerButtons button{border-color:#585858}
+#videoViewer{background:#050505;color:#fff}
+.seekRow input,.dockSeek,#viewerSeek{accent-color:var(--hub-orange)!important}
+.timelineTrack,.speedCurveGraph{border-color:#684822!important}
+.timelineMarker,.speedPointMarker{border-color:var(--hub-orange)!important}
+#videoLiveNew{border-color:var(--hub-orange)!important;background:#23190d!important;color:var(--hub-orange-light)!important}
+.videoLiveStatus,#exportStatus:not(:empty){
+ border-left-color:var(--hub-orange)!important;
+ background:#211b13!important;
+}
+.videoLiveCameraDialog{background:#090909!important}
+.videoLiveTop strong{color:var(--hub-orange-light)}
+.videoLiveControls label{
+ background:#1c1c1c!important;border-color:#414141!important;
+}
+.captureCameraToolbar{background:#0b0b0bef!important;border-color:#a46e27!important}
+.captureCameraToolbar button{background:#252525!important;border-color:#6c563b!important;color:#f5f5f5!important}
+.captureCameraToolbar button[aria-pressed=true]{background:var(--hub-orange)!important;color:#111!important}
+.captureSettings>summary{background:#252525!important;border-color:#6e5735!important}
+.captureSettings[open]>summary{color:#151515!important;background:var(--hub-orange)!important}
+.captureSettings>.videoLiveControls{background:#171717!important;border-color:#6e5735!important}
+.captureAspectSelect select{background:#262626!important;border-color:#6e5735!important}
+.captureCameraFocusMarker{border-color:var(--hub-orange)!important}
+.captureCameraFocusMarker::before,.captureCameraFocusMarker::after{background:var(--hub-orange)!important}
+.videoLiveHold.held{background:#d47400!important;border-color:var(--hub-orange-light)!important}
+#videoLiveRecord{background:#ba2632;color:#fff;border-color:#f1f1f1}
+/* Recording stays RED to distinguish an active irreversible recording action. */
+#videoLiveRecord.recording{background:#901821}
+
+/* Export, help, alerts and footer */
+#panel-export #exportStatus,#panel-export #exportResult,
+.exportBanner,.videoImportHelp{
+ background:#1b1b1b!important;border-color:#635036!important;color:#f4f4f4;
+}
+#panel-export #exportStatus{border-left:4px solid var(--hub-orange)!important}
+.exportBanner button{background:#33291d;color:#ffcc85;border-color:#94703f}
+.videoHelpModal,.helpSheetBody{background:#141414!important;color:#fff}
+.helpHeader{background:#1c1c1c!important;border-bottom-color:#a26918!important}
+.helpSheetSection h3,.helpMediaCard h3{color:var(--hub-orange-light)!important}
+.helpMediaCard{border-color:#6b512b!important;background:#191919!important}
+.helpIcon{border-color:#a56e24!important;color:var(--hub-orange-light)!important}
+.videoFooter,footer{background:#0c0c0c;border-color:#373737;color:#b0b0b0}
+.helpVisibilityToggle{background:#242424!important;border-color:#6f5738!important}
+.helpVisibilityToggle[aria-pressed=true]{
+ background:#342311!important;border-color:var(--hub-orange)!important;
+ color:var(--hub-orange-light)!important;
+}
+.helpVisibilityToggle .helpToggleMark{
+ border-color:var(--hub-orange)!important;color:var(--hub-orange-light)!important;
+}
+a:not(.button){accent-color:var(--hub-orange)}
+:where(button,a,input,select,textarea):focus-visible{
+ outline:2px solid var(--hub-orange-light)!important;outline-offset:2px;
+}
