@@ -906,3 +906,41 @@ a{color:#f4f4f4}
   top:37px!important;font-size:10px!important;padding:5px 7px!important;
  }
 }
+
+
+/* Photo 1.8.8: stable iPhone stream geometry and backward-compatible
+   removal of the two legacy camera status bars. */
+#liveCameraDialog>.liveCameraStatus,
+#liveCameraDialog>#liveCameraResolution{
+ display:none!important;
+ height:0!important;min-height:0!important;max-height:0!important;
+ margin:0!important;padding:0!important;
+}
+#liveCameraDialog #liveCameraViewport{
+ flex:1 1 0!important;min-height:0!important;min-width:0!important;
+ overflow:hidden;
+}
+#liveCameraDialog #liveCameraStage{
+ position:relative!important;
+ flex:0 0 auto!important;
+ max-width:100%!important;
+ min-width:0!important;
+ overflow:hidden!important;
+}
+#liveCameraDialog #liveCameraStage>#liveCameraVideo{
+ position:absolute!important;
+ inset:0!important;left:0!important;top:0!important;
+ width:100%!important;height:100%!important;
+ max-width:none!important;max-height:none!important;
+ object-fit:cover!important;object-position:center center!important;
+ transform-origin:center center!important;
+ image-rendering:auto!important;
+ backface-visibility:hidden;
+}
+#liveCameraDialog #liveCameraStage>#liveCameraFx{
+ position:absolute!important;
+ inset:0!important;left:0!important;top:0!important;
+ width:100%!important;height:100%!important;
+ max-width:none!important;max-height:none!important;
+ object-position:center center!important;
+}
