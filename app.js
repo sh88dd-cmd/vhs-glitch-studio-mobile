@@ -998,8 +998,8 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.6.0');
-      const files=['./index.html','./styles.css','./app.js','./ntsc-photo.js','./looks.json','./jszip.min.js',
+      const cache=await caches.open('vhs-mobile-v1.8.4');
+      const files=['./index.html','./styles.css','./app.js','./camera-capture-controls.js','./photo-camera.js','./ntsc-photo.js','./looks.json','./jszip.min.js',
        './photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js',
        './photo-polaroid-ui.js','./photo-face-ai.js','./photo-face-detect.js',
        './assets/face/vision_bundle.mjs','./assets/face/blaze_face_short_range.tflite',
