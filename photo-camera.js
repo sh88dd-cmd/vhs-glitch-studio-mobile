@@ -16,6 +16,10 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  const status=$('liveCameraStatus'),res=$('liveCameraResolution');
  const timer=$('liveCameraTimer'),previewToggle=$('liveCameraPreviewEnabled');
  const captureMode=$('liveCameraCaptureMode');
+ const aspect=$('liveCameraAspect'),formats=root.VHSCameraFormats;
+ try{const savedRatio=localStorage.getItem('vhs.photo.captureRatio');
+  if([...aspect.options].some(o=>o.value===savedRatio))aspect.value=savedRatio;}catch{}
+ const previewSource=document.createElement('canvas');
  try{if(localStorage.getItem('vhs.camera.captureMode')==='native')captureMode.value='native';}catch(e){}
  const faces=$('liveCameraFaces'),again=$('liveCameraAgain');
  const save=$('liveCameraSave'),edit=$('liveCameraEdit'),reviewButtons=$('liveCameraReviewActions');
@@ -48,6 +52,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  };
  const refreshButtons=()=>{
   shutter.disabled=!ready||capturing||review;
+  aspect.disabled=capturing||review;
   flip.disabled=capturing||review;
   again.disabled=capturing;
   save.disabled=capturing||!lastRendered;
@@ -85,8 +90,9 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  };
  // Match the video's camera viewfinder geometry. Neither a portrait sensor
  // nor an instant-print frame may be stretched to fill a landscape box.
- function fitStage(w,h){
+ function fitStage(w,h,alreadyCropped=false){
   if(!(w>1&&h>1))return;
+  if(!alreadyCropped){const size=formats.croppedSize(w,h,aspect.value);w=size.width;h=size.height;}
   const viewport=$('liveCameraViewport');
   // The remaining space excludes all controls and iPhone safe areas.
   // Never use the old fixed window height offset that hid the shutter.
@@ -141,7 +147,17 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    // One exact processed frame at a time. No decorative stripe overlay,
    // no fake CSS FILM lookup, and no backlog of stale camera frames.
    const renderingSeed=liveSeed;
-   const result=await onPreview(video,renderingSeed,filmSeed,viewLongSide);
+   let source=video;
+   if(aspect.value!=='original'){
+    const size=formats.croppedSize(vw,vh,aspect.value);
+    const scale=Math.min(1,Math.max(280,viewLongSide)/Math.max(size.width,size.height));
+    previewSource.width=Math.max(2,Math.round(size.width*scale));
+    previewSource.height=Math.max(2,Math.round(size.height*scale));
+    formats.drawCropped(previewSource.getContext('2d'),video,vw,vh,aspect.value,
+     previewSource.width,previewSource.height);
+    source=previewSource;
+   }
+   const result=await onPreview(source,renderingSeed,filmSeed,viewLongSide);
    if(token!==session||renderingSeed!==liveSeed||!active||review||capturing||!previewToggle.checked)return;
    if(!result||result.width<2||result.height<2)
     throw Error('Не получен обработанный кадр');
@@ -157,7 +173,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    fx.style.opacity=String(Math.max(.38,Math.min(1,100/averageRenderMs)));
    fxReady=true;fx.hidden=false;
    if(previewDraws===0||fx.width!==lastWidth||fx.height!==lastHeight)
-    fitStage(result.width,result.height);
+    fitStage(result.width,result.height,true);
    lastWidth=fx.width;lastHeight=fx.height;
    previewDraws++;
    const ideal=idealLongSide(liveVisual||{});
@@ -264,15 +280,21 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   // while this canvas pipeline should stay within mobile Safari memory.
   const safeScale=Math.min(1,3800/Math.max(w,h),
    Math.sqrt(12500000/(w*h)));
-  const sw=Math.max(1,Math.round(w*safeScale));
-  const sh=Math.max(1,Math.round(h*safeScale));
+  const crop=formats.cropRect(w,h,aspect.value);
+  const sw=Math.max(1,Math.round(crop.w*safeScale));
+  const sh=Math.max(1,Math.round(crop.h*safeScale));
   const c=document.createElement('canvas');c.width=sw;c.height=sh;
   const ctx=c.getContext('2d');
   if(facing==='user'){
    // Selfie is mirrored in both the live view and the saved photograph.
    ctx.translate(sw,0);ctx.scale(-1,1);
   }
-  controls.filterDraw(ctx,source,sw,sh);
+  const hasCanvasFilter=('filter' in ctx);
+  ctx.save();
+  if(hasCanvasFilter)ctx.filter=controls.cssFilter();
+  formats.drawCropped(ctx,source,w,h,aspect.value,sw,sh);
+  ctx.restore();
+  if(!hasCanvasFilter)controls.bakeCanvas(c);
   return c;
  }
  async function takeRawPhoto(){
@@ -342,7 +364,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
    lastRendered=result.processed;
    lastFilename=result.filename;
    drawResult(still,result.processed,1440);
-   fitStage(still.width,still.height);
+   fitStage(still.width,still.height,true);
    stage.classList.remove('selfie','instant');
    frozen=false;review=true;
    refreshButtons();
@@ -437,6 +459,13 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
   if(performance.now()-lastPointerShotAt<900)return;
   void shoot();
  });
+ aspect.addEventListener('change',()=>{
+  if(capturing||review)return;
+  try{localStorage.setItem('vhs.photo.captureRatio',aspect.value);}catch{}
+  fxReady=false;fx.hidden=true;previewDraws=0;
+  const [w,h]=getDims();fitStage(w,h);
+  if(active&&ready&&previewToggle.checked)schedule(session,35);
+ });
  captureMode.addEventListener('change',()=>{
   try{localStorage.setItem('vhs.camera.captureMode',captureMode.value);}catch(e){}
   if(active&&ready&&!review)setStatus(captureMode.value==='instant'?
@@ -456,7 +485,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  function fitCurrentStage(){
   if(!active)return;
   if(review&&still.width>2&&still.height>2)fitStage(still.width,still.height);
-  else if(fxReady)fitStage(fx.width,fx.height);
+  else if(fxReady)fitStage(fx.width,fx.height,true);
   else{const [w,h]=getDims();fitStage(w,h);}
  }
  window.addEventListener('resize',fitCurrentStage);
