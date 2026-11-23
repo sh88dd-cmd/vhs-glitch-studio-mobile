@@ -1174,3 +1174,10 @@ html.videoCameraLock,body.videoCameraLock{overflow:hidden!important;overscroll-b
  .captureCameraToolbar .captureCameraExposureLabel output{min-width:24px;font-size:8px}
  .captureSettings{flex-basis:106px}
 }
+
+
+/* Closed details must never reserve viewfinder space or show popup controls. */
+.captureSettings:not([open])>.liveCameraOptions,
+.captureSettings:not([open])>.videoLiveControls{display:none!important}
+.captureSettings[open]>.liveCameraOptions,
+.captureSettings[open]>.videoLiveControls{display:grid!important}
