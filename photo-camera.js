@@ -484,7 +484,7 @@ function mount({onCaptured,onSave,onEdit,onPreview,getSeed,getProfile,getVisualS
  });
  function fitCurrentStage(){
   if(!active)return;
-  if(review&&still.width>2&&still.height>2)fitStage(still.width,still.height);
+  if(review&&still.width>2&&still.height>2)fitStage(still.width,still.height,true);
   else if(fxReady)fitStage(fx.width,fx.height,true);
   else{const [w,h]=getDims();fitStage(w,h);}
  }
