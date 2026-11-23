@@ -54,6 +54,8 @@ function nameHash(s){let h=2166136261;for(let i=0;i<s.length;i++)h=Math.imul(h^s
 function envelope(time,def,seed,density,amount){
  if(!amount)return 0;
  if(def.continuous)return C(amount/100,0,1);
+ // 0% random events must really mean zero for all intermittent faults.
+ if(!(Number(density)>0))return 0;
  const n=nameHash(def.id),interval=def.period,slot=Math.floor(Math.max(0,time)/interval);
  // Try neighboring event windows, so the interval can cross slot boundaries.
  let result=0;
@@ -406,5 +408,12 @@ class Processor{
   return p;
  }
 }
-root.VHSVideoGlitchFX=Object.freeze({EFFECTS:defs,MODES:modes,TAPES:tapes,createProcessor:()=>new Processor(),envelope,hash});
+// A checked GLITCH toggle is not itself an image-processing effect.
+// Continuous effects are still active when random-event density is zero.
+function hasActiveSettings(effects,density){
+ const settings=effects||{};
+ return defs.some(def=>Number(settings[def.id])>0&&
+  (def.continuous||Number(density)>0));
+}
+root.VHSVideoGlitchFX=Object.freeze({EFFECTS:defs,MODES:modes,TAPES:tapes,createProcessor:()=>new Processor(),envelope,hasActiveSettings,hash});
 })(window);
