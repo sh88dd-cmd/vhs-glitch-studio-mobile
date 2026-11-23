@@ -2356,18 +2356,32 @@
   window.__vhsVideoExportReady=true;
   $('videoForceUpdate').onclick=async()=>{
    const button=$('videoForceUpdate');
-   button.disabled=true;button.textContent='Проверяю обновление…';
+   button.disabled=true;button.textContent='Обновляю движок видео…';
+   exportStatus('Обновляю файлы приложения, пользовательские настройки не удаляю…');
    try{
-    if('caches'in window&&navigator.onLine){
+    if('caches'in window){
      const names=await caches.keys();
      await Promise.all(names.filter(name=>name.startsWith('vhs-video-lab-')).map(name=>caches.delete(name)));
     }
     if('serviceWorker'in navigator){
+     const old=navigator.serviceWorker.controller;
+     const changed=new Promise(resolve=>{
+      if(!old){resolve();return;}
+      let settled=false;
+      const done=()=>{if(settled)return;settled=true;
+       navigator.serviceWorker.removeEventListener('controllerchange',done);
+       resolve();};
+      navigator.serviceWorker.addEventListener('controllerchange',done);
+      setTimeout(done,3500);
+     });
      const reg=await navigator.serviceWorker.getRegistration('./');
      await reg?.update();
+     await changed;
     }
    }catch(e){console.warn('Update reload:',e);}
-   location.reload();
+   // A cache-busting navigation must be served by the freshly active worker,
+   // not the previous version's cache-first navigation.
+   location.replace(location.pathname+'?version=0.9.6&updated='+Date.now());
   };
  }
  async function init(){
