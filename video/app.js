@@ -436,7 +436,7 @@
   syncHoldControls();
  }
  function mountGlitchControls(){
-  const groups={analogue:{label:'АНАЛОГОВЫЕ СБОИ',open:true},temporal:{label:'ВРЕМЕННЫЕ / МЕЖКАДРОВЫЕ',open:true},digital:{label:'ЦИФРОВЫЕ ПОВРЕЖДЕНИЯ',open:false}};
+  const groups={analogue:{label:'АНАЛОГОВЫЕ СБОИ',open:true},temporal:{label:'ВРЕМЕННЫЕ / МЕЖКАДРОВЫЕ',open:true},digital:{label:'ЦИФРОВЫЕ ПОВРЕЖДЕНИЯ',open:false},vcr:{label:'VCR FAILURE · СБОИ ВИДЕОМАГНИТОФОНА',open:true}};
   const parent=$('glitchControls');parent.replaceChildren();
   for(const key of Object.keys(groups)){
    const d=document.createElement('details');d.open=groups[key].open;
