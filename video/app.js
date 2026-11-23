@@ -2108,11 +2108,21 @@
    // A playable processed frame is present before encoding starts.
    drawFrame(recordCanvas,true);
    const blobs=[];
-   const rec=new MediaRecorder(stream,{
-    mimeType:mime,
-    videoBitsPerSecond:Number(state.size)>=720?8_000_000:
-     Number(state.size)>=480?5_000_000:3_000_000
-   });
+   const bitrate=Number(state.size)>=720?8_000_000:
+    Number(state.size)>=480?5_000_000:3_000_000;
+   // isTypeSupported() may return true for a codec string that the installed
+   // WebKit build nevertheless rejects when constructing a recorder.
+   // Fall back to a plain MP4 MIME, preserving the chosen pixels/bitrate.
+   let rec=null,codecError=null;
+   for(const candidate of [...new Set([mime,'video/mp4','video/webm'])]){
+    if(!MediaRecorder.isTypeSupported?.(candidate))continue;
+    try{
+     rec=new MediaRecorder(stream,{mimeType:candidate,videoBitsPerSecond:bitrate});
+     break;
+    }catch(err){codecError=err;}
+   }
+   if(!rec)throw Error('Кодировщик Safari отклонил MP4/WebM: '+
+     (codecError?.message||'отсутствует поддерживаемый формат'));
    recording=rec;exportStopRequested=false;
    $('exportResult').hidden=true;$('export').disabled=true;$('cancel').hidden=false;$('progress').hidden=false;$('progress').value=0;
    $('play').disabled=true;$('seek').disabled=true;$('regenerate').disabled=true;$('undoGlitch').disabled=true;updateClipNav();videoUI?.sync();syncHoldControls();syncFrameTools();syncCompareButtons();syncSectionLights();
