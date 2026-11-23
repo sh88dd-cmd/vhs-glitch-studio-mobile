@@ -998,7 +998,7 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.8.9');
+      const cache=await caches.open('vhs-mobile-v1.8.10');
       const files=['./index.html','./styles.css','./app.js','./camera-capture-controls.js','./photo-camera.js','./ntsc-photo.js','./looks.json','./jszip.min.js',
        './photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js',
        './photo-polaroid-ui.js','./photo-face-ai.js','./photo-face-detect.js',
@@ -1015,19 +1015,34 @@
   function bindEvents(){
     document.querySelectorAll('.tabs button').forEach(btn=>btn.addEventListener('click',()=>showTab(btn.dataset.tab)));
     $('openSettings').addEventListener('click',()=>showTab('settings'));
-    $('checkForUpdates').addEventListener('click',async()=>{
-      const btn=$('checkForUpdates');btn.disabled=true;btn.textContent='Проверяю новую версию…';
+    // Both update buttons use the SAME non-destructive PWA refresh:
+    // the first lives in Settings, the second is always at the page bottom.
+    const updateButtons=[$('checkForUpdates'),$('photoFooterUpdate')];
+    let updateBusy=false;
+    async function updatePhotoApp(){
+      if(updateBusy)return;
+      updateBusy=true;
+      updateButtons.forEach(btn=>{btn.disabled=true;btn.textContent='Проверяю обновление…';});
       try{
         if('serviceWorker' in navigator){
           const registration=await navigator.serviceWorker.getRegistration('./');
           if(registration)await registration.update();
         }
-        // A unique navigation URL bypasses older cache-first workers without deleting
-        // IndexedDB (the imported XMP catalog) or localStorage (favorites/settings).
-        const u=new URL(location.href);u.searchParams.set('app-update',Date.now().toString());
+        // Refresh executable files without clearing localStorage/IndexedDB.
+        // Imported LUT/XMP, saved presets and user preferences are untouched.
+        const u=new URL(location.href);
+        u.searchParams.set('app-update',Date.now().toString());
         location.replace(u.href);
-      }catch(err){btn.disabled=false;btn.textContent='↻ Повторить обновление';notify('Ошибка обновления: '+err.message,true);}
-    });
+      }catch(err){
+        updateBusy=false;
+        updateButtons.forEach((btn,i)=>{
+          btn.disabled=false;
+          btn.textContent=i===0?'↻ Повторить обновление':'↻ ОБНОВИТЬ ПРИЛОЖЕНИЕ';
+        });
+        notify('Ошибка обновления: '+(err?.message||err),true);
+      }
+    }
+    updateButtons.forEach(btn=>btn.addEventListener('click',updatePhotoApp));
     $('fileSingle').addEventListener('change',async e=>{try{await openSingle(e.target.files[0]);}catch(err){notify(err.message,true);}});
     $('cameraFallbackFile').addEventListener('change',async e=>{
       const file=e.target.files?.[0];
