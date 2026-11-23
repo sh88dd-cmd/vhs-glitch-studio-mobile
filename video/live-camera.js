@@ -362,7 +362,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  }
  function startRecording(){
   if(!active||!ready||recording||stopping)return;
-  let stream;
+  let stream,useEditableCanvas=false;
   try{
    const mime=supported();
    clearResult();
@@ -389,6 +389,7 @@ function mount({getSettings,getFilmProfile,onImport}){
      controls.filterDraw(editableCanvas.getContext('2d',{alpha:false}),
       video,editableCanvas.width,editableCanvas.height);
      stream=editableCanvas.captureStream(recordFPS);
+     useEditableCanvas=true;
     }
     const mic=cameraStream.getAudioTracks()?.[0];
     if(mic)stream.addTrack(mic.clone());
@@ -406,9 +407,7 @@ function mount({getSettings,getFilmProfile,onImport}){
    durationStart=performance.now();lastFrameTime=0;recordFrameCount=0;
    recording=true;stopping=false;sync();
    rec.start(500);
-   if(activeCaptureMode==='editable'&&stream.getVideoTracks()[0]?.getSettings?.().width===editableCanvas.width&&
-      stream.getVideoTracks()[0]?.getSettings?.().height===editableCanvas.height&&
-      !controls.isHardwareEV()&&typeof editableCanvas.captureStream==='function'){
+   if(useEditableCanvas){
     editableLastFrame=0;
     editableLoop=requestAnimationFrame(paintEditableFrame);
    }
