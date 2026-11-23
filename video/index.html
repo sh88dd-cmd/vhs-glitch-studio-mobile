@@ -530,9 +530,11 @@
   <div id="videoLiveMeta" class="videoLiveMeta">Видео обрабатывается на устройстве</div>
   <div class="captureQuickBar videoCaptureQuick">
     <label class="captureAspectSelect">ФОРМАТ <select id="videoLiveAspect"><option value="original">Оригинал</option><option value="9:16">9:16 · вертикальный</option><option value="16:9">16:9 · горизонтальный</option><option value="3:4">3:4 · вертикальный</option><option value="4:3">4:3 · горизонтальный</option><option value="1:1">1:1 · квадрат</option><option value="21:9">21:9 · кино</option></select></label>
+    <button id="videoLiveDouble" type="button" class="videoLiveDouble" aria-pressed="false">◉ DOUBLE</button>
     <details class="captureSettings" id="videoLiveSettings"><summary>⚙ ПАРАМЕТРЫ</summary>
      <div class="videoLiveControls">
       <label><span>Микрофон</span><input type="checkbox" id="videoLiveMicrophone" checked></label>
+      <label><span>Наложение двух экспозиций</span><input id="videoLiveDoubleMix" type="range" min="20" max="80" value="50" step="5" aria-label="Прозрачность первой экспозиции"></label>
       <label><span>Качество</span><select id="videoLiveQuality"><option value="480">480p · плавнее</option><option value="720">720p · выше качество</option></select></label>
       <label><span>Частота</span><select id="videoLiveFPS"><option value="20">20 кадров/с</option><option value="15">15 кадров/с</option><option value="24">24 кадра/с</option></select></label>
       <label class="videoLiveCaptureModeLabel"><span>Тип записи</span><select id="videoLiveCaptureMode">
