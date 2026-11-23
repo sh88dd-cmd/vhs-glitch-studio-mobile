@@ -531,3 +531,19 @@ html.photoCameraLock,body.photoCameraLock{overflow:hidden!important;overscroll-b
  .bestShotCandidate{height:72px}
  .bestShotCandidate canvas{max-height:51px}
 }
+
+
+/* Photo Booth 1.8.5: full-width scrollable strip review, no viewfinder controls. */
+#liveCameraDialog.is-review .captureCameraToolbar,
+#liveCameraDialog.is-review .captureCameraFocusMarker,
+#liveCameraDialog.is-review .captureQuickBar{display:none!important}
+#liveCameraDialog.is-booth-review .liveCameraViewport{
+ display:block!important;overflow-y:auto!important;overflow-x:hidden!important;
+ touch-action:pan-y!important;overscroll-behavior-y:contain;
+ -webkit-overflow-scrolling:touch;align-items:unset!important;justify-content:unset!important}
+#liveCameraDialog.is-booth-review #liveCameraStage{
+ max-height:none!important;margin:0 auto!important;touch-action:pan-y!important;
+ flex-shrink:0!important;overflow:hidden}
+#liveCameraDialog.is-booth-review #liveCameraBadge,
+#liveCameraDialog.is-booth-review #liveCameraNew{display:none!important}
+#liveCameraDialog.is-booth-review #liveCameraStill{pointer-events:none}
