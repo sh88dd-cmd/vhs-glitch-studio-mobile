@@ -4,7 +4,8 @@
  */
 (function(root){
  'use strict';
- const COLLECTOR_URL = ''; // Public Google Apps Script COLLECTOR /exec URL; no secrets.
+ const COLLECTOR_URL = 'https://script.google.com/macros/s/AKfycbwzqZVuoD9KYylSDWshtNeIm75XjgGoYCjQqXwfyTsxMUVr9SfHvfLOoFkBDuCo9UI/exec'; // Public write-only Google Apps Script endpoint.
+ const ANALYTICS_ENABLED = false; // Switch on after owner exclusion and private dashboard test.
  const APP=/\/video\/(?:index\.html)?$/.test(location.pathname)?'video':'photo';
  const EXCLUDE_KEY='vhs.analytics.exclude-owner.v1';
  const DEVICE_KEY='vhs.analytics.device.v1';
@@ -64,7 +65,7 @@
    footer.appendChild(p);
   }
  }
- const active=/^https:\/\/script\.google\.com\/macros\/s\/[a-zA-Z0-9_-]+\/exec$/.test(COLLECTOR_URL)&&!excluded;
+ const active=ANALYTICS_ENABLED && /^https:\/\/script\.google\.com\/macros\/s\/[a-zA-Z0-9_-]+\/exec$/.test(COLLECTOR_URL)&&!excluded;
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',readyDom,{once:true});
  else readyDom();
  let visitor='';
