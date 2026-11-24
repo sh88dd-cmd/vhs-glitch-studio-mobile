@@ -28,7 +28,7 @@ jobs:
           export ARA3D_CACHE="$RUNNER_TEMP/ara-data"
           mkdir -p "$RUNNER_TEMP/nf-cast" ne-fotograf/models/ara
           python - <<'PY'
-          import json, pathlib, os, subprocess, struct, shutil
+          import json, pathlib, os, subprocess, struct, shutil, zipfile
           cast=[["hero","The Gangster"],["photographer","The Photographer"],["dj","The DJ"],["executive","The Female Executive"],["driver","The Getaway Driver"],["chef","The Chef"],["adventurer","The Adventurer"],["street","The Street Racer"]]
           temp=pathlib.Path(os.environ['RUNNER_TEMP'])
           cli=temp/'ara-cli/node_modules/.bin/ara3d'
@@ -37,15 +37,33 @@ jobs:
               dest.mkdir(parents=True,exist_ok=True)
               subprocess.run([str(cli),'export','--preset',preset,'--detail','medium' if ident=='hero' else 'low','--formats','glb','--animations','idle,walk,run,wave,talk','--out',str(dest)],check=True)
               files=list(dest.rglob('*.glb'))
-              assert len(files)==1, (ident,files)
-              b=files[0].read_bytes()
+              if len(files)==1:
+                  b=files[0].read_bytes()
+              else:
+                  archives=list(dest.glob('*.zip'))
+                  assert len(archives)==1,(ident,files,archives)
+                  with zipfile.ZipFile(archives[0]) as z:
+                      candidates=[]
+                      for entry in z.namelist():
+                          if not entry.lower().endswith('.glb'):
+                              continue
+                          raw=z.read(entry)
+                          if len(raw)<20 or raw[:4]!=b'glTF':
+                              continue
+                          n=struct.unpack_from('<I',raw,12)[0]
+                          model=json.loads(raw[20:20+n])
+                          names=[a.get('name','').lower() for a in model.get('animations',[])]
+                          if model.get('skins') and all(any(c==k or c.endswith(k) for c in names) for k in ('idle','walk','run')):
+                              candidates.append((entry,raw))
+                      assert len(candidates)==1,(ident,[c[0] for c in candidates],z.namelist())
+                      b=candidates[0][1]
               magic,version,total,n,typ=struct.unpack_from('<5I',b)
               assert magic==0x46546c67 and version==2 and total==len(b) and len(b)<40_000_000,ident
               d=json.loads(b[20:20+n])
               assert d.get('meshes') and d.get('skins') and max(len(s['joints']) for s in d['skins'])>20,ident
               names=[a.get('name','').lower() for a in d.get('animations',[])]
               assert all(any(c==k or c.endswith(k) for c in names) for k in ('idle','walk','run')),(ident,names)
-              shutil.copyfile(files[0],pathlib.Path('ne-fotograf/models/ara')/(ident+'.glb'))
+              (pathlib.Path('ne-fotograf/models/ara')/(ident+'.glb')).write_bytes(b)
               print(ident,len(b),names,flush=True)
           PY
       - name: Activate only after every model is verified
