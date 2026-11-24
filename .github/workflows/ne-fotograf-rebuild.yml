@@ -1,4 +1,4 @@
-name: NE FOTOGRAF rebuild 03
+name: NE FOTOGRAF rebuild 031
 on:
   push:
     paths:
@@ -72,7 +72,12 @@ jobs:
               finally{await page.keyboard.up(key)}
               return await page.evaluate(()=>NF_NEW.inspect().position);
             }
+            function grounded(s){if(Math.abs(s.position[1])>.05||Math.abs(s.bodyY-.905)>.01||s.cameraY<1.4||s.groundY!==0)throw Error('Ground regression '+JSON.stringify(s))}
+            grounded(await page.evaluate(()=>NF_NEW.inspect()));
+            await page.waitForFunction(()=>NF_NEW.inspect().simSteps>=30,null,{timeout:90000,polling:100});
+            grounded(await page.evaluate(()=>NF_NEW.inspect()));
             const forward=await hold('KeyW',60);
+            grounded(await page.evaluate(()=>NF_NEW.inspect()));
             if(forward[2]<=-13.8)throw Error('Forward direction: '+JSON.stringify(forward));
             const beforeRight=await page.evaluate(()=>NF_NEW.inspect().position);
             const afterRight=await hold('KeyD',35);
@@ -82,7 +87,7 @@ jobs:
             await page.locator('#view').click();
             if((await page.evaluate(()=>NF_NEW.inspect())).view!==1)throw Error('view 1');
             await page.locator('#view').click();
-            state=await page.evaluate(()=>NF_NEW.inspect());console.log('After',state);
+            state=await page.evaluate(()=>NF_NEW.inspect());grounded(state);console.log('After',state);
             if(state.view!==3||state.position[2]<=-13.8||errors.length)throw Error(JSON.stringify({state,errors}));
             if(state.staticBefore>100&&state.staticAfter>=state.staticBefore*.65)throw Error('Static batching insufficient: '+JSON.stringify(state));
             if(await page.locator('#quality').count()!==0||await page.locator('#update').count()!==1)throw Error('UI');
