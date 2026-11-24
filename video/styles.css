@@ -1532,3 +1532,154 @@ body.help-visible main nav.tabs button[data-tab].is-lit::after{
  .sectionGridHeading{padding:8px 7px 2px}
  .sectionGridHeading span{font-size:9px}
 }
+
+
+/* VHS Video Lab 0.9.21 — large live viewfinder, tiny no-overlap controls.
+   Camera overlay only: existing film engine, recording and export unaffected. */
+#videoLiveCameraDialog[open]{
+ padding:calc(env(safe-area-inset-top) + 3px) 6px
+         calc(env(safe-area-inset-bottom) + 5px)!important;
+ gap:4px!important;overflow:hidden!important;
+ background:#050505!important;
+}
+#videoLiveCameraDialog .videoLiveTop{
+ position:absolute!important;
+ top:calc(env(safe-area-inset-top) + 11px)!important;
+ left:14px!important;right:auto!important;
+ width:42px!important;height:42px!important;
+ min-height:0!important;max-height:42px!important;
+ z-index:120!important;flex:0 0 0!important;
+ margin:0!important;padding:0!important;
+ pointer-events:none!important;
+}
+#videoLiveCameraDialog .videoLiveTop>.cameraHeaderInfo{display:none!important}
+#videoLiveCameraDialog #videoLiveClose{
+ display:flex!important;align-items:center;justify-content:center;
+ width:42px!important;height:42px!important;
+ min-height:42px!important;min-width:42px!important;max-width:42px!important;
+ border:1px solid #a77a3c99!important;border-radius:50%!important;
+ font-size:21px!important;line-height:1!important;padding:0!important;
+ background:#171717b9!important;color:#fff!important;
+ pointer-events:auto!important;touch-action:manipulation;
+ backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+}
+#videoLiveCameraDialog #videoLiveBadge:not(.recording){display:none!important}
+#videoLiveCameraDialog #videoLiveBadge.recording{
+ top:16px!important;left:61px!important;
+ padding:8px 10px!important;font-size:10px!important;
+}
+#videoLiveCameraDialog .videoLiveViewport{
+ position:relative!important;
+ flex:1 1 0!important;min-height:0!important;
+ width:100%!important;overflow:hidden!important;
+}
+#videoLiveCameraDialog #videoLiveStage{
+ max-height:100%!important;
+ border-radius:10px!important;
+ border:1px solid #43372b!important;
+}
+/* The long readiness/error message is not a permanent row below the viewfinder. */
+#videoLiveCameraDialog #videoLiveStatus{
+ position:fixed!important;
+ top:calc(env(safe-area-inset-top) + 58px)!important;
+ left:14px!important;right:14px!important;
+ z-index:119!important;
+ width:auto!important;height:auto!important;
+ min-height:0!important;max-height:100px!important;
+ flex:0 0 0!important;margin:0!important;
+ padding:7px 10px!important;
+ border:1px solid #68543b!important;border-left:3px solid #ff9818!important;
+ background:#161616ee!important;color:#fff!important;
+ border-radius:10px!important;
+ font-size:11px!important;line-height:1.4!important;
+ text-align:center!important;
+ opacity:0!important;visibility:hidden!important;
+ pointer-events:none!important;
+ transition:opacity .14s ease,visibility .14s ease;
+ overflow:hidden!important;overflow-wrap:anywhere;
+}
+#videoLiveCameraDialog #videoLiveStatus.cameraToastVisible{
+ opacity:1!important;visibility:visible!important;
+}
+#videoLiveCameraDialog #videoLiveStatus.cameraToastError{
+ border-left-color:#ff6464!important;color:#ffe0e0!important;
+}
+#videoLiveCameraDialog #videoLiveMeta,
+#videoLiveCameraDialog #videoLiveAudioState,
+#videoLiveCameraDialog .videoLiveNote{display:none!important}
+#videoLiveCameraDialog .captureQuickBar{
+ flex:0 0 34px!important;min-height:34px!important;max-height:34px!important;
+ height:34px!important;gap:6px!important;
+ padding:0 1px!important;margin:0!important;
+ align-items:center!important;
+}
+#videoLiveCameraDialog .captureAspectSelect{
+ flex:1 1 0!important;min-width:0!important;
+ gap:5px!important;font-size:10px!important;
+}
+#videoLiveCameraDialog .captureAspectSelect select{
+ margin:0!important;min-height:33px!important;height:33px!important;
+ font-size:11px!important;padding:4px 20px 4px 7px!important;
+}
+#videoLiveCameraDialog .captureSettings{
+ flex:0 0 95px!important;width:95px!important;
+ min-width:0!important;margin:0!important;
+ background:transparent!important;border:0!important;
+ padding:0!important;
+}
+#videoLiveCameraDialog .captureSettings>summary{
+ min-height:33px!important;height:33px!important;
+ font-size:10px!important;line-height:1!important;
+ padding:0 4px!important;
+}
+#videoLiveCameraDialog .captureSettings[open]>.videoLiveControls{
+ bottom:calc(100% + 7px)!important;right:0!important;
+ width:min(92vw,355px)!important;max-height:min(62dvh,390px)!important;
+ z-index:100!important;overflow-y:auto!important;
+}
+#videoLiveCameraDialog .videoLiveButtons{
+ display:grid!important;
+ grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr)!important;
+ align-items:center!important;justify-items:stretch!important;
+ flex:0 0 70px!important;height:70px!important;min-height:70px!important;
+ gap:7px!important;margin:0!important;padding:0!important;
+}
+#videoLiveCameraDialog .videoLiveButtons .button{
+ min-height:43px!important;height:43px!important;min-width:0!important;
+ width:100%!important;
+ border-radius:11px!important;
+ padding:5px 4px!important;
+ margin:0!important;font-size:11px!important;
+ line-height:1.15!important;font-weight:800!important;
+ white-space:nowrap!important;
+}
+#videoLiveCameraDialog #videoLiveRecord{
+ width:66px!important;height:66px!important;
+ min-width:66px!important;min-height:66px!important;
+ border-radius:50%!important;
+ justify-self:center!important;margin:0!important;
+ font-size:14px!important;line-height:1.05!important;
+ border-width:4px!important;
+}
+#videoLiveCameraDialog #videoLiveRecord.recording{
+ width:66px!important;height:62px!important;
+ min-height:62px!important;border-radius:14px!important;
+}
+#videoLiveCameraDialog.has-result .videoLiveReviewActions{
+ min-height:0!important;flex:0 0 auto!important;
+ gap:6px!important;
+}
+@media(max-height:690px){
+ #videoLiveCameraDialog .videoLiveButtons{
+  flex-basis:63px!important;height:63px!important;min-height:63px!important;
+  grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr)!important;
+ }
+ #videoLiveCameraDialog #videoLiveRecord{width:60px!important;height:60px!important;min-width:60px!important;min-height:60px!important}
+ #videoLiveCameraDialog #videoLiveRecord.recording{width:60px!important;height:56px!important;min-height:56px!important}
+}
+@media(max-width:350px){
+ #videoLiveCameraDialog .videoLiveButtons{gap:4px!important}
+ #videoLiveCameraDialog .videoLiveButtons .button{font-size:9.5px!important;padding:4px 2px!important}
+ #videoLiveCameraDialog .captureSettings{flex-basis:86px!important;width:86px!important}
+ #videoLiveCameraDialog .captureAspectSelect{font-size:9px!important}
+}
