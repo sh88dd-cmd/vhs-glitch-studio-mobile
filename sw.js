@@ -1,4 +1,4 @@
-const VERSION='vhs-mobile-v1.8.17';
+const VERSION='vhs-mobile-v1.8.18';
 const APP_FILES=['./','./index.html','./styles.css','./stats-owner.js','./usage-stats.js','./app.js','./camera-capture-controls.js','./photo-camera.js','./ntsc-photo.js','./photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js','./photo-polaroid-ui.js','./photo-face-ai.js','./photo-face-detect.js',
 './assets/face/vision_bundle.mjs','./assets/face/wasm/vision_wasm_internal.js','./assets/face/wasm/vision_wasm_internal.wasm',
 './assets/face/blaze_face_short_range.tflite','./assets/face/blaze_face_full_range.tflite',
