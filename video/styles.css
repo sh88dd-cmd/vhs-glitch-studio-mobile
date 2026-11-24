@@ -1690,3 +1690,31 @@ body.help-visible main nav.tabs button[data-tab].is-lit::after{
 #videoStage>.seekRow span{flex:0 0 auto;min-width:34px;text-align:center}
 #videoStage>#status{margin:0 0 3px;font-size:11px;line-height:1.35;overflow-wrap:anywhere}
 #videoStage>.stageButtons{padding-top:7px}
+
+/* 0.9.26 — comparison stays in the viewport corner, including portrait
+   clips. Help UI wraps buttons; the wrapper itself must be out of flex flow. */
+.stageCanvas>.compareOverlaySlot,
+.viewerCanvasBox>.compareOverlaySlot,
+.stageCanvas>.helpButtonSlot:has(>#compareMain),
+.viewerCanvasBox>.helpButtonSlot:has(>#compareViewer){
+ position:absolute!important;left:9px!important;bottom:9px!important;
+ right:auto!important;top:auto!important;z-index:20!important;
+ display:inline-flex!important;flex:none!important;width:max-content!important;
+ max-width:calc(100% - 18px)!important;align-items:center;
+ pointer-events:auto;overflow:visible;
+}
+.stageCanvas .compareOverlaySlot>.compareButton,
+.viewerCanvasBox .compareOverlaySlot>.compareButton,
+.stageCanvas .helpButtonSlot>#compareMain,
+.viewerCanvasBox .helpButtonSlot>#compareViewer{
+ position:relative!important;inset:auto!important;flex:none!important;
+ width:auto!important;min-width:0!important;max-width:none!important;
+ white-space:nowrap;min-height:36px;
+ background:rgba(19,19,19,.9);border-color:#bb9a71;
+}
+.stageCanvas .compareOverlaySlot>.compareButton.is-holding,
+.viewerCanvasBox .compareOverlaySlot>.compareButton.is-holding{
+ background:rgba(246,184,106,.95);color:#1f140b;
+}
+.stageCanvas.is-exporting>.compareOverlaySlot,
+.stageCanvas.is-exporting>.helpButtonSlot:has(>#compareMain){display:none!important}
