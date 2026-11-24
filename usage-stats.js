@@ -1,12 +1,12 @@
 /* VHS STATS analytics bridge — no server keys, media, file names or personal data.
- * Disabled until COLLECTOR_URL is set to the PUBLIC write-only collector /exec URL.
+ * Sends anonymous event categories to the public write-only collector; owner reads remain separate.
  * Admin dashboard is entirely separate and MUST require owner's Google sign-in.
  */
 (function(root){
  'use strict';
  const COLLECTOR_URL = 'https://script.google.com/macros/s/AKfycbwzqZVuoD9KYylSDWshtNeIm75XjgGoYCjQqXwfyTsxMUVr9SfHvfLOoFkBDuCo9UI/exec'; // Public write-only Google Apps Script endpoint.
- const ANALYTICS_ENABLED = false; // Switch on after owner exclusion and private dashboard test.
- const APP=/\/video\/(?:index\.html)?$/.test(location.pathname)?'video':'photo';
+ const ANALYTICS_ENABLED = true; // Production event collection; owner and privacy opt-outs remain enforced.
+ const APP=/\/video(?:\/(?:index\.html)?)?$/.test(location.pathname)?'video':'photo';
  const EXCLUDE_KEY='vhs.analytics.exclude-owner.v1';
  const DEVICE_KEY='vhs.analytics.device.v1';
  const EVENTS=APP==='photo'?{
@@ -129,8 +129,15 @@
    }
  }
  const enabled=active&&/^[a-f0-9]{32}$/.test(visitor);
+ // Owner login may set the exclusion after this script has already started.
+ // Recheck before each event, not only at page load.
+ function isExcluded(){
+  if(excluded||navigator.doNotTrack==='1'||navigator.globalPrivacyControl===true)return true;
+  try{if(localStorage.getItem(EXCLUDE_KEY)==='1'){excluded=true;return true;}}catch(_){return true;}
+  return false;
+ }
  function send(action){
-  if(!enabled)return;
+  if(!enabled||isExcluded())return;
   const ordinary=/^(visit|camera_open|shutter_click|record_click|export_click|camera_save_click|x50_export_click|frame_export_click)$/.test(action);
   const section=action.startsWith('section_')&&SECTIONS.has(action.slice(8));
   const feature=action.startsWith('feature_')&&ALLOWED_FEATURES.has(action.slice(8));
@@ -175,7 +182,7 @@
     if(feature&&ALLOWED_FEATURES.has(feature))send('feature_'+feature);
    }
    // Only note that a film card was selected; never send which film it was.
-   if(target.closest('.filmcard'))send('feature_film_select');
+   if(target.closest('.filmcard,.filmCard'))send('feature_film_select');
   },{passive:true});
   document.addEventListener('change',evt=>{
    const input=evt.target;
@@ -183,5 +190,5 @@
    if(feature&&ALLOWED_FEATURES.has(feature))send('feature_'+feature);
   },{passive:true});
  }
- root.VHSUsageStats=Object.freeze({enabled:()=>enabled,excluded:()=>excluded});
+ root.VHSUsageStats=Object.freeze({enabled:()=>enabled&&!isExcluded(),excluded:isExcluded});
 })(window);
