@@ -46,14 +46,15 @@
  let importedDB=null,recording=null,recordStream=null,exportBlob=null,exportMime='',exportOriginalFile=false;
  let downloadUrl='',exportStopRequested=false,audioContext=null,audioSource=null,audioMonitor=null;
  let lastDraw=0,framePending=false,loopId=0,renderBusy=false,seedHistory=[],audioErrorShown=false,videoUI=null;
- const source=$('source'),preview=$('preview'),recordCanvas=$('recordCanvas'),stage=preview.getContext('2d',{willReadFrequently:true});
+ const source=$('source'),preview=$('preview'),recordCanvas=$('recordCanvas'),stage=preview.getContext('2d',{alpha:false});
  const previewProcessor=window.VHSVideoGlitchFX.createProcessor();
  const exportProcessor=window.VHSVideoGlitchFX.createProcessor();
  const audioEngine=window.VHSVideoTapeAudio.create(source);
  const signalCanvas=document.createElement('canvas');
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
  const filmGPU=window.VideoFilmCore?.createGPU?.();
- const PREVIEW_LONG_SIDE=1280;
+ // Fixed high-detail preview, independent of effect selection.
+ const PREVIEW_LONG_SIDE=1920;
  let lastRenderedMediaTime=-1,lastAudioSync=0;
  let worker=null,workerBusy=false,workerDisabled=false,workerGeneration=0,workerNeedsRefresh=false,workerTimeout=0;
  function invalidateWorker(){workerGeneration++;if(workerBusy)workerNeedsRefresh=true;}
@@ -71,10 +72,15 @@
     clearTimeout(workerTimeout);workerBusy=false;
     if(d.error){console.warn('Background video processing:',d.error);disableWorker();return;}
     if(d.generation===workerGeneration&&!recording&&file&&source.readyState>=2){
-     if(signalCanvas.width!==d.w)signalCanvas.width=d.w;
-     if(signalCanvas.height!==d.h)signalCanvas.height=d.h;
-     signalContext.putImageData(new ImageData(new Uint8ClampedArray(d.buffer),d.w,d.h),0,0);
-     stage.clearRect(0,0,preview.width,preview.height);stage.drawImage(signalCanvas,0,0,preview.width,preview.height);
+     const img=new ImageData(new Uint8ClampedArray(d.buffer),d.w,d.h);
+     if(d.w===preview.width&&d.h===preview.height)stage.putImageData(img,0,0);
+     else{
+      if(signalCanvas.width!==d.w)signalCanvas.width=d.w;
+      if(signalCanvas.height!==d.h)signalCanvas.height=d.h;
+      signalContext.putImageData(img,0,0);
+      stage.drawImage(signalCanvas,0,0,preview.width,preview.height);
+     }
+     $('videoStage').querySelector('.stageCanvas').classList.remove('native-clean');
      videoUI?.render();
     }
     if(workerNeedsRefresh){workerNeedsRefresh=false;if(!recording)renderCurrentFrame();}
@@ -1618,12 +1624,15 @@
   if(canvas===preview){
    // Full original quality is provided by the native video element, not a
    // continuously redrawn 1080p canvas (too costly for mobile Safari).
-   $('videoStage').querySelector('.stageCanvas').classList.toggle('native-clean',clean);
+   // Keep native playback visible until a processed frame is ready.
+   if(clean)$('videoStage').querySelector('.stageCanvas').classList.add('native-clean');
    const [width,height]=videoDimensions(PREVIEW_LONG_SIDE);
    if(canvas.width!==width)canvas.width=width;
    if(canvas.height!==height)canvas.height=height;
   }
+  if(clean&&canvas===preview){return;}
   if(clean||localOnly){
+   if(canvas===preview)$('videoStage').querySelector('.stageCanvas').classList.remove('native-clean');
    window.VHSVideoCleanPath.drawClean(source,canvas);
    if(localOnly&&!comparisonHeld)creativeUI?.drawTouch(canvas.getContext('2d'),atTime,clipIndex);
    return;
@@ -1638,11 +1647,13 @@
    else if(!filmGPU?.render(source,canvas,profile,frameState.filmStrength/100)){
     window.VHSVideoCleanPath.drawClean(source,canvas);
     const out=canvas.getContext('2d'),img=out.getImageData(0,0,canvas.width,canvas.height);
+    if(canvas===preview&&!forExport&&!recording&&!osdActive&&queuePreviewWorker(img,canvas.width,canvas.height,frameState,holdVideo,atTime))return;
     if(f.type==='builtin')window.VideoFilmCore.filmBuiltin(img.data,builtin[f.name],frameState.filmStrength/100);
     else if(f.fields)window.VideoFilmCore.filmXMP(img.data,f,frameState.filmStrength/100);
     out.putImageData(img,0,0);
    }
    if(osdActive&&!state.masterBypass)drawOsd(canvas.getContext('2d'),canvas.width,canvas.height);
+   if(canvas===preview)$('videoStage').querySelector('.stageCanvas').classList.remove('native-clean');
    return;
   }
   // Automatic mode preserves the canvas resolution. Only a deliberately
@@ -1719,11 +1730,10 @@
    const agedImage=image;
    window.VHSVideoCreative.damageTape(agedImage.data,iw,ih,age,time,clipSeed());
   }
-  ctx.putImageData(image,0,0);
   const output=canvas.getContext('2d');
-  output.imageSmoothingEnabled=true;
-  output.clearRect(0,0,canvas.width,canvas.height);
-  output.drawImage(signalCanvas,0,0,canvas.width,canvas.height);
+  if(iw===canvas.width&&ih===canvas.height)output.putImageData(image,0,0);
+  else{ctx.putImageData(image,0,0);output.imageSmoothingEnabled=true;output.drawImage(signalCanvas,0,0,canvas.width,canvas.height);}
+  if(canvas===preview)$('videoStage').querySelector('.stageCanvas').classList.remove('native-clean');
  }
  function renderCurrentFrame(){
   if(!file||source.readyState<2||recording)return;
@@ -1732,7 +1742,7 @@
   framePending=true;requestAnimationFrame(()=>{
    framePending=false;if(!file||source.readyState<2||recording||renderBusy)return;
    renderBusy=true;
-   try{drawFrame(preview);lastRenderedMediaTime=source.currentTime;videoUI?.render();}catch(e){textStatus('Ошибка обработки: '+e.message);console.error(e);}
+   try{drawFrame(preview);lastRenderedMediaTime=source.currentTime;if(!workerBusy)videoUI?.render();}catch(e){textStatus('Ошибка обработки: '+e.message);console.error(e);}
    finally{renderBusy=false;}
   });
  }
@@ -1749,7 +1759,7 @@
   if(!file||(source.paused&&!creativeUI?.isReverse())||source.ended)return;
   if(!recording&&(framePending||renderBusy||workerBusy))return;
   const nativeClean=$('videoStage').querySelector('.stageCanvas').classList.contains('native-clean');
-  const fps=recording?Number(state.fps):nativeClean?12:30;
+  const fps=recording?Number(state.fps):30;
   if(now-lastDraw<1000/fps-2)return;
   const mediaTime=source.currentTime||0;
   if(!recording&&mediaTime===lastRenderedMediaTime)return;
@@ -1765,8 +1775,8 @@
     exportStatus('Запись: '+timeString(elapsed)+' / '+timeString(max)+' · клип '+(clipIndex+1)+'/'+clips.length);
     if(elapsed>=max-.04||(!clipHasNext()&&source.ended))stopExport();
    }else{drawFrame(preview);}
-   creativeUI?.syncButtons();
-   videoUI?.render();
+   if(recording||now-lastAudioSync<20)creativeUI?.syncButtons();
+   if(!workerBusy)videoUI?.render();
 
   }catch(e){
    console.error(e);if(recording){exportStatus('Ошибка обработки видео: '+e.message);stopExport();}
