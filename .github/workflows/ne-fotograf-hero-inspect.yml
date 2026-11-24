@@ -1,0 +1,42 @@
+name: NE FOTOGRAF custom hero inspection
+on:
+  push:
+    paths:
+      - '.github/workflows/ne-fotograf-hero-inspect.yml'
+      - 'ne-fotograf-rebuild-src/public/assets/people/*.glb'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect GLB, skin joints, weights and animation clips
+        run: |
+          python - <<'PY'
+          import pathlib,struct,json
+          root=pathlib.Path('ne-fotograf-rebuild-src/public/assets/people')
+          p=root/'Andr 3-rigged.glb'
+          b=p.read_bytes()
+          magic,v,total,n,typ=struct.unpack_from('<5I',b)
+          assert magic==0x46546c67 and v==2 and total==len(b)
+          d=json.loads(b[20:20+n])
+          info={'file':p.name,'bytes':len(b),'meshes':len(d.get('meshes',[])),'images':len(d.get('images',[])),'extensions':d.get('extensionsUsed',[]),'skins':[],'animations':[],'primitives':[]}
+          for skin in d.get('skins',[]):
+              info['skins'].append({'joints':[d['nodes'][i].get('name',str(i)) for i in skin['joints']],'inverseBindMatrices':skin.get('inverseBindMatrices')})
+          for a in d.get('animations',[]):
+              info['animations'].append({'name':a.get('name',''),'channels':len(a['channels']),'seconds':max(d['accessors'][s['input']].get('max',[0])[0] for s in a['samplers'])})
+          for m in d.get('meshes',[]):
+              for pr in m['primitives']:
+                  at=pr['attributes']
+                  info['primitives'].append({'attributes':list(at),'vertices':d['accessors'][at['POSITION']]['count'],'min':d['accessors'][at['POSITION']].get('min'),'max':d['accessors'][at['POSITION']].get('max')})
+          print(json.dumps(info,ensure_ascii=False,indent=2))
+          assert info['skins'] and any('JOINTS_0' in p['attributes'] and 'WEIGHTS_0' in p['attributes'] for p in info['primitives']), 'No skinned mesh'
+          pathlib.Path('/tmp/hero-inspection.json').write_text(json.dumps(info,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hero-inspection
+          path: /tmp/hero-inspection.json
