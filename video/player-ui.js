@@ -48,8 +48,8 @@ function create(config){
    if(canvas.width!==preview.width)canvas.width=preview.width;
    if(canvas.height!==preview.height)canvas.height=preview.height;
    const ctx=canvas.getContext('2d');
-   ctx.clearRect(0,0,canvas.width,canvas.height);
-   ctx.drawImage(preview,0,0);
+   if(frame.classList.contains('native-clean'))root.VHSVideoCleanPath.drawClean(source,canvas);
+   else ctx.drawImage(preview,0,0);
   }
  }
  function sync(){
