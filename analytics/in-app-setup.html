@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VHS STATS — подключение окна в приложениях</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark;color:#fff;background:#090909}
+*{box-sizing:border-box}body{margin:0;background:#090909;padding:calc(env(safe-area-inset-top) + 26px) 16px 45px}
+main{max-width:660px;margin:auto}h1{font-weight:950;letter-spacing:-1px;font-size:27px;margin:0}h1 b{color:#ff9818}
+h2{font-size:17px;margin:0 0 10px}p,li{font-size:13px;line-height:1.65;color:#bdbdbd}
+p.intro{margin:10px 0 24px}.card{border:1px solid #373737;background:#1a1a1a;border-radius:16px;padding:16px;margin:12px 0}
+.step{color:#ff9818;font-size:12px;font-weight:850;letter-spacing:.4px;margin-bottom:8px}
+button{width:100%;min-height:52px;background:#ff9818;color:#141414;border:0;border-radius:10px;font-size:14px;font-weight:900;padding:12px;cursor:pointer}
+button:disabled{opacity:.5}code{font-size:12px;color:#ffc17c}strong{color:#fff}
+.note{background:#202020;border-left:3px solid #ff9818;padding:13px 14px;margin:16px 0;border-radius:0 10px 10px 0}
+#status{font-size:12px;color:#e7d3b9;min-height:26px;margin:14px 0}a{color:#ffae55}
+</style></head><body><main>
+<h1>VHS <b>STATS</b></h1>
+<p class="intro">Настройка настоящего окна со статистикой прямо внутри PHOTO VHS и VHS Video Lab. <strong>Новых проектов и таблиц создавать не нужно.</strong> Нужно обновить только существующий VHS STATS COLLECTOR.</p>
+<section class="card">
+<div class="step">ШАГ 1</div>
+<h2>Замени код сборщика</h2>
+<p>Открой проект <b>VHS STATS COLLECTOR</b> в Google Apps Script. В файле <b>Код.gs</b> удали старый код и вставь новый — кнопка ниже скопирует весь код с уже подставленным ID твоей таблицы.</p>
+<button id="copy" disabled>ЗАГРУЖАЮ КОД…</button>
+<p id="status" role="status"></p>
+<p>Сохрани файл. Второй проект <b>VHS STATS DASHBOARD</b> менять не надо.</p>
+</section>
+<section class="card">
+<div class="step">ШАГ 2</div>
+<h2>Сгенерируй личный ключ</h2>
+<p>В Google Apps Script сверху выбери функцию <code>setupVHSStatsAdminKey</code> → нажми <b>▶ Выполнить</b> → открой <b>Журнал выполнения</b>.</p>
+<p>В журнале появится длинный личный ключ (64 символа). <strong>Скопируй его себе.</strong></p>
+<div class="note"><p><strong>Не присылай этот ключ и скриншот с ним в чат.</strong> Он нужен только тебе для открытия статистики в приложениях.</p></div>
+</section>
+<section class="card">
+<div class="step">ШАГ 3</div>
+<h2>Обнови существующее развёртывание</h2>
+<p>Нажми <b>Начать развертывание → Управление развертываниями → ✎ → Версия: Новая версия → Развернуть</b>.</p>
+<p>Для <b>COLLECTOR</b> сохрани настройки: <b>Запуск от моего имени</b> и <b>доступ: Все</b>. Это публичный сборщик; читать статистику через него можно только с подписанным запросом, который требует личного ключа.</p>
+<p><strong>Новое развёртывание не создавай</strong> — тогда адрес сборщика останется прежним.</p>
+</section>
+<section class="card">
+<div class="step">ШАГ 4</div>
+<h2>Открой окно прямо в приложении</h2>
+<p>В PHOTO VHS или VHS Video Lab нажми <b>«Обновить приложение»</b>. Удерживай значок <b>▥</b> вверху примерно две секунды.</p>
+<p>Появится окно «Доступ владельца». Вставь свой ключ и нажми <b>«ПОКАЗАТЬ СТАТИСТИКУ»</b>. После проверки появятся графики и цифры, без открытия браузера. На этом устройстве ключ сохранится, и повторно вводить его не понадобится.</p>
+<p>После успешного входа этот экземпляр приложения будет исключён из подсчёта посещений владельца.</p>
+</section>
+<p class="note">Сбор статистики в обоих приложениях пока отключён, поэтому нули — ожидаемы. После проверки окна включим сбор событий. Фотографии, видео и имена файлов никуда не отправляются.</p>
+<script>
+(async function(){
+ const status=document.getElementById('status');
+ const btn=document.getElementById('copy');
+ try{
+  const response=await fetch('./Collector.gs',{cache:'no-store'});
+  if(!response.ok)throw Error('Файл не найден: '+response.status);
+  const text=await response.text();
+  const code=text.replace('PASTE_YOUR_PRIVATE_SHEET_ID_HERE','1-TtZotCFh39gy5oQXpVGhxTsXPiHkcw7ZK3F6rRpd94');
+  if(code.includes('PASTE_YOUR_PRIVATE_SHEET_ID_HERE'))throw Error('Не удалось подставить ID таблицы');
+  btn.disabled=false;btn.textContent='СКОПИРОВАТЬ НОВЫЙ КОД COLLECTOR';
+  async function copy(){
+   try{
+    if(!navigator.clipboard||!navigator.clipboard.writeText)throw Error('Clipboard API unavailable');
+    await navigator.clipboard.writeText(code);
+   }catch(_){
+    const input=document.createElement('textarea');
+    input.value=code;input.style.cssText='position:fixed;top:0;left:0;opacity:.01;';
+    document.body.appendChild(input);input.focus();input.select();
+    const ok=document.execCommand('copy');input.remove();
+    if(!ok){status.textContent='Браузер не разрешил копирование. Открой код напрямую в GitHub.';return;}
+   }
+   btn.textContent='✓ КОД СКОПИРОВАН';
+   status.textContent='Вставь его в Код.gs проекта VHS STATS COLLECTOR.';
+  }
+  btn.addEventListener('click',copy);
+ }catch(e){btn.textContent='КОД НЕ ЗАГРУЖЕН';status.textContent='Ошибка загрузки: '+e.message;}
+})();
+</script>
+</main></body></html>
