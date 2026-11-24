@@ -1,4 +1,4 @@
-name: NE FOTOGRAF rebuild 031
+name: NE FOTOGRAF rebuild 032
 on:
   push:
     paths:
@@ -54,6 +54,7 @@ jobs:
           python -m http.server 8765 --directory dist >/tmp/nf-rebuild-http.log 2>&1 &
           node --input-type=module <<'JS'
           import {chromium} from 'playwright';
+          import {writeFileSync} from 'node:fs';
           const browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
           try{
             const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});
@@ -91,9 +92,22 @@ jobs:
             if(state.view!==3||state.position[2]<=-13.8||errors.length)throw Error(JSON.stringify({state,errors}));
             if(state.staticBefore>100&&state.staticAfter>=state.staticBefore*.65)throw Error('Static batching insufficient: '+JSON.stringify(state));
             if(await page.locator('#quality').count()!==0||await page.locator('#update').count()!==1)throw Error('UI');
-            await page.screenshot({path:'/tmp/nf-rebuild.png'});
+            const frame=await page.evaluate(()=>NF_NEW.capture());
+            writeFileSync('/tmp/nf-rebuild.png',Buffer.from(frame.split(',')[1],'base64'));
+            await page.screenshot({path:'/tmp/nf-screen.png'});
           }finally{await browser.close()}
           JS
+      - name: Verify actual rendered image
+        run: |
+          python -m pip install pillow --quiet
+          python - <<'PY'
+          from PIL import Image,ImageStat
+          im=Image.open('/tmp/nf-rebuild.png').convert('RGB')
+          st=ImageStat.Stat(im)
+          print('Render mean:',st.mean,'std:',st.stddev)
+          assert max(st.mean)>30 and max(st.stddev)>18, 'Empty or uniform WebGL render'
+          assert len(im.resize((96,96)).getcolors(10000))>150, 'Missing visual detail'
+          PY
       - name: Screenshot
         uses: actions/upload-artifact@v4
         with:
