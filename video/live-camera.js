@@ -9,6 +9,11 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function timedMedia(constraints,ms=12000){
+ let expired=false,timer;const pending=navigator.mediaDevices.getUserMedia(constraints).then(stream=>{if(expired){stream.getTracks().forEach(t=>t.stop());throw Error('Запрос камеры завершился слишком поздно');}return stream;});
+ try{return await Promise.race([pending,new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(Error('Камера не ответила. Проверь разрешения и активный звонок.'));},ms);})]);}finally{clearTimeout(timer);}
+}
+function frameReady(video,track){return !!track&&track.readyState==='live'&&!track.muted&&video.readyState>=2&&video.videoWidth>0&&video.videoHeight>0&&!video.paused;}
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,Number(x)||0));
 const randSeed=()=>crypto.getRandomValues(new Uint32Array(1))[0];
 const mimeTypes=[
@@ -58,9 +63,9 @@ function colorFilter(state={}){
   ') sepia('+(night?1:tint).toFixed(3)+') grayscale('+(monochrome?1:0)+
   ')'+(night?' hue-rotate(63deg) saturate(3.2) brightness(.78)':'');
 }
-function mount({getSettings,getFilmProfile,onImport}){
+function mount({getSettings,getFilmProfile,onImport,onOpen}){
  const dialog=$('videoLiveCameraDialog'),stage=$('videoLiveStage');
- const connecting=$('videoLiveConnecting');
+ const connecting=$('videoLiveConnecting'),connectionText=$('videoLiveConnectionText'),retryBtn=$('videoLiveRetry'),silentBtn=$('videoLiveRetrySilent');
  const video=$('videoLiveVideo'),fx=$('videoLiveOverlay'),processed=$('videoLiveCaptureCanvas');
  const review=$('videoLiveReview'),reviewPanel=$('videoLiveReviewActions');
  const status=$('videoLiveStatus'),meta=$('videoLiveMeta'),badge=$('videoLiveBadge');
@@ -82,6 +87,25 @@ function mount({getSettings,getFilmProfile,onImport}){
  let active=false,ready=false,recording=false,stopping=false,holding=false,cameraError=false;
  let cameraStream=null,recordStream=null,recorder=null,audioGraph=null;
  let session=0,overlayTimer=null,animation=0,cameraStartedAt=0;
+ let starting=false,recoverOnVisible=false,watchdog=null,lastMediaTime=-1,lastMediaAdvance=0,autoRetried=false,previousAudioSession=null;
+ function connectionMessage(text,error=false){cameraError=error;connectionText.textContent=text;connecting.classList.toggle('cameraConnectionError',error);retryBtn.hidden=!error;silentBtn.hidden=!error;sync();}
+ function cameraSession(mic){try{if(root.navigator?.audioSession){if(previousAudioSession===null)previousAudioSession=root.navigator.audioSession.type||'auto';root.navigator.audioSession.type=mic?'play-and-record':'auto';}}catch(_){}}
+ function restoreSession(){try{if(previousAudioSession!==null&&root.navigator?.audioSession)root.navigator.audioSession.type=previousAudioSession;}catch(_){}previousAudioSession=null;}
+ function stopWatchdog(){if(watchdog!==null){clearInterval(watchdog);watchdog=null;}}
+ async function waitForFrames(track,token){
+  const end=performance.now()+6500,initial=video.currentTime||0;let observed=false,callback=0;
+  if(typeof video.requestVideoFrameCallback==='function')try{callback=video.requestVideoFrameCallback(()=>{observed=true;});}catch(_){}
+  try{while(active&&token===session&&!document.hidden&&performance.now()<end){if(frameReady(video,track)&&(observed||Math.abs((video.currentTime||0)-initial)>.015))return;await wait(80);}throw Error('Камера подключена, но видеокадры не поступают.');}
+  finally{if(callback&&video.cancelVideoFrameCallback)try{video.cancelVideoFrameCallback(callback);}catch(_){}}
+ }
+ function watchFrames(token){stopWatchdog();lastMediaTime=video.currentTime;lastMediaAdvance=performance.now();watchdog=setInterval(()=>{
+  if(!active||token!==session||!ready||resultBlob||document.hidden)return;
+  const track=cameraStream?.getVideoTracks()[0],now=performance.now();if(frameReady(video,track)&&Math.abs(video.currentTime-lastMediaTime)>.005){lastMediaTime=video.currentTime;lastMediaAdvance=now;return;}
+  if(now-lastMediaAdvance<4000)return;
+  fx.hidden=true;if(recording){finishRecording();message('Камера прервана. Запись остановлена.');return;}
+  if(stopping)return;ready=false;stopWatchdog();if(!autoRetried){autoRetried=true;void startCamera(true);return;}
+  stopTracks();connectionMessage('Изображение не поступает. Заверши звонок, если он активен, или попробуй без микрофона.',true);
+ },900);}
  let filmProfile=null,lastFxReport=null;
  let facing='environment',state={},seed=randSeed(),filmSeed=randSeed();
  let frameIndex=0,lastFrameTime=0,durationStart=0,secondsTimer=null;
@@ -137,6 +161,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   },isError?6500:2500);
  }
  function stopTimers(){
+  stopWatchdog();
   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
   if(animation){cancelAnimationFrame(animation);animation=0;}
   if(editableLoop){cancelAnimationFrame(editableLoop);editableLoop=0;}
@@ -148,7 +173,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   resultBlob=null;resultFilename='';resultCaptureMode='editable';download.removeAttribute('href');
  }
  function stopTracks(){
-  controls.unbind();
+  stopWatchdog();controls.unbind();
   if(cameraStream){
    for(const track of cameraStream.getTracks()){try{track.stop();}catch{}}
    cameraStream=null;
@@ -216,7 +241,7 @@ function mount({getSettings,getFilmProfile,onImport}){
   holdBtn.setAttribute('aria-pressed',String(holding));
   newBtn.disabled=!ready||stopping;
   newBtn.hidden=!!resultBlob;
-  flipBtn.disabled=!ready||recording||stopping;
+  flipBtn.disabled=!active||starting||recording||stopping;
   micToggle.disabled=recording||stopping;
   quality.disabled=recording||stopping;
   frames.disabled=recording||stopping;
@@ -230,11 +255,11 @@ function mount({getSettings,getFilmProfile,onImport}){
   fx.hidden=!!resultBlob||!ready;
   video.hidden=!!resultBlob;
   review.hidden=!resultBlob;
-  connecting.hidden=!active||ready||!!resultBlob||cameraError;
+  connecting.hidden=!active||ready||!!resultBlob;
  }
  function release(){
-  active=false;ready=false;holding=false;session++;
-  stopTimers();stopTracks();releaseRecordStream();
+  active=false;ready=false;holding=false;starting=false;recoverOnVisible=false;session++;
+  stopTimers();stopTracks();releaseRecordStream();restoreSession();
   document.documentElement.classList.remove('videoCameraLock');
   document.body.classList.remove('videoCameraLock');
   sync();
@@ -287,6 +312,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  function overlay(token){
   if(!active||!ready||resultBlob||token!==session)return;
   const started=performance.now();
+  if(!frameReady(video,cameraStream?.getVideoTracks()[0])){fx.hidden=true;overlayTimer=setTimeout(()=>{overlayTimer=null;overlay(token);},150);return;}
   try{
    ensureOutput();
    const time=Math.max(0,(started-cameraStartedAt)/1000);
@@ -401,6 +427,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  }
  function startRecording(){
   if(!active||!ready||recording||stopping)return;
+  if(!frameReady(video,cameraStream?.getVideoTracks()[0])){message('Кадры камеры недоступны. Повтори подключение.');return;}
   let stream,useEditableCanvas=false;
   try{
    const mime=supported();
@@ -469,82 +496,62 @@ function mount({getSettings,getFilmProfile,onImport}){
   }
  }
  function onRecord(){if(recording)finishRecording();else startRecording();}
- async function startCamera(){
-  const token=++session;
+ async function startCamera(forceSilent=false){
+  const token=++session;starting=true;recoverOnVisible=false;
   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
-  stopTracks();ready=false;recording=false;holding=false;cameraError=false;clearResult();sync();
-  state=getSettings()||{};
-  filmProfile=getFilmProfile?.()||null;
-  seed=randSeed();filmSeed=seed;frameIndex=0;engine.reset();
-  cameraStartedAt=performance.now();
-  fx.hidden=true;
-  $('videoLiveProfile').textContent=[
-   state.vhsEnabled?'VHS':null,state.filmEnabled?'FILM':null,
-   state.glitchEnabled?'ГЛИТЧ':null,state.selectedCassetteId?'КАССЕТА':null
-  ].filter(Boolean).join(' · ')||'Оригинальное видео';
-  if(!navigator.mediaDevices?.getUserMedia){
-   cameraError=true;sync();
-   message('Камера недоступна. Открой через HTTPS в Safari.');return;
-  }
-  message('Запрашиваю разрешение на камеру и микрофон…');
-  let media;
-  const device={audio:!!micToggle.checked,video:{facingMode:{ideal:facing},
-   width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30,max:30}}};
+  stopTracks();ready=false;recording=false;holding=false;clearResult();
+  connectionMessage('Подключаю камеру…');state=getSettings()||{};filmProfile=getFilmProfile?.()||null;
+  seed=randSeed();filmSeed=seed;frameIndex=0;engine.reset();cameraStartedAt=performance.now();fx.hidden=true;
+  $('videoLiveProfile').textContent=[state.vhsEnabled?'VHS':null,state.filmEnabled?'FILM':null,state.glitchEnabled?'ГЛИТЧ':null,state.selectedCassetteId?'КАССЕТА':null].filter(Boolean).join(' · ')||'Оригинальное видео';
+  const current=()=>token===session&&active&&!document.hidden;
+  const requestedMic=!!micToggle.checked&&!forceSilent;
+  let lastError=null;
   try{
-   try{media=await navigator.mediaDevices.getUserMedia(device);}
-   catch(error){
-    // If ONLY the microphone permission was denied, still let the user
-    // record video. A camera denial fails the second request as well.
-    if(!micToggle.checked)throw error;
-    media=await navigator.mediaDevices.getUserMedia({
-     video:device.video,audio:false
-    });
-    message('Микрофон недоступен · камера работает без звука.');
+   if(!navigator.mediaDevices?.getUserMedia)throw Error('Камера недоступна. Открой приложение через HTTPS в Safari.');
+   const constraints={facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30,max:30}};
+   // If audio capture is interrupted by a call, release it and try video alone.
+   for(const mic of requestedMic?[true,false]:[false]){
+    if(!current())return;
+    let media=null;
+    try{
+     cameraSession(mic);connectionMessage(mic?'Подключаю камеру и микрофон…':'Подключаю камеру без микрофона…');
+     media=await timedMedia({video:constraints,audio:mic});
+     if(!current()){media.getTracks().forEach(tr=>tr.stop());return;}
+     cameraStream=media;const track=media.getVideoTracks()[0];if(!track)throw Error('Нет видеопотока');
+     video.muted=true;video.defaultMuted=true;video.playsInline=true;video.autoplay=true;
+     video.srcObject=media;connectionMessage('Ожидаю первый видеокадр…');
+     let timer;try{await Promise.race([video.play(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Safari не начал показ камеры')),6000);})]);}finally{clearTimeout(timer);}
+     if(!current())return;
+     await waitForFrames(track,token);
+     if(!current())return;
+     video.style.filter='none';stage.classList.toggle('selfie',facing==='user');fitStage();ensureOutput();
+     const hasMic=media.getAudioTracks().some(t=>t.readyState==='live'&&!t.muted);
+     meta.textContent=video.videoWidth+' × '+video.videoHeight+(hasMic?' · микрофон':' · без звука');
+     sound.textContent=hasMic?'Микрофон включён':'Без звука';micToggle.checked=hasMic;
+     controls.bind(track);starting=false;ready=true;cameraError=false;sync();overlay(token);watchFrames(token);
+     if(requestedMic&&!hasMic)message('Микрофон недоступен · камера работает без звука.');else message('Камера готова.');
+     return;
+    }catch(err){
+     lastError=err;if(!current()){if(media&&media!==cameraStream)media.getTracks().forEach(t=>t.stop());return;}
+     stopTracks();if(mic)await wait(300);
+    }
    }
-   if(token!==session||!active){
-    for(const tr of media.getTracks())tr.stop();return;
-   }
-   cameraStream=media;
-   message('Камера найдена · запускаю изображение…');
-   video.srcObject=media;
-   video.muted=true;video.playsInline=true;
-   await video.play();
-   if(token!==session||!active)return;
-   if(!video.videoWidth||!video.videoHeight)
-    await Promise.race([
-     new Promise(resolve=>video.addEventListener('loadedmetadata',resolve,{once:true})),
-     wait(5500).then(()=>{throw Error('Видео от камеры не поступает');})
-    ]);
-   if(token!==session||!active)return;
-   video.style.filter='none';
-   stage.classList.toggle('selfie',facing==='user');
-   fitStage();
-   ensureOutput();
-   meta.textContent=video.videoWidth+' × '+video.videoHeight+
-    (media.getAudioTracks().length?' · микрофон':' · без звука');
-   sound.textContent=media.getAudioTracks().length?'Микрофон включён':'Без звука';
-   ready=true;controls.bind(media.getVideoTracks()[0]);sync();overlay(token);
-   message('Камера готова · настоящие эффекты VHS, FILM, GLITCH и индикаторы на живом изображении и записи.');
+   throw lastError||Error('Видеопоток недоступен');
   }catch(err){
-   if(token!==session)return;
-   stopTracks();ready=false;cameraError=true;sync();
-   message(err?.name==='NotAllowedError'?
-    'Разреши доступ к камере и микрофону в Safari.':
-    'Камера не запустилась: '+(err?.message||err));
-  }
+   if(!current())return;stopTracks();ready=false;
+   const msg=err?.name==='NotAllowedError'?'Нет доступа к камере. Проверь разрешение Safari или приложения.':err?.name==='NotReadableError'?'Камера занята системой или другим приложением. Заверши звонок и повтори.':'Камера не запустилась: '+(err?.message||err);
+   connectionMessage(msg,true);message(msg);
+  }finally{if(token===session){starting=false;sync();}}
  }
  async function open(){
-  if(active)return;
-  active=true;
+  if(active)return;onOpen?.();active=true;autoRetried=false;
   if(!dialog.open)dialog.showModal();
-  document.documentElement.classList.add('videoCameraLock');
-  document.body.classList.add('videoCameraLock');
-  fitStage(); // Keep the waiting view inside the pinned controls.
-  await startCamera();
+  document.documentElement.classList.add('videoCameraLock');document.body.classList.add('videoCameraLock');
+  fitStage();await startCamera();
  }
  function swapCamera(){
-  if(!active||recording||stopping)return;
-  facing=facing==='user'?'environment':'user';startCamera();
+  if(!active||starting||recording||stopping)return;
+  facing=facing==='user'?'environment':'user';autoRetried=false;void startCamera();
  }
  async function saveShare(){
   if(!resultBlob)return;
@@ -565,6 +572,8 @@ function mount({getSettings,getFilmProfile,onImport}){
   try{await onImport(recorded);}
   finally{importBtn.disabled=false;}
  }
+ retryBtn.addEventListener('click',()=>{if(!active||recording||stopping)return;autoRetried=false;void startCamera();});
+ silentBtn.addEventListener('click',()=>{if(!active||recording||stopping)return;autoRetried=false;micToggle.checked=false;void startCamera(true);});
  openTop.addEventListener('click',open);
  openPanel.addEventListener('click',open);
  $('videoLiveClose').addEventListener('click',close);
@@ -583,7 +592,7 @@ function mount({getSettings,getFilmProfile,onImport}){
  });
  holdBtn.addEventListener('contextmenu',event=>event.preventDefault());
  micToggle.addEventListener('change',()=>{
-  if(active&&!recording&&!stopping)startCamera();
+  if(active&&!recording&&!stopping){autoRetried=false;void startCamera();}
  });
  quality.addEventListener('change',()=>{
   if(active&&ready&&!recording&&!stopping){
@@ -626,17 +635,10 @@ function mount({getSettings,getFilmProfile,onImport}){
   clearResult();sync();overlay(session);
  });
  dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
- document.addEventListener('visibilitychange',()=>{
-  if(document.hidden&&active){
-   if(recording)finishRecording();
-   stopTracks();ready=false;holding=false;sync();
-   message('Камера остановлена при сворачивании приложения.');
-  }
- });
- window.addEventListener('pagehide',()=>{
-  if(recording)finishRecording();
-  stopTracks();
- });
+ function suspendCamera(){if(!active)return;recoverOnVisible=!recording&&!stopping&&!resultBlob;if(recording)finishRecording();session++;starting=false;stopTimers();stopTracks();ready=false;holding=false;connectionMessage('Камера приостановлена системой.');}
+ function resumeCamera(){if(active&&recoverOnVisible&&!document.hidden&&!recording&&!stopping&&!resultBlob){recoverOnVisible=false;autoRetried=false;void startCamera();}}
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)suspendCamera();else resumeCamera();});
+ window.addEventListener('pagehide',suspendCamera);window.addEventListener('pageshow',resumeCamera);
  sync();
  return Object.freeze({open,close,getState:()=>({
   active,ready,recording,holding,seed,filmSeed,recordFrameCount,
@@ -646,5 +648,5 @@ function mount({getSettings,getFilmProfile,onImport}){
   width:processed.width,height:processed.height
  })});
 }
-root.VHSVideoLiveCamera=Object.freeze({mount,colorFilter,mimeChoice,fitGeometry});
+root.VHSVideoLiveCamera=Object.freeze({mount,colorFilter,mimeChoice,fitGeometry,frameReady});
 })(window);
