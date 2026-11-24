@@ -1,0 +1,45 @@
+name: NE FOTOGRAF city assets
+on:
+  push:
+    paths:
+      - '.github/workflows/ne-fotograf-city.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and validate GLB assets
+        run: |
+          mkdir -p ne-fotograf/models/city
+          curl -fL --retry 3 --max-time 60 'https://raw.githubusercontent.com/anshaneja5/skyline-run/0c41526d8d4130c37c15e219c2c3737fa8cb4ad8/public/assets/models/tree1.glb' -o 'ne-fotograf/models/city/tree1.glb'
+          curl -fL --retry 3 --max-time 60 'https://raw.githubusercontent.com/anshaneja5/skyline-run/0c41526d8d4130c37c15e219c2c3737fa8cb4ad8/public/assets/models/tree2.glb' -o 'ne-fotograf/models/city/tree2.glb'
+          curl -fL --retry 3 --max-time 60 'https://raw.githubusercontent.com/anshaneja5/skyline-run/0c41526d8d4130c37c15e219c2c3737fa8cb4ad8/public/assets/models/bush.glb' -o 'ne-fotograf/models/city/bush.glb'
+          curl -fL --retry 3 --max-time 60 'https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/6eff5b79357bff6bf9b578f7a50b29d8cb42ed74/packs/kenney-car-kit/models/sedan/sedan.glb' -o 'ne-fotograf/models/city/sedan.glb'
+          curl -fL --retry 3 --max-time 60 'https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/6eff5b79357bff6bf9b578f7a50b29d8cb42ed74/packs/kenney-car-kit/models/suv/suv.glb' -o 'ne-fotograf/models/city/suv.glb'
+          curl -fL --retry 3 --max-time 60 'https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/6eff5b79357bff6bf9b578f7a50b29d8cb42ed74/packs/kenney-car-kit/models/sedan_sports/sedan_sports.glb' -o 'ne-fotograf/models/city/sedan_sports.glb'
+          python - <<'PY'
+          import pathlib, hashlib, struct, json
+          expected={"tree1.glb":"80bd662cc51f983986f4e201463dc3a729a6cd4a","tree2.glb":"0197de65879eb650247c8d56ac52da34489938cb","bush.glb":"84b4153c17e988a658e56d4093b0028d1b034c3f","sedan.glb":"00049bc36f86a7ddf2ee392bd439dd6fcf2c0f326a9c75eda96ccc2661270d4a","suv.glb":"b991b85867a1e1df9cae6e84a8332b2b3c62d73dae1c39a7ae3f0ee9c2741e16","sedan_sports.glb":"d800b250529d6a32ac766e19ca584ffe9100dfdc9c12f0214ee76c8d276ffd8b"}
+          for name,h in expected.items():
+              b=(pathlib.Path('ne-fotograf/models/city')/name).read_bytes()
+              actual=hashlib.sha256(b).hexdigest() if len(h)==64 else hashlib.sha1(('blob %d\0'%len(b)).encode()+b).hexdigest()
+              assert actual==h,(name,actual)
+              magic,ver,total,n,typ=struct.unpack_from('<5I',b)
+              assert magic==0x46546c67 and ver==2 and total==len(b)
+              d=json.loads(b[20:20+n])
+              assert d.get('meshes')
+              print(name,len(b),d.get('extensionsRequired',[]))
+          PY
+      - name: Store models
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ne-fotograf/models/city
+          if ! git diff --cached --quiet; then
+            git commit -m 'NE FOTOGRAF: vendor verified city props'
+            git pull --rebase
+            git push
+          fi
