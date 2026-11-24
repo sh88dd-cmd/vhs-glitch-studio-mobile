@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest?v=0.9.13">
 <link rel="icon" type="image/png" href="./icons/icon-192.png?v=0.9.13">
 <link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png?v=0.9.13">
-<link rel="stylesheet" href="./styles.css?v=0.9.28">
+<link rel="stylesheet" href="./styles.css?v=0.9.30">
 <title>VHS Video Lab</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.29 · КАМЕРА И МОНТАЖ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.30 · КАМЕРА И МОНТАЖ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -67,6 +67,7 @@
   <button id="holdClear" type="button" class="button" disabled>Очистить</button>
   <span id="holdStatus" class="hint">0 записей</span>
 </div>
+  <details id="clipTransitionsPanel" class="transitionPanel" hidden><summary>⇄ ПЕРЕХОДЫ МЕЖДУ КЛИПАМИ</summary><div class="transitionRow"><span>Для всех</span><select id="clipTransitionType" aria-label="Переход для всех клипов"></select><input id="clipTransitionSeconds" type="number" min="0.1" max="5" step="0.1" value="0.5" aria-label="Секунд"></div><button class="button mini full" type="button" id="clipTransitionApply">Применить ко всем переходам</button><div id="clipTransitionList"></div><p class="hint">Переход занимает начало следующего клипа. Последний кадр предыдущего клипа переходит в движущийся следующий. Длительность серии не меняется, звук переключается на стыке.</p></details>
   <div class="playlistRow"><span id="clipLabel" class="hint">Один видеоклип</span><button class="button mini" type="button" id="prevClip" disabled>← Клипы</button><button class="button mini" type="button" id="nextClip" disabled>След. →</button></div>
 </section>
 <aside id="monitorDock" class="monitorDock" aria-label="Закреплённый видеомонитор" hidden>
@@ -496,7 +497,7 @@
  <button id="exportBannerClose" type="button" aria-label="Скрыть состояние экспорта">✕</button>
 </div>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.9.29</span>
+  <span>VHS Video Lab · 0.9.30</span>
   <button id="videoForceUpdate" class="button mini" type="button">↻ Обновить приложение</button>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
@@ -518,6 +519,7 @@
   <label class="button primary photoVideoAddLabel">＋ Добавить фотографии<input type="file" id="photoVideoAdd" accept="image/*" multiple hidden></label>
   <div class="photoVideoListHeader"><strong id="photoVideoSummary">0 фото · 0 сек</strong><button type="button" id="photoVideoClear" class="button mini">Очистить</button></div>
   <div class="photoVideoListCaption">Порядок кадров · секунды · перемещение · удалить</div>
+  <div class="transitionPanel"><strong>ПЕРЕХОДЫ МЕЖДУ ФОТО</strong><div class="transitionRow"><span>Для всех</span><select id="photoTransitionType" aria-label="Переход для всех фото"></select><input id="photoTransitionSeconds" type="number" min="0.1" max="5" step="0.1" value="0.5" aria-label="Секунд"></div><button class="button mini full" id="photoTransitionApply" type="button">Применить ко всем переходам</button><p class="hint">Время перехода входит в длительность фотографии. Каждый стык можно настроить отдельно ниже.</p></div>
   <div id="photoVideoList"></div>
   <div class="photoVideoPager"><button type="button" id="photoVideoPrev" class="button mini">←</button><span id="photoVideoPage">1 / 1</span><button type="button" id="photoVideoNext" class="button mini">→</button></div>
   <div class="photoVideoSettings">
@@ -657,8 +659,9 @@
 <script src="./live-camera.js?v=0.9.24" defer></script>
 <script src="../stats-owner.js?v=2.0.0" defer></script>
 <script src="../usage-stats.js?v=0.9.16" defer></script>
-<script src="./photo-video.js?v=0.9.28" defer></script>
-<script src="./app.js?v=0.9.28" defer></script>
+<script src="./transitions.js?v=0.9.30" defer></script>
+<script src="./photo-video.js?v=0.9.30" defer></script>
+<script src="./app.js?v=0.9.30" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
  const button=document.getElementById('export');
