@@ -17,6 +17,7 @@ function shouldDock({hasVideo,frameBottom,viewportTop=0,viewerOpen=false}){
 }
 function create(config){
  const {source,preview,getState,onPlay,onReroll,onUndo,onPrev,onNext,onSeek}=config;
+ const bounds=()=>config.getBounds?.()||{start:0,end:source.duration||0,length:source.duration||0};
  const dock=$('monitorDock'),viewer=$('videoViewer'),body=document.body;
  const frame=$('videoStage').querySelector('.stageCanvas');
  let previousReady=false;
@@ -54,7 +55,7 @@ function create(config){
  }
  function sync(){
   const s=state(),hasVideo=!!s.file&&source.readyState>=2,usable=hasVideo&&!s.recording;
-  const duration=source.duration||0,position=source.currentTime||0;
+  const b=bounds(),duration=b.length,position=clamp((source.currentTime||0)-b.start,0,duration);
   const fraction=Number.isFinite(duration)&&duration>0?clamp(position/duration,0,1):0;
   const playText=!source.paused&&!source.ended?'Ⅱ':'▶';
   for(const id of ['dockTimeCurrent','viewerCurrent'])$(id).textContent=fmt(position);
@@ -88,12 +89,12 @@ function create(config){
  }
  function close(){if(viewer.open)viewer.close()}
  function seek(value){
-  const s=state(),duration=source.duration;
-  if(!s.file||s.recording||!Number.isFinite(duration)||duration<=0)return;
-  onSeek(clamp(value,0,duration));
+  const s=state(),b=bounds();
+  if(!s.file||s.recording||!Number.isFinite(b.length)||b.length<=0)return;
+  onSeek(clamp(value,b.start,b.end));
   sync();
  }
- function scrub(id){seek(Number($(id).value)/1000*(source.duration||0))}
+ function scrub(id){const b=bounds();seek(b.start+Number($(id).value)/1000*b.length)}
  function skip(seconds){seek((source.currentTime||0)+seconds)}
  $('dockPlay').addEventListener('click',onPlay);
  $('viewerPlay').addEventListener('click',onPlay);
