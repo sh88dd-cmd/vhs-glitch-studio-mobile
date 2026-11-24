@@ -1,4 +1,4 @@
-name: NE FOTOGRAF rebuild 06
+name: NE FOTOGRAF rebuild 061
 on:
   push:
     paths:
@@ -81,9 +81,11 @@ jobs:
             await page.waitForFunction(()=>window.NF_NEW!==undefined,null,{timeout:90000});
             let state=await page.evaluate(()=>NF_NEW.ready?NF_NEW.inspect():NF_NEW);
             console.log('Before',state);
-            if(state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.buildings<150||state.roads<150||state.locations.length<7||!state.actions.includes('jumpStart')||!state.actions.includes('jumpLoop')||!state.actions.includes('run'))throw Error(JSON.stringify(state));
+            if(state.hero!=='Andr 3-rigged'||state.heroVertices!==122663||state.heroSkinned<1||state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.buildings<150||state.roads<150||state.locations.length<7||!state.actions.includes('jumpStart')||!state.actions.includes('jumpLoop')||!state.actions.includes('run'))throw Error(JSON.stringify(state));
             if(state.cars.length!==4||!state.cars.every(c=>c.clear&&c.dir*c.lane<0)||state.pedestrians.length!==4||!state.pedestrians.every(p=>p.clear&&p.path>2))throw Error('Traffic or sidewalk init '+JSON.stringify(state));
             await page.locator('#start').click();
+            await page.waitForFunction(()=>NF_NEW.inspect().simSteps>=5,null,{timeout:90000,polling:100});
+            writeFileSync('/tmp/nf-hero.png',Buffer.from((await page.evaluate(()=>NF_NEW.capture())).split(',')[1],'base64'));
             // Test equal amounts of simulation time even on slow software WebGL.
             async function hold(key,steps){
               const start=await page.evaluate(()=>NF_NEW.inspect().simSteps);
@@ -155,7 +157,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rebuild-preview
-          path: /tmp/nf-rebuild.png
+          path: |
+            /tmp/nf-rebuild.png
+            /tmp/nf-hero.png
       - name: Publish new scene separately
         run: |
           set -e
