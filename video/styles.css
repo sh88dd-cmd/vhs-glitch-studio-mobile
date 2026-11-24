@@ -1770,3 +1770,12 @@ body.help-visible main nav.tabs button[data-tab].is-lit::after{
 .photoVideoPager span{font-size:11px;color:#bbb}
 #photoVideoCanvas{display:block;max-width:100%;max-height:35svh;width:auto;height:auto;object-fit:contain;margin:8px auto;border-radius:6px}
 #photoVideoStatus{min-height:20px;color:#ffcd91}
+
+/* 0.9.30 shared compact transition controls. */
+.transitionPanel{padding:9px;border:1px solid #65431d;border-radius:9px;background:#17130f;margin:8px 0;color:#ffc46d}
+.transitionPanel>strong,.transitionPanel>summary{font-size:12px;font-weight:850}
+.transitionRow{display:grid;grid-template-columns:minmax(62px,1fr) minmax(0,1.7fr) 66px;gap:6px;align-items:center;padding:4px 0;color:#ddd}
+.transitionRow span{font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.transitionRow select,.transitionRow input,#photoVideoDialog .transitionRow input,#photoVideoDialog .transitionRow select{min-width:0;width:100%;min-height:36px;padding:5px;margin:0;font-size:14px;border:1px solid #685136;border-radius:7px;background:#211e1a;color:#fff}
+#photoVideoList>.transitionRow{padding:4px 5px;background:#151515;margin:2px 0 5px;border-radius:6px}
+.transitionPanel .hint{margin:4px 0}
