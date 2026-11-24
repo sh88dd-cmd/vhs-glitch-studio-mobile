@@ -32,7 +32,7 @@ async function decode(file){
  return {img,close:()=>{img.src='';URL.revokeObjectURL(url);}};
  }catch(e){URL.revokeObjectURL(url);throw e;}
 }
-function mount({onImport,canOpen}){
+function mount({onImport,canOpen,onOpen}){
  const dialog=$('photoVideoDialog'),canvas=$('photoVideoCanvas'),ctx=canvas.getContext('2d',{alpha:false});
  let items=[],page=0,running=false,cancelled=false,rec=null,stream=null,current=null;
  const status=(msg)=>{$('photoVideoStatus').textContent=msg;};
@@ -135,11 +135,12 @@ function mount({onImport,canOpen}){
    if(cancelled)throw Error(failed||'Создание отменено.');
    const mime=rec.mimeType||'video/mp4';
    if(rec.state!=='inactive')rec.stop();
-   await Promise.race([finished,wait(10000).then(()=>{if(rec?.state!=='inactive')throw Error('Кодировщик не завершился.');})]);
+   let finishTimer;try{await Promise.race([finished,new Promise((_,reject)=>{finishTimer=setTimeout(()=>reject(Error('Кодировщик не завершился.')),10000);})]);}finally{clearTimeout(finishTimer);}
    if(failed||cancelled)throw Error(failed||'Создание отменено.');
    const blob=new Blob(chunks,{type:mime});
    if(!blob.size)throw Error('Кодировщик вернул пустой файл.');
    const ext=mime.includes('mp4')?'mp4':'webm';
+   $('photoVideoCancel').hidden=true;
    status('Открываю созданный ролик в редакторе…');
    await onImport(new File([blob],'Фото_видео.'+ext,{type:ext==='mp4'?'video/mp4':'video/webm'}),{limit,fps,duration});
    if(dialog.open)dialog.close();
@@ -153,7 +154,7 @@ function mount({onImport,canOpen}){
    canvas.hidden=true;canvas.width=2;canvas.height=2;busy(false);
   }
  }
- $('photoVideoOpen').onclick=()=>{if(!canOpen())return;render();dialog.showModal();};
+ $('photoVideoOpen').onclick=()=>{if(!canOpen())return;onOpen?.();render();dialog.showModal();};
  $('photoVideoClose').onclick=()=>{if(!running)dialog.close();};
  dialog.addEventListener('cancel',e=>{if(running)e.preventDefault();});
  $('photoVideoAdd').addEventListener('change',e=>{
@@ -168,7 +169,7 @@ function mount({onImport,canOpen}){
  $('photoVideoPrev').onclick=()=>{page--;render();};$('photoVideoNext').onclick=()=>{page++;render();};
  $('photoVideoCancel').onclick=()=>{cancelled=true;status('Останавливаю создание…');};
  $('photoVideoBuild').onclick=()=>void build();
- document.addEventListener('visibilitychange',()=>{if(document.hidden&&running){cancelled=true;status('Создание остановлено: приложение было свёрнуто.');}});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!$('photoVideoCancel').hidden){cancelled=true;status('Создание остановлено: приложение было свёрнуто.');}});
  render();
 }
 root.VHSPhotoVideo=Object.freeze({mount,dimensions,fit,distribute,total});
