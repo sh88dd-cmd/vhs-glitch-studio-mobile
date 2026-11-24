@@ -64,13 +64,20 @@ jobs:
             console.log('Before',state);
             if(state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.buildings<10||state.roads<5||!state.actions.includes('run'))throw Error(JSON.stringify(state));
             await page.locator('#start').click();
-            await page.keyboard.down('KeyW');await page.waitForTimeout(2200);await page.keyboard.up('KeyW');
+            // Test equal amounts of simulation time even on slow software WebGL.
+            async function hold(key,steps){
+              const start=await page.evaluate(()=>NF_NEW.inspect().simSteps);
+              await page.keyboard.down(key);
+              try{await page.waitForFunction(({start,steps})=>NF_NEW.inspect().simSteps>=start+steps,{start,steps},{timeout:90000,polling:100})}
+              finally{await page.keyboard.up(key)}
+              return await page.evaluate(()=>NF_NEW.inspect().position);
+            }
+            const forward=await hold('KeyW',60);
+            if(forward[2]<=-13.8)throw Error('Forward direction: '+JSON.stringify(forward));
             const beforeRight=await page.evaluate(()=>NF_NEW.inspect().position);
-            await page.keyboard.down('KeyD');await page.waitForTimeout(950);await page.keyboard.up('KeyD');
-            const afterRight=await page.evaluate(()=>NF_NEW.inspect().position);
+            const afterRight=await hold('KeyD',35);
             if(afterRight[0]>=beforeRight[0]-.10)throw Error('Right direction: '+JSON.stringify({beforeRight,afterRight}));
-            await page.keyboard.down('KeyA');await page.waitForTimeout(950);await page.keyboard.up('KeyA');
-            const afterLeft=await page.evaluate(()=>NF_NEW.inspect().position);
+            const afterLeft=await hold('KeyA',50);
             if(afterLeft[0]<=afterRight[0]+.10)throw Error('Left direction: '+JSON.stringify({afterRight,afterLeft}));
             await page.locator('#view').click();
             if((await page.evaluate(()=>NF_NEW.inspect())).view!==1)throw Error('view 1');
