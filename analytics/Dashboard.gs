@@ -31,10 +31,16 @@ function getDashboard(period) {
     days:days, updated:now.toISOString(), timezone:tz,
     overall:{visits:0, visitors:0, events:0},
     photo:blank_(), video:blank_(),
-    chart:[], lastEvents: []
+    chart:[], lastEvents: [],
+    topSections:[], topFeatures:[],
+    photoSections:[], videoSections:[],
+    photoFeatures:[], videoFeatures:[]
   };
   const visitors = {overall:new Set(), photo:new Set(), video:new Set()};
   const daily = {};
+  const sectionCounts={all:{},photo:{},video:{}};
+  const featureCounts={all:{},photo:{},video:{}};
+  function increment_(store,key){store[key]=(store[key]||0)+1;}
   for (let i = data.length-1; i >= 0; --i) {
     const row = data[i];
     const time = row[0] instanceof Date ? row[0] : new Date(row[0]);
@@ -44,6 +50,16 @@ function getDashboard(period) {
     if (app !== 'photo' && app !== 'video') continue;
     if (!/^[a-f0-9]{32}$/.test(id)) continue;
     const bucket=result[app];
+    if (/^section_[a-z0-9_]{2,32}$/.test(action)) {
+      const name=action.slice(8);
+      increment_(sectionCounts.all,name);
+      increment_(sectionCounts[app],name);
+    }
+    if (/^feature_[a-z0-9_]{2,32}$/.test(action)) {
+      const name=action.slice(8);
+      increment_(featureCounts.all,name);
+      increment_(featureCounts[app],name);
+    }
     const day=Utilities.formatDate(time,tz,'yyyy-MM-dd');
     if (!daily[day]) daily[day]={date:day,photo:0,video:0};
     daily[day][app]++;
@@ -63,6 +79,16 @@ function getDashboard(period) {
       at:Utilities.formatDate(time,tz,'dd.MM HH:mm'),app:app,action:action
     });
   }
+  function top_(store){
+    return Object.keys(store).map(k=>({id:k,count:store[k]}))
+      .sort((a,b)=>b.count-a.count||a.id.localeCompare(b.id)).slice(0,15);
+  }
+  result.topSections=top_(sectionCounts.all);
+  result.topFeatures=top_(featureCounts.all);
+  result.photoSections=top_(sectionCounts.photo);
+  result.videoSections=top_(sectionCounts.video);
+  result.photoFeatures=top_(featureCounts.photo);
+  result.videoFeatures=top_(featureCounts.video);
   result.photo.visitors=visitors.photo.size;
   result.video.visitors=visitors.video.size;
   result.overall.visitors=visitors.overall.size;
