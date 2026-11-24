@@ -588,7 +588,8 @@
     $('filmCount').textContent=`${items.length} профилей · ${Object.keys(looks).length} авторских · ${bundledXMP.length} встроенных XMP · ★ ${state.favoriteFilms.length}`;
     $('filmPageLabel').textContent=`${filmPage+1} / ${pages}`;
     $('prevFilmPage').disabled=filmPage===0;$('nextFilmPage').disabled=filmPage>=pages-1;
-    renderFilmCards($('filmGrid'),items.slice(filmPage*FILM_PAGE_SIZE,(filmPage+1)*FILM_PAGE_SIZE));
+    // Do not process hidden canvases during the initial iOS page paint.
+    if($('panel-film').classList.contains('active'))renderFilmCards($('filmGrid'),items.slice(filmPage*FILM_PAGE_SIZE,(filmPage+1)*FILM_PAGE_SIZE));
   }
   function renderFavoritesPage(){
     const items=favoriteItems(),pages=Math.max(1,Math.ceil(items.length/FILM_PAGE_SIZE));favoritesPage=clamp(favoritesPage,0,pages-1);
@@ -1020,7 +1021,7 @@
       // Trigger an update check on every online launch, not just Safari's periodic check.
       if(navigator.onLine)reg.update().catch(e=>console.warn('Service worker update check',e));
       await navigator.serviceWorker.ready;
-      const cache=await caches.open('vhs-mobile-v1.8.20');
+      const cache=await caches.open('vhs-mobile-v1.8.21');
       const files=['./index.html','./styles.css','./app.js','./camera-capture-controls.js','./photo-camera.js','./ntsc-photo.js','./looks.json','./assets/emulsion-451.json','./jszip.min.js',
        './photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js',
        './photo-polaroid-ui.js','./photo-face-ai.js','./photo-face-detect.js',
@@ -1345,14 +1346,25 @@
       getProfile:cameraCurrentProfile,
       onConfigure:()=>showTab('vhs')
     });
-    try{Object.assign(looks,await (await fetch('./looks.json')).json());}catch(err){notify('Каталог плёнок не загрузился. Открой программу через HTTPS или локальный сервер.');}
-    const [customXMP]=await Promise.all([dbAll('xmp'),loadBundledXMP()]);
-    xmpProfiles=combinedXMP(customXMP);
-    cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
-    if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
-    showFilmGrid();
-    if(bundledXMP.length) $('importStatus').textContent=`451 XMP-плёнка уже в приложении · 13 категорий · офлайн · без ZIP`;
-    checkOffline();
+    // Finish the interactive startup before loading optional film data.
+    document.documentElement.dataset.photoReady='true';
+    void checkOffline();
+    function refreshLoadedFilms(){
+      if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
+      showFilmGrid();
+      if(original)schedulePreview();
+    }
+    // Each data source can succeed independently; a stalled IndexedDB read
+    // or network request must not prevent opening the editor.
+    let customXMP=[];
+    const refreshXMP=()=>{xmpProfiles=combinedXMP(customXMP);refreshLoadedFilms();};
+    const report=(err)=>{console.warn('Optional startup data',err);};
+    setTimeout(()=>{
+      void (async()=>{const response=await fetch('./looks.json');if(!response.ok)throw Error('HTTP '+response.status);Object.assign(looks,await response.json());refreshLoadedFilms();})().catch(report);
+      void loadBundledXMP().then(()=>{refreshXMP();if(bundledXMP.length)$('importStatus').textContent='451 XMP-плёнка уже в приложении · 13 категорий · офлайн · без ZIP';}).catch(report);
+      void dbAll('xmp').then(records=>{customXMP=records;refreshXMP();}).catch(report);
+      void dbAll('assets').then(records=>{cubeLut=records.find(x=>x.id==='custom')||null;if(original)schedulePreview();}).catch(report);
+    },0);
   }
-  init().catch(err=>{console.error(err);notify('Ошибка инициализации: '+err.message,true);});
+  init().catch(err=>{console.error(err);document.documentElement.dataset.photoReady='error';$('onlineState').textContent='ОШИБКА ЗАПУСКА';notify('Ошибка запуска: '+err.message+' · попробуй обновить приложение.');});
 })();
