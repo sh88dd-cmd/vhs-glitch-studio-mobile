@@ -24,6 +24,8 @@ class TapeAudio{
   if(ctx.state!=='running')throw Error('Звук приостановлен системой. Нажми «Включить звук».');return true;
  }
  async start(requireRunning=true){
+  // Explicit playback session on supporting iOS versions (not a microphone session).
+  if(requireRunning){try{if(root.navigator?.audioSession)root.navigator.audioSession.type='playback';}catch(_){}}
   if(this.connected)return this.resume(requireRunning);
   const Context=window.AudioContext||window.webkitAudioContext;
   if(!Context)throw Error('Web Audio недоступен в этом браузере.');
