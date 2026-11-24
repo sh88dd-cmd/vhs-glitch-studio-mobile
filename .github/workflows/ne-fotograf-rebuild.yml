@@ -1,0 +1,87 @@
+name: NE FOTOGRAF rebuild 01
+on:
+  push:
+    paths:
+      - 'ne-fotograf-rebuild-src/**'
+      - '.github/workflows/ne-fotograf-rebuild.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch pinned licensed assets
+        working-directory: ne-fotograf-rebuild-src
+        run: |
+          python - <<'PY'
+          import json,pathlib,subprocess,struct
+          sources=json.load(open('assets-sources.json'))
+          for name,url in sources.items():
+              p=pathlib.Path('public/assets')/name
+              p.parent.mkdir(parents=True,exist_ok=True)
+              subprocess.run(['curl','-fL','--retry','2','--max-time','90',url,'-o',str(p)],check=True)
+              if name.endswith('.glb'):
+                  b=p.read_bytes()
+                  magic,version,total,n,typ=struct.unpack_from('<5I',b)
+                  assert magic==0x46546c67 and version==2 and total==len(b)
+                  d=json.loads(b[20:20+n])
+                  if '/anims_' in name:
+                      assert {'idle_relaxed','walk','dash','select_idle'}.issubset({a['name'] for a in d['animations']})
+                  elif name.startswith('people/'):
+                      assert d.get('skins') and d.get('meshes')
+              print(name,p.stat().st_size,flush=True)
+          PY
+      - name: Build independent engine
+        working-directory: ne-fotograf-rebuild-src
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Test new characters, movement and camera before publishing
+        working-directory: ne-fotograf-rebuild-src
+        run: |
+          python -m http.server 8765 --directory dist >/tmp/nf-rebuild-http.log 2>&1 &
+          node --input-type=module <<'JS'
+          import {chromium} from 'playwright';
+          const browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+          try{
+            const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});
+            const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.log(e.message)});page.on('console',m=>{if(m.type()==='error')console.log(m.text())});
+            await page.goto('http://localhost:8765/',{waitUntil:'domcontentloaded'});
+            await page.waitForFunction(()=>window.NF_NEW!==undefined,null,{timeout:90000});
+            let state=await page.evaluate(()=>NF_NEW.ready?NF_NEW.inspect():NF_NEW);
+            console.log('Before',state);
+            if(state.people!==5||state.view!==3||!state.actions.includes('run'))throw Error(JSON.stringify(state));
+            await page.locator('#start').click();
+            await page.keyboard.down('KeyW');await page.waitForTimeout(2200);await page.keyboard.up('KeyW');
+            await page.locator('#view').click();
+            if((await page.evaluate(()=>NF_NEW.inspect())).view!==1)throw Error('view 1');
+            await page.locator('#view').click();
+            state=await page.evaluate(()=>NF_NEW.inspect());console.log('After',state);
+            if(state.view!==3||state.position[2]<=-13.8||errors.length)throw Error(JSON.stringify({state,errors}));
+            await page.screenshot({path:'/tmp/nf-rebuild.png'});
+          }finally{await browser.close()}
+          JS
+      - name: Screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: rebuild-preview
+          path: /tmp/nf-rebuild.png
+      - name: Publish new scene separately
+        run: |
+          mkdir -p ne-fotograf-next
+          cp -a ne-fotograf-rebuild-src/dist/. ne-fotograf-next/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ne-fotograf-next
+          if ! git diff --cached --quiet; then
+            git commit -m 'Publish independently tested NE FOTOGRAF rebuild'
+            git pull --rebase
+            git push
+          fi
