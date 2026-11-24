@@ -1,4 +1,4 @@
-name: NE FOTOGRAF rebuild 05
+name: NE FOTOGRAF rebuild 06
 on:
   push:
     paths:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -48,7 +48,11 @@ jobs:
       - name: Bake actual OpenStreetMap data
         working-directory: ne-fotograf-rebuild-src
         run: |
-          cp ../ne-fotograf-next/assets/kitay-gorod.json public/assets/kitay-gorod.json
+          if python -c "import json; assert json.load(open('../ne-fotograf-next/assets/kitay-gorod.json')).get('expanded')" 2>/dev/null; then
+            cp ../ne-fotograf-next/assets/kitay-gorod.json public/assets/kitay-gorod.json
+          else
+            python tools/expand-osm.py
+          fi
           mkdir -p public/assets/cars
           cp ../ne-fotograf/models/city/real-{sedan,suv,hatchback}.glb public/assets/cars/
           cp ../ne-fotograf/models/city/plane-tree.glb public/assets/props/plane-tree.glb
@@ -73,11 +77,11 @@ jobs:
           try{
             const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});
             const errors=[];page.on('pageerror',e=>{errors.push(e.message);console.log(e.message)});page.on('console',m=>{if(m.type()==='error')console.log(m.text())});
-            await page.goto('http://localhost:8765/',{waitUntil:'domcontentloaded'});
+            await page.goto('http://localhost:8765/?test=1',{waitUntil:'domcontentloaded'});
             await page.waitForFunction(()=>window.NF_NEW!==undefined,null,{timeout:90000});
             let state=await page.evaluate(()=>NF_NEW.ready?NF_NEW.inspect():NF_NEW);
             console.log('Before',state);
-            if(state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.buildings<10||state.roads<5||!state.actions.includes('run'))throw Error(JSON.stringify(state));
+            if(state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.buildings<150||state.roads<150||state.locations.length<7||!state.actions.includes('jumpStart')||!state.actions.includes('jumpLoop')||!state.actions.includes('run'))throw Error(JSON.stringify(state));
             if(state.cars.length!==4||!state.cars.every(c=>c.clear&&c.dir*c.lane<0)||state.pedestrians.length!==4||!state.pedestrians.every(p=>p.clear&&p.path>2))throw Error('Traffic or sidewalk init '+JSON.stringify(state));
             await page.locator('#start').click();
             // Test equal amounts of simulation time even on slow software WebGL.
@@ -91,6 +95,10 @@ jobs:
             function grounded(s){if(Math.abs(s.position[1])>.05||Math.abs(s.bodyY-.905)>.01||s.cameraY<1.4||s.groundY!==0)throw Error('Ground regression '+JSON.stringify(s))}
             grounded(await page.evaluate(()=>NF_NEW.inspect()));
             await page.waitForFunction(()=>NF_NEW.inspect().simSteps>=30,null,{timeout:90000,polling:100});
+            grounded(await page.evaluate(()=>NF_NEW.inspect()));
+            await page.locator('#jump').click();
+            await page.waitForFunction(()=>NF_NEW.inspect().jumpPeak>.2,null,{timeout:90000,polling:100});
+            await page.waitForFunction(()=>NF_NEW.inspect().jumpH===0,null,{timeout:90000,polling:100});
             grounded(await page.evaluate(()=>NF_NEW.inspect()));
             const forward=await hold('KeyW',60);
             grounded(await page.evaluate(()=>NF_NEW.inspect()));
@@ -108,6 +116,7 @@ jobs:
             if(state.staticBefore>100&&state.staticAfter>=state.staticBefore*.65)throw Error('Static batching insufficient: '+JSON.stringify(state));
             if(await page.locator('#quality').count()!==0||await page.locator('#update').count()!==1)throw Error('UI');
             if(!state.cars.some(c=>c.travel>.2)||!state.cars.every(c=>c.clear)||!state.pedestrians.every(p=>p.clear))throw Error('Traffic movement or blocked sidewalk '+JSON.stringify(state));
+            if(!await page.evaluate(()=>NF_NEW.test.nearCar('parked-sedan')))throw Error('No parked vehicle access');
             await page.locator('#carAction').click({timeout:15000});
             const entered=await page.evaluate(()=>NF_NEW.inspect());
             if(entered.driving!=='parked-sedan')throw Error('Enter car '+JSON.stringify(entered));
@@ -119,6 +128,13 @@ jobs:
             await page.locator('#carAction').click({timeout:15000});
             const exited=await page.evaluate(()=>NF_NEW.inspect());grounded(exited);
             if(exited.driving||errors.length)throw Error('Exit '+JSON.stringify({exited,errors}));
+            if(!await page.evaluate(()=>NF_NEW.test.nearCar('real-suv')))throw Error('No occupied vehicle access');
+            await page.locator('#carAction').click({timeout:15000});
+            const stolen=await page.evaluate(()=>NF_NEW.inspect());if(stolen.driving!=='real-suv'||stolen.ejections!==1)throw Error('Takeover '+JSON.stringify(stolen));
+            await page.locator('#carAction').click({timeout:15000});
+            await page.locator('#places').click();
+            await page.locator('#placeList button').filter({hasText:'Маросейка'}).click();
+            const visited=await page.evaluate(()=>NF_NEW.inspect());if(visited.driving||Math.hypot(visited.position[0],visited.position[2]+14)<40||errors.length)throw Error('Location '+JSON.stringify(visited));
             const frame=await page.evaluate(()=>NF_NEW.capture());
             writeFileSync('/tmp/nf-rebuild.png',Buffer.from(frame.split(',')[1],'base64'));
             await page.screenshot({path:'/tmp/nf-screen.png'});
