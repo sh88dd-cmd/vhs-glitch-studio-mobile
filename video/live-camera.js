@@ -119,7 +119,23 @@ function mount({getSettings,getFilmProfile,onImport}){
   }
   editableLoop=requestAnimationFrame(paintEditableFrame);
  }
- function message(value){status.textContent=String(value);}
+ let statusToastTimer=null;
+ function message(value){
+  const text=String(value||'');
+  status.textContent=text; // Preserve accessible live message for screen readers.
+  if(statusToastTimer!==null){clearTimeout(statusToastTimer);statusToastTimer=null;}
+  status.classList.remove('cameraToastVisible','cameraToastError');
+  // Successful readiness/recording labels must NOT occupy permanent screen space.
+  const isError=/(ошиб|не удалось|недоступ|запрещ|отказ|нет доступа|не поддерж)/i.test(text);
+  const shouldShow=isError || /(сохран|запись останов|готово.*файл|записано|видео снято|невозможно|нельзя)/i.test(text);
+  if(!text||!shouldShow)return;
+  if(isError)status.classList.add('cameraToastError');
+  status.classList.add('cameraToastVisible');
+  statusToastTimer=setTimeout(()=>{
+   status.classList.remove('cameraToastVisible','cameraToastError');
+   statusToastTimer=null;
+  },isError?6500:2500);
+ }
  function stopTimers(){
   if(overlayTimer!==null){clearTimeout(overlayTimer);overlayTimer=null;}
   if(animation){cancelAnimationFrame(animation);animation=0;}
