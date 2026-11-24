@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest?v=0.9.13">
 <link rel="icon" type="image/png" href="./icons/icon-192.png?v=0.9.13">
 <link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png?v=0.9.13">
-<link rel="stylesheet" href="./styles.css?v=0.9.27">
+<link rel="stylesheet" href="./styles.css?v=0.9.28">
 <title>VHS Video Lab</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.27 · КАМЕРА И МОНТАЖ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.28 · КАМЕРА И МОНТАЖ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -53,6 +53,7 @@
     <label class="button mini">▣ Через «Файлы»<input id="videoFilesInput" type="file" accept="video/*,.mov,.mp4,.m4v,.webm" hidden></label>
     <label class="button mini">▤ Несколько клипов<input id="videoClipsInput" type="file" accept="video/*" multiple hidden></label>
   </div>
+  <button type="button" class="button photoVideoOpen" id="photoVideoOpen">▧ ФОТО → ВИДЕО</button>
   <p id="videoImportStatus" class="hint videoImportStatus" role="status" aria-live="polite">Выбирай одно видео из галереи. Для больших или облачных роликов можно воспользоваться «Файлами».</p>
   <div id="videoImportHelp" class="videoImportHelp" hidden>
     <strong>Если галерея закрылась без видео:</strong> открой нужный ролик в «Фото», нажми «Поделиться» → «Сохранить в Файлы». Затем выбери его через «Файлы» в редакторе. Это альтернативный способ передачи файла, а не перекодирование.
@@ -474,8 +475,8 @@
 </section>
 <section id="panel-export" class="panel">
   <h2>СОХРАНЕНИЕ ВИДЕО</h2>
-  <label>Размер видео<select id="outputSize"><option value="360">360p — быстрее на iPhone</option><option value="480">480p — баланс качества</option><option value="720">720p — высокая нагрузка</option></select></label>
-  <label>Частота кадров<select id="fps"><option value="15">15 кадров/с — быстрее</option><option value="24">24 кадра/с — плавнее</option></select></label>
+  <label>Размер видео<select id="outputSize"><option value="360">360p — быстрее на iPhone</option><option value="480">480p — баланс качества</option><option value="720">720 px по длинной стороне</option><option value="1280">1280 px · HD</option><option value="1920">1920 px · Full HD</option></select></label>
+  <label>Частота кадров<select id="fps"><option value="15">15 кадров/с — быстрее</option><option value="24">24 кадра/с — плавнее</option><option value="30">30 кадров/с</option></select></label>
   <label>Длительность экспорта<select id="exportScope"><option value="30">Первые 30 секунд / короткий тест</option><option value="full">Весь ролик / все выбранные клипы</option></select></label>
   <div class="switch"><span>Сохранить звук (оригинал или VHS-обработку)</span><input id="keepAudio" type="checkbox" checked></div>
   <button class="button primary full" id="export" type="button">↓ 1. СОЗДАТЬ ВИДЕО С ЭФФЕКТАМИ</button>
@@ -495,7 +496,7 @@
  <button id="exportBannerClose" type="button" aria-label="Скрыть состояние экспорта">✕</button>
 </div>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.9.27</span>
+  <span>VHS Video Lab · 0.9.28</span>
   <button id="videoForceUpdate" class="button mini" type="button">↻ Обновить приложение</button>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
@@ -504,6 +505,35 @@
   </button>
 </footer>
 </main>
+<dialog id="photoVideoDialog" aria-labelledby="photoVideoTitle">
+ <header class="photoVideoHead"><strong id="photoVideoTitle">ФОТО → ВИДЕО</strong><button type="button" class="button mini" id="photoVideoClose">✕ Закрыть</button></header>
+ <div class="photoVideoBody">
+  <p class="hint">Одно фото или слайд-шоу. Добавляй фотографии сколько нужно, в несколько заходов. Изображения не растягиваются.</p>
+  <div class="photoVideoSettings">
+   <label>Секунд на фото<input type="number" id="photoVideoDefault" min="0.1" step="any" value="3" inputmode="decimal"></label>
+   <button type="button" class="button mini" id="photoVideoApply">Применить ко всем</button>
+   <label>Вся длительность, сек<input type="number" id="photoVideoTotal" min="0.1" step="any" inputmode="decimal"></label>
+   <button type="button" class="button mini" id="photoVideoApplyTotal">Распределить поровну</button>
+  </div>
+  <label class="button primary photoVideoAddLabel">＋ Добавить фотографии<input type="file" id="photoVideoAdd" accept="image/*" multiple hidden></label>
+  <div class="photoVideoListHeader"><strong id="photoVideoSummary">0 фото · 0 сек</strong><button type="button" id="photoVideoClear" class="button mini">Очистить</button></div>
+  <div class="photoVideoListCaption">Порядок кадров · секунды · перемещение · удалить</div>
+  <div id="photoVideoList"></div>
+  <div class="photoVideoPager"><button type="button" id="photoVideoPrev" class="button mini">←</button><span id="photoVideoPage">1 / 1</span><button type="button" id="photoVideoNext" class="button mini">→</button></div>
+  <div class="photoVideoSettings">
+   <label>Формат<select id="photoVideoAspect"><option value="original">Как первое фото</option><option value="9:16">9:16 · вертикальный</option><option value="16:9">16:9 · горизонтальный</option><option value="1:1">1:1 · квадратный</option></select></label>
+   <label>Кадрирование<select id="photoVideoFit"><option value="contain">Целиком · без обрезки</option><option value="cover">Заполнить кадр</option></select></label>
+   <label>Разрешение<select id="photoVideoResolution"><option value="1920">Full HD · 1920 px</option><option value="1280">HD · 1280 px</option></select></label>
+   <label>Частота кадров<select id="photoVideoFps"><option value="30">30 FPS</option><option value="24">24 FPS</option></select></label>
+  </div>
+  <canvas id="photoVideoCanvas" width="2" height="2" hidden aria-label="Создаваемое видео"></canvas>
+  <progress id="photoVideoProgress" max="100" value="0" hidden></progress>
+  <p class="hint" id="photoVideoStatus" role="status" aria-live="polite">Добавь фотографии и выставь длительность.</p>
+  <button type="button" class="button primary full" id="photoVideoBuild">СОЗДАТЬ ВИДЕО И РЕДАКТИРОВАТЬ</button>
+  <button type="button" class="button full" id="photoVideoCancel" hidden>Отменить создание</button>
+  <p class="hint">Создание занимает примерно длительность ролика. Не сворачивай приложение. После этого доступны обычные эффекты, звук и экспорт. Лимит зависит от памяти устройства, а не от числа фото.</p>
+ </div>
+</dialog>
 <dialog id="videoLiveCameraDialog" aria-label="Видеокамера с эффектами" class="videoLiveCameraDialog">
   <div class="videoLiveTop">
     <div class="cameraHeaderInfo" aria-hidden="true"><strong>ВИДЕОКАМЕРА · VHS VIDEO LAB</strong><small id="videoLiveProfile">Выбранные фильтры</small></div>
@@ -627,7 +657,8 @@
 <script src="./live-camera.js?v=0.9.24" defer></script>
 <script src="../stats-owner.js?v=2.0.0" defer></script>
 <script src="../usage-stats.js?v=0.9.16" defer></script>
-<script src="./app.js?v=0.9.24" defer></script>
+<script src="./photo-video.js?v=0.9.28" defer></script>
+<script src="./app.js?v=0.9.28" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
  const button=document.getElementById('export');
