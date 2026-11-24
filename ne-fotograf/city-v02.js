@@ -27,7 +27,7 @@ const staticBatches=new Map(), dummy=new T.Object3D(),unit=new T.BoxGeometry(1,1
 function box(mat,x,y,z,w,h,d,ry=0,shadow=true){if(!staticBatches.has(mat))staticBatches.set(mat,[]);dummy.position.set(x,y,z);dummy.rotation.set(0,ry,0);dummy.scale.set(w,h,d);dummy.updateMatrix();staticBatches.get(mat).push(dummy.matrix.clone());}
 function primitive(g,mat,x,y,z,shadow=true){let m=new T.Mesh(g,mat);m.position.set(x,y,z);m.castShadow=shadow;m.receiveShadow=true;scene.add(m);return m}
 function sign(text,bg='#283b37',fg='#e6d7a8'){let tex=canvas(512,128,(x,w,h)=>{x.fillStyle=bg;x.fillRect(0,0,w,h);x.strokeStyle=fg;x.lineWidth=3;x.strokeRect(6,6,w-12,h-12);x.fillStyle=fg;x.font='bold 43px serif';x.textAlign='center';x.textBaseline='middle';x.fillText(text,w/2,h/2,w-24)});return new T.MeshStandardMaterial({map:tex,roughness:.8});}
-function facade(color,style,rows,cols){return canvas(1024,1024,(x,w,h)=>{x.fillStyle=color;x.fillRect(0,0,w,h);for(let k=0;k<450;k++){x.fillStyle=R()<.5?'#37322908':'#f9e9cb14';let a=R()*w,b=R()*h;x.fillRect(a,b,1+R()*45,4+R()*130)}
+function facade(color,style,rows,cols){return canvas(512,512,(x,w,h)=>{x.scale(.5,.5);w*=2;h*=2;x.fillStyle=color;x.fillRect(0,0,w,h);for(let k=0;k<450;k++){x.fillStyle=R()<.5?'#37322908':'#f9e9cb14';let a=R()*w,b=R()*h;x.fillRect(a,b,1+R()*45,4+R()*130)}
 const fh=h/rows,cw=w/cols;for(let row=0;row<rows;row++){let y=row*fh;if(row===rows-1){x.fillStyle='#514b4020';x.fillRect(0,y,w,fh);for(let u=0;u<w;u+=72){x.strokeStyle='#4e493d45';x.beginPath();x.moveTo(u,y);x.lineTo(u,h);x.stroke()}}
 x.fillStyle='#eee1c399';x.fillRect(0,y+fh*.045,w,fh*.035);x.fillStyle='#4e413930';x.fillRect(0,y+fh*.08,w,fh*.025);
 for(let col=0;col<cols;col++){let a=col*cw+cw*.25,b=y+fh*.22,ww=cw*.5,hh=fh*.61;let arch=style===1&&row===rows-1;
@@ -39,7 +39,7 @@ if(R()<.36){x.fillStyle='#c3b6a878';x.fillRect(a+2,b+hh*.1,ww*.32,hh*.83)}
 x.fillStyle='#eee3c9';x.fillRect(a-10,b+hh+5,ww+20,8);x.fillStyle='#544e424c';x.fillRect(a-10,b+hh+13,ww+20,5);
 if(style===1){x.fillStyle='#dfc9a1';x.beginPath();x.moveTo(a-11,b-8);x.lineTo(a+ww/2,b-23);x.lineTo(a+ww+11,b-8);x.fill();}
 if(arch){x.strokeStyle='#a99678';x.lineWidth=5;x.strokeRect(a-12,b-11,ww+24,hh+20);}
-}}x.fillStyle='#bcb19a';x.fillRect(0,0,w,18);x.fillStyle='#e0d7c3';x.fillRect(0,18,w,6);grain(x,w,h,13);})}
+}}x.fillStyle='#bcb19a';x.fillRect(0,0,w,18);x.fillStyle='#e0d7c3';x.fillRect(0,18,w,6);grain(x,w/2,h/2,13);})}
 const solids=[], buildingMats=[];const colors=['#c1b39a','#ad9279','#b5b8ac','#c6b69c','#b18c79','#aab3b1','#c1ad85'];
 function wallMaterial(col,style,rows,cols){let map=facade(col,style,rows,cols);let m=new T.MeshStandardMaterial({map,roughness:.91});buildingMats.push(m);return m}
 function planeWall(mat,x,y,z,w,h,angle){let m=new T.Mesh(new T.PlaneGeometry(w,h),mat);m.position.set(x,y,z);m.rotation.y=angle;m.receiveShadow=true;m.castShadow=false;scene.add(m);}
