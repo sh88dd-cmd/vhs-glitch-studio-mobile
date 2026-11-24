@@ -1799,3 +1799,11 @@ body.help-visible main nav.tabs button[data-tab].is-lit::after{
 .correctionCard .control{padding:5px 0}.correctionCard .controlHead{margin:0 0 1px}.correctionCard input[type=range]{height:30px;margin:0}
 .correctTurn,.correctTrimButtons{display:flex;gap:6px;align-items:center}.correctTurn .button,.correctTrimButtons .button{flex:1;min-width:0}.correctTurn strong{font-size:12px;min-width:35px;text-align:center}.correctFlip{display:flex;gap:13px;flex-wrap:wrap}
 #panel-correction .musicTrimNumbers input{font-size:16px}#correctTrimName{overflow-wrap:anywhere}
+
+/* 0.9.35 — camera startup and recovery inside the viewfinder. */
+#videoLiveConnecting{flex-direction:column;gap:10px;padding:22px;text-align:center;pointer-events:none}
+#videoLiveConnecting.cameraConnectionError{pointer-events:auto}
+#videoLiveConnecting.cameraConnectionError:before{display:none}
+#videoLiveConnecting #videoLiveConnectionText{max-width:290px;font-size:13px;line-height:1.4}
+#videoLiveConnecting .button{max-width:100%;white-space:normal;min-height:40px}
+#videoLiveConnecting .button[hidden]{display:none!important}
