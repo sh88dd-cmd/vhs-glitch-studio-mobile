@@ -1,5 +1,5 @@
 /* Private VHS STATS drawer for both PWAs.
- * Five taps on the large app header open an in-app viewer. This gesture is
+ * Hold ▥ for 1.6 seconds (or use five taps as a fallback). This is
  * discoverability only: security comes from the Google "Only myself" deployment.
  * Google may refuse third-party iframes or a sign-in inside iOS standalone PWA;
  * in that case the owner may open the same PRIVATE dashboard directly.
@@ -57,8 +57,53 @@
    document.documentElement.style.overflow='hidden';
    back.focus({preventScroll:true});
   }
+  // Main iPhone gesture: touch and HOLD the visible ▥ logo for 1.6 seconds.
+  // A simple tap never opens the private screen, avoiding accidental entry.
+  const mark=title.querySelector('.mark');
+  if(mark){
+   mark.style.touchAction='none';
+   mark.style.webkitUserSelect='none';
+   mark.style.userSelect='none';
+   mark.style.webkitTouchCallout='none';
+   mark.style.cursor='pointer';
+   mark.style.transition='transform .15s ease,filter .15s ease';
+   let holdJob=null,startX=0,startY=0;
+   function resetHold(){
+    if(holdJob!==null){clearTimeout(holdJob);holdJob=null;}
+    mark.style.transform='';
+    mark.style.filter='';
+   }
+   function beginHold(event){
+    if(event.isPrimary===false || (event.button!==undefined&&event.button!==0))return;
+    resetHold();
+    startX=event.clientX;startY=event.clientY;
+    mark.style.transform='scale(1.12)';
+    mark.style.filter='brightness(1.5)';
+    holdJob=setTimeout(function(){
+     resetHold();taps=0;open();
+    },1600);
+   }
+   if(window.PointerEvent){
+    mark.addEventListener('pointerdown',beginHold);
+    mark.addEventListener('pointermove',function(e){
+     if(holdJob!==null&&Math.hypot(e.clientX-startX,e.clientY-startY)>16)resetHold();
+    });
+    for(const name of ['pointerup','pointercancel','pointerleave']){
+     mark.addEventListener(name,resetHold);
+    }
+   }else{
+    // Older Safari fallback (touch events only).
+    mark.addEventListener('touchstart',function(){resetHold();holdJob=setTimeout(function(){
+     resetHold();taps=0;open();
+    },1600);},{passive:true});
+    mark.addEventListener('touchend',resetHold);
+    mark.addEventListener('touchcancel',resetHold);
+   }
+   mark.addEventListener('contextmenu',function(event){event.preventDefault();});
+  }
+  // Keep the older header gesture as a backup, but not the only way in.
   title.addEventListener('click',function(e){
-   // The version text has a DIFFERENT six-tap owner exclusion mechanism.
+   // The version text has a DIFFERENT six-tap owner-exclusion mechanism.
    if(e.target.closest('small'))return;
    const t=Date.now();
    if(t-lastTap>3000)taps=0;
