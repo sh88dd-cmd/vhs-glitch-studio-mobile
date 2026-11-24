@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VHS STATS — обновление кода</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:#080808;color:#fff;margin:0;padding:30px 15px}
+main{max-width:620px;margin:auto}
+h1{font-size:26px;font-weight:1000;letter-spacing:-1px;margin:0 0 5px}
+h1 b{color:#ff9818}
+h2{font-size:16px;margin:24px 0 10px}
+p,li{color:#bbb;font-size:14px;line-height:1.55}
+section{background:#1a1a1a;border:1px solid #383838;border-radius:15px;padding:16px;margin:15px 0}
+section h2{margin:0 0 8px}
+button{display:block;width:100%;border:0;border-radius:10px;background:#ff9818;color:#151515;font-weight:900;font-size:14px;min-height:48px;margin:12px 0;cursor:pointer}
+button:disabled{opacity:.45;cursor:wait}
+small{display:block;color:#aaa;font-size:12px;line-height:1.5}
+a{color:#ff9818}
+#status{color:#ddd;font-size:13px;min-height:34px;padding:8px 0}
+</style>
+</head><body><main>
+<h1>VHS <b>STATS</b></h1>
+<p>Обновление рейтингов разделов и функций. Эта страница только копирует код — не содержит закрытой статистики и не запрашивает Google-пароль.</p>
+<section><h2>1. VHS STATS COLLECTOR</h2>
+<p>В своём существующем проекте замени всё содержимое файла <b>Код.gs</b> новым кодом.</p>
+<button id="collector" disabled>Скопировать код сборщика</button>
+<small>Разрешённые действия: разделы и функции обоих приложений.</small></section>
+<section><h2>2. VHS STATS DASHBOARD</h2>
+<p>В существующем втором проекте замени содержимое файла <b>Код.gs</b>.</p>
+<button id="dashboard" disabled>Скопировать код панели</button>
+<p>Затем в том же проекте замени содержимое файла <b>Index.html</b>.</p>
+<button id="html" disabled>Скопировать HTML панели</button>
+<small>Чёрно-оранжевая панель с рейтингами «ВСЕ», «ФОТО», «ВИДЕО».</small></section>
+<section><h2>3. Обновить текущие развёртывания</h2>
+<p>В КАЖДОМ из двух проектов: <b>Начать развертывание → Управление развертываниями → ✎ → Версия: Новая версия → Развернуть</b>.</p>
+<p>Не выбирай «Новое развертывание». Так старые ссылки <code>/exec</code> останутся прежними.</p>
+<p>Для сборщика сохраняем <b>доступ: Все</b>; для панели — <b>Только я</b>.</p>
+</section>
+<p id="status" role="status">Загружаю файлы…</p>
+<p>После сохранения и обновления обеих версий возвращайся в ChatGPT — включим сбор и проверим цифры. Сейчас он выключен, чтобы твои открытия не смешались с остальными.</p>
+<script>
+(function(){
+'use strict';
+var code={};
+var names={collector:'Collector.gs',dashboard:'Dashboard.gs',html:'Index.html'};
+var sid='1-TtZotCFh39gy5oQXpVGhxTsXPiHkcw7ZK3F6rRpd94';
+var status=document.getElementById('status');
+Promise.all(Object.keys(names).map(function(k){
+return fetch('./'+names[k],{cache:'no-store'}).then(function(r){
+if(!r.ok)throw Error(names[k]+' HTTP '+r.status);
+return r.text();
+}).then(function(t){
+code[k]=t.replaceAll('PASTE_YOUR_PRIVATE_SHEET_ID_HERE',sid);
+document.getElementById(k).disabled=false;
+});
+})).then(function(){status.textContent='Коды готовы. Нажимай кнопки по порядку.';})
+.catch(function(e){status.textContent='Ошибка загрузки файлов: '+e.message;});
+Object.keys(names).forEach(function(k){
+document.getElementById(k).addEventListener('click',function(){
+var txt=code[k];
+if(!txt)return;
+var btn=this;
+function ok(){btn.textContent='✓ СКОПИРОВАНО';status.textContent='Код скопирован. Теперь вставь его в Google Apps Script.';}
+function fallback(){
+var el=document.createElement('textarea');
+el.value=txt;el.style.cssText='position:fixed;top:0;left:0;opacity:.01;z-index:10;';
+document.body.appendChild(el);el.focus();el.select();
+try{if(document.execCommand('copy'))ok();else status.textContent='Автоматическое копирование не удалось. Открой файл напрямую.';}catch(e){status.textContent='Копирование не поддерживается браузером.';}
+el.remove();
+}
+if(navigator.clipboard&&navigator.clipboard.writeText)
+navigator.clipboard.writeText(txt).then(ok,fallback);
+else fallback();
+});
+});
+})();
+</script>
+</main></body></html>
