@@ -2413,6 +2413,7 @@
    return;
   }
   window.VHSVideoLiveCamera.mount({
+   onOpen:()=>{source.pause();audioEngine.stopMusic();audioEngine.suspendNoise();},
    // Capture uses the current selected VHS, GLITCH, FILM, cassette and
    // viewfinder settings, but never mutates saved editor configuration.
    getFilmProfile:()=>{
