@@ -1,0 +1,44 @@
+name: NE FOTOGRAF detail assets
+on:
+  push:
+    paths:
+      - '.github/workflows/ne-fotograf-detail.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and validate
+        run: |
+          python - <<'PY'
+          import pathlib, json, struct, subprocess
+          sources = {"city/real-sedan.glb":"https://tevy.dev/models/family-sedan/v1/lod1.glb","city/real-suv.glb":"https://tevy.dev/models/suv/v1/lod0.glb","city/real-hatchback.glb":"https://tevy.dev/models/hatchback/v1/lod0.glb","walker.glb":"https://tevy.dev/models/casual-walker/v1/lod0.glb","hiker.glb":"https://tevy.dev/models/hiker/v1/lod0.glb"}
+          root=pathlib.Path('ne-fotograf/models')
+          for name,url in sources.items():
+              p=root/name
+              p.parent.mkdir(parents=True,exist_ok=True)
+              subprocess.run(['curl','-fL','--retry','2','--max-time','60',url,'-o',str(p)],check=True)
+              b=p.read_bytes()
+              magic,ver,total,n,typ=struct.unpack_from('<5I',b)
+              assert magic==0x46546c67 and ver==2 and total==len(b)
+              d=json.loads(b[20:20+n])
+              assert d.get('meshes'),name
+              if name in ('walker.glb','hiker.glb'):
+                  assert d.get('skins'),name
+                  clips=[a.get('name','').lower() for a in d.get('animations',[])]
+                  assert all(any(c.endswith(k) for c in clips) for k in ('idle','walk')),(name,clips)
+              print(name,len(b),d.get('extensionsRequired',[]))
+          PY
+      - name: Store verified models
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ne-fotograf/models/city/real-sedan.glb ne-fotograf/models/city/real-suv.glb ne-fotograf/models/city/real-hatchback.glb ne-fotograf/models/walker.glb ne-fotograf/models/hiker.glb
+          if ! git diff --cached --quiet; then
+            git commit -m 'NE FOTOGRAF: vendor detailed traffic and pedestrian models'
+            git pull --rebase
+            git push
+          fi
