@@ -1,0 +1,44 @@
+name: NE FOTOGRAF populated startup test
+on:
+  push:
+    paths:
+      - 'ne-fotograf/city-v094.js'
+      - '.github/workflows/ne-fotograf-populated.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test compressed characters and both views
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          python -m http.server 8765 >/tmp/nf-server.log 2>&1 &
+          node <<'JS'
+          const {chromium}=require('playwright');
+          (async()=>{
+            const browser=await chromium.launch({headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+            try{
+              const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});
+              const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='warning'||m.type()==='error')console.log(m.text())});
+              await page.goto('http://localhost:8765/ne-fotograf/?v=094',{waitUntil:'domcontentloaded',timeout:90000});
+              await page.waitForFunction(()=>window.NF_TEST!==undefined&&!document.querySelector('#start').disabled,null,{timeout:120000});
+              let state=await page.evaluate(()=>NF_TEST.ready?NF_TEST.inspect():NF_TEST);
+              console.log('Startup',state);
+              if(!state.hero||state.view!==3||state.castMode!=='compressed'||!state.visibleNew)throw Error(JSON.stringify(state));
+              await page.locator('#start').click();
+              await page.locator('#view').click();
+              if((await page.evaluate(()=>NF_TEST.inspect())).view!==1)throw Error('first person failed');
+              await page.locator('#view').click();
+              if((await page.evaluate(()=>NF_TEST.inspect())).view!==3)throw Error('third person failed');
+              await page.waitForFunction(()=>window.NF_CITY?.cars>0,null,{timeout:90000});
+              state=await page.evaluate(()=>NF_TEST.inspect());console.log('World',state);
+              if(errors.length||!state.streaming.resident)throw Error(JSON.stringify({errors,state}));
+              console.log('New hero, visible new NPC, both views and city passed');
+            }finally{await browser.close()}
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
