@@ -1,104 +1,117 @@
-/* Optional anonymous PWA usage analytics for PHOTO VHS and VHS Video Lab.
- * Disabled by default until a GoatCounter account is created and the private
- * dashboard access controls have been explicitly verified.
- * Never accesses media, file names, photos, videos, or user-entered content.
+/* VHS STATS analytics bridge — no server keys, media, file names or personal data.
+ * Disabled until COLLECTOR_URL is set to the PUBLIC write-only collector /exec URL.
+ * Admin dashboard is entirely separate and MUST require owner's Google sign-in.
  */
 (function(root){
  'use strict';
- const GOATCOUNTER_CODE = ''; // Public site code (NOT a secret or API token).
- const EXCLUDE_KEY = 'vhs.analytics.exclude-owner.v1';
- const isVideo=/\/video\/?$/.test(location.pathname)||/\/video\/index\.html$/.test(location.pathname);
- const app=isVideo?'video':'photo';
- const appName=isVideo?'VHS Video Lab':'PHOTO VHS';
- const events=isVideo?{
-  videoLiveOpenTop:'camera_open',videoLiveOpenPanel:'camera_open',
-  videoLiveRecord:'record_button',export:'export_button',
-  frameSavePng:'frame_export_button'
+ const COLLECTOR_URL = ''; // Public Google Apps Script COLLECTOR /exec URL; no secrets.
+ const APP=/\/video\/(?:index\.html)?$/.test(location.pathname)?'video':'photo';
+ const EXCLUDE_KEY='vhs.analytics.exclude-owner.v1';
+ const DEVICE_KEY='vhs.analytics.device.v1';
+ const EVENTS=APP==='photo'?{
+   liveCameraOpenTop:'camera_open',liveCameraOpenPanel:'camera_open',
+   liveCameraShot:'shutter_click',liveCameraSave:'camera_save_click',
+   saveOne:'export_click',exportBatch:'x50_export_click',
+   saveDialog:'export_click'
  }:{
-  liveCameraOpenTop:'camera_open',liveCameraOpenPanel:'camera_open',
-  liveCameraShot:'shutter_button',liveCameraSave:'camera_save_button',
-  saveOne:'export_button',exportBatch:'x50_export_button',
-  saveDialog:'x50_single_save_button'
+   videoLiveOpenTop:'camera_open',videoLiveOpenPanel:'camera_open',
+   videoLiveRecord:'record_click',export:'export_click',
+   frameSavePng:'frame_export_click'
  };
- // An optional one-time per-device/per-PWA exclusion link for the owner.
- // It is a counting preference, NOT a dashboard authentication mechanism.
+ // URL hash is a local opt-out tool, NOT an authentication or secret code.
  try{
   if(location.hash==='#stats-owner-off'){
-   localStorage.setItem(EXCLUDE_KEY,'1');
-   history.replaceState(history.state,'',location.pathname+location.search);
-  }else if(location.hash==='#stats-owner-on'){
-   localStorage.removeItem(EXCLUDE_KEY);
-   history.replaceState(history.state,'',location.pathname+location.search);
+    localStorage.setItem(EXCLUDE_KEY,'1');
+    history.replaceState(history.state,'',location.pathname+location.search);
+  }
+  if(location.hash==='#stats-owner-on'){
+    localStorage.removeItem(EXCLUDE_KEY);
+    history.replaceState(history.state,'',location.pathname+location.search);
   }
  }catch(_){}
  let excluded=false;
  try{excluded=localStorage.getItem(EXCLUDE_KEY)==='1';}catch(_){}
  if(navigator.doNotTrack==='1'||navigator.globalPrivacyControl===true)excluded=true;
- // Hidden, local-only owner opt-out: tap the version label six times
- // on EACH installed PWA, including before stats are activated.
- // This excludes this app's local browser storage; it grants no admin access.
- function installOwnerOptOut(){
-  const label=document.querySelector(isVideo?'.logo small':'.brand small');
+ // Hidden local control: tapping app version six times on each installed PWA
+ // excludes the owner's device from counting; not used to unlock dashboard.
+ function installOwnerExclusion(){
+  const label=document.querySelector(APP==='video'?'.logo small':'.brand small');
   if(!label)return;
-  let count=0,lastTap=0;
+  let taps=0,last=0;
   label.addEventListener('click',()=>{
    const now=Date.now();
-   if(now-lastTap>2300)count=0;
-   lastTap=now;
-   if(++count<6)return;
-   count=0;
+   if(now-last>2400)taps=0;
+   last=now;
+   if(++taps!==6)return;
+   taps=0;
    try{
     localStorage.setItem(EXCLUDE_KEY,'1');
     excluded=true;
-    alert('Статистика: посещения этого приложения на данном устройстве больше не учитываются.');
-    // Stop already-loaded tracking for the current PWA instance as well.
+    alert('Устройство исключено из статистики VHS STATS для этого приложения.');
     location.reload();
-   }catch(_){
-    alert('Не удалось сохранить исключение статистики на устройстве.');
+   }catch(err){alert('Не удалось сохранить исключение статистики.');}
+  });
+ }
+ function readyDom(){
+  installOwnerExclusion();
+  if(!active)return;
+  const footer=document.querySelector(APP==='video'?'.videoFooter':'.footer');
+  if(footer){
+   const p=document.createElement('p');
+   p.className='hint';
+   p.style.cssText='font-size:10px;line-height:1.45;color:#aaa;margin-top:12px;';
+   p.textContent='Используется обезличенная статистика открытий и действий. Фото, видео, имена файлов и содержимое работ не отправляются.';
+   footer.appendChild(p);
+  }
+ }
+ const active=/^https:\/\/script\.google\.com\/macros\/s\/[a-zA-Z0-9_-]+\/exec$/.test(COLLECTOR_URL)&&!excluded;
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',readyDom,{once:true});
+ else readyDom();
+ let visitor='';
+ if(active){
+   try{
+    visitor=localStorage.getItem(DEVICE_KEY)||'';
+    if(!/^[a-f0-9]{32}$/.test(visitor)){
+     const bytes=new Uint8Array(16);
+     crypto.getRandomValues(bytes);
+     visitor=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+     localStorage.setItem(DEVICE_KEY,visitor);
+    }
+   }catch(err){
+    visitor=''; // No stable ID → do not collect: avoid misleading unique counts.
    }
-  });
  }
- if(document.readyState==='loading')
-  document.addEventListener('DOMContentLoaded',installOwnerOptOut,{once:true});
- else installOwnerOptOut();
- let ready=false;
- const queue=[];
+ const enabled=active&&/^[a-f0-9]{32}$/.test(visitor);
  function send(action){
-  if(!ready||!root.goatcounter||typeof root.goatcounter.count!=='function')return;
-  root.goatcounter.count({
-   path:'/event/'+app+'/'+action,
-   title:appName+' — '+action,
-   event:true,
-   no_session:true,
-   referrer:''
-  });
+  if(!enabled||!/^(visit|camera_open|shutter_click|record_click|export_click|camera_save_click|x50_export_click|frame_export_click)$/.test(action))return;
+  const body=JSON.stringify({app:APP,action:action,visitor:visitor});
+  // Google Apps Script cross-origin redirect does not offer CORS response headers.
+  // Simple POST (text/plain + no-cors) reaches doPost without exposing a response.
+  // This is best-effort telemetry; never block camera, preview or saves.
+  try{
+   fetch(COLLECTOR_URL,{
+    method:'POST',mode:'no-cors',credentials:'omit',keepalive:true,
+    headers:{'Content-Type':'text/plain;charset=UTF-8'},
+    body:body
+   }).catch(()=>{});
+  }catch(err){}
  }
- function event(action){
-  if(excluded||!GOATCOUNTER_CODE||!/^[-a-z0-9_]{2,40}$/.test(action))return;
-  if(!ready){if(queue.length<40)queue.push(action);return;}
-  send(action);
+ let lastVisit=0;
+ function visit(){
+  const now=Date.now();
+  if(now-lastVisit<120000)return;
+  lastVisit=now;
+  send('visit');
  }
- root.VHSUsageStats=Object.freeze({event,excluded:()=>excluded,enabled:()=>!!GOATCOUNTER_CODE&&!excluded});
- // Avoid a broken or arbitrary domain if the account code is not configured.
- if(excluded||!/^[-a-z0-9]{3,64}$/.test(GOATCOUNTER_CODE))return;
- root.goatcounter={no_onload:true,no_events:true};
- const script=document.createElement('script');
- script.async=true;
- script.src='https://gc.zgo.at/count.js';
- script.setAttribute('data-goatcounter','https://'+GOATCOUNTER_CODE+'.goatcounter.com/count');
- script.addEventListener('load',()=>{
-  if(typeof root.goatcounter?.count!=='function')return;
-  ready=true;
-  // Separate APP visits without recording query strings, file names, or media.
-  root.goatcounter.count({path:'/'+app,title:appName,referrer:''});
-  queue.splice(0).forEach(send);
- });
- script.addEventListener('error',()=>{queue.length=0;});
- document.head.appendChild(script);
- document.addEventListener('click',eventObject=>{
-  const node=eventObject.target?.closest?.('button[id]');
-  if(!node||node.disabled)return;
-  const action=events[node.id];
-  if(action)event(action);
- },{passive:true});
+ if(enabled){
+  visit();
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden)visit();
+  },{passive:true});
+  document.addEventListener('click',evt=>{
+   const button=evt.target&&evt.target.closest&&evt.target.closest('button[id]');
+   if(button&&!button.disabled&&EVENTS[button.id])send(EVENTS[button.id]);
+  },{passive:true});
+ }
+ root.VHSUsageStats=Object.freeze({enabled:()=>enabled,excluded:()=>excluded});
 })(window);
