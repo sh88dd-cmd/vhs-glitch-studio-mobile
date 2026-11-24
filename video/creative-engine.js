@@ -200,7 +200,7 @@ const brushArray=(strokes,clip,time)=>Array.isArray(strokes)?strokes.filter(s=>
 
 // Pixel-based displacement and blur are applied only inside the selected
 // normalized points/face boxes. Processed frame is never uploaded.
-const scratch=document.createElement('canvas');
+const scratch=typeof document!=='undefined'?document.createElement('canvas'):null; // Pure pixel functions also run in a worker.
 function region(ctx,x,y,w,h,mode='pixel',power=20,blur=12){
  const W=ctx.canvas.width,H=ctx.canvas.height;
  const px=Math.round(clamp(x,0,1)*W),py=Math.round(clamp(y,0,1)*H);
