@@ -15,7 +15,7 @@
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.21 · КАМЕРА И МОНТАЖ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.22 · КАМЕРА И МОНТАЖ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -341,8 +341,8 @@
    <p id="lookStatus" class="hint">Референс не загружен.</p>
   </div>
   <details class="importBox">
-    <summary>＋ Подключить мои плёнки XMP</summary>
-    <p class="hint">Попробую прочитать библиотеку фото-версии из этого же браузера. Если она недоступна — загрузи свою резервную копию .json или архив Lightroom .zip / .xmp. Импорт в видео не удаляет профили из фоторедактора.</p>
+    <summary>451 плёнка уже встроена · мои дополнительные XMP</summary>
+    <p class="hint">451 XMP-плёнка EmulsionPresets (13 категорий) доступна сразу в FILM, без загрузки файла. Работает офлайн после обновления. Конвертация настроек Lightroom приблизительная. Ниже можно отдельно импортировать личные ZIP, XMP и резервные копии; они не удалят встроенные плёнки.</p>
     <label class="button full">＋ Импортировать ZIP, XMP или резервную копию<input id="filmImport" type="file" accept=".json,.zip,.xmp,application/json,application/zip" multiple hidden></label>
     <p id="filmImportStatus" class="hint"></p>
   </details>
@@ -495,7 +495,7 @@
  <button id="exportBannerClose" type="button" aria-label="Скрыть состояние экспорта">✕</button>
 </div>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.9.21</span>
+  <span>VHS Video Lab · 0.9.22</span>
   <button id="videoForceUpdate" class="button mini" type="button">↻ Обновить приложение</button>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
@@ -627,7 +627,7 @@
 <script src="./live-camera.js?v=0.9.21" defer></script>
 <script src="../stats-owner.js?v=0.9.21" defer></script>
 <script src="../usage-stats.js?v=0.9.16" defer></script>
-<script src="./app.js?v=0.9.11" defer></script>
+<script src="./app.js?v=0.9.22" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
  const button=document.getElementById('export');
