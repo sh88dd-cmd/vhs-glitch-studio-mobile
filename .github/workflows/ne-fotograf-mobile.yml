@@ -1,0 +1,28 @@
+name: NE FOTOGRAF mobile texture optimization
+on:
+  push:
+    paths:
+      - '.github/workflows/ne-fotograf-mobile.yml'
+      - 'ne-fotograf/tools/optimize-mobile.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resize textures, preserve geometry and animation
+        run: |
+          python -m pip install pillow
+          python ne-fotograf/tools/optimize-mobile.py
+      - name: Publish optimized character assets
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ne-fotograf/models/ara-mobile
+          if ! git diff --cached --quiet; then
+            git commit -m 'NE FOTOGRAF: mobile-sized textures for eight animated characters'
+            git pull --rebase
+            git push
+          fi
