@@ -1683,3 +1683,10 @@ body.help-visible main nav.tabs button[data-tab].is-lit::after{
  #videoLiveCameraDialog .captureSettings{flex-basis:86px!important;width:86px!important}
  #videoLiveCameraDialog .captureAspectSelect{font-size:9px!important}
 }
+
+/* Video 0.9.25: transport and status directly below the main video. */
+#videoStage>.seekRow{margin:4px 0 0;min-height:36px;gap:8px;font-variant-numeric:tabular-nums}
+#videoStage>.seekRow input{height:34px;margin:0;touch-action:pan-y}
+#videoStage>.seekRow span{flex:0 0 auto;min-width:34px;text-align:center}
+#videoStage>#status{margin:0 0 3px;font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+#videoStage>.stageButtons{padding-top:7px}
