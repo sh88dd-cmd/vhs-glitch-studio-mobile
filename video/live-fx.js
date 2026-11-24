@@ -15,14 +15,11 @@ function signalDimensions(outW,outH,state={},opts={}){
  const mode=active&&String(state.mode||'vhs')!=='vhs'&&
   Number(state.modeStrength)>0;
  const hold=!!opts.holding;
- const reduce=vhs||mode||hold;
- const chosen=state.signalWidth==='auto'?240:Number(state.signalWidth);
- // Only intentionally VHS/analogue-low-bandwidth paths reduce resolution.
- // GLITCH-only and FILM retain full output frame dimensions.
- const longest=reduce?
-  vhs?clamp(chosen||240,128,320):
-  clamp(Math.max(480,chosen||480),360,640):
-  Math.max(outW,outH);
+ const chosen=state.signalWidth==='auto'?0:Number(state.signalWidth);
+ const reduce=vhs&&chosen>0&&chosen<Math.max(outW,outH);
+ // Preserve camera resolution in automatic mode; only explicit analog
+ // bandwidth choices may reduce the VHS signal.
+ const longest=reduce?clamp(chosen,128,Math.max(outW,outH)):Math.max(outW,outH);
  const factor=Math.min(1,longest/Math.max(outW,outH));
  return{
   w:Math.max(2,Math.round(outW*factor/2)*2),
@@ -36,6 +33,7 @@ function create(){
  const px=pixel.getContext('2d',{willReadFrequently:true});
  const glitch=root.VHSVideoGlitchFX.createProcessor();
  const holdFX=root.VHSVideoGlitchFX.createProcessor();
+ const filmGPU=root.VideoFilmCore?.createGPU?.();
  let width=0,height=0,renderCount=0,previousSeed=null;
  function reset(){
   glitch.reset();holdFX.reset();previousSeed=null;
@@ -69,12 +67,33 @@ function create(){
    width=w;height=h;pixel.width=w;pixel.height=h;reset();
   }
   if(previousSeed!==seed){glitch.reset();holdFX.reset();previousSeed=seed;}
+  const filmProfile=options.filmProfile||null;
+  const aging=active&&state.creative?.aging?.enabled&&Number(state.creative.aging.amount)>0;
+  const simple=!vhs&&!damaged&&!extra&&!transferred&&!hold&&!aging;
+  const ctx=target.getContext('2d',{alpha:false});
+  if(simple){
+   ctx.save();if(options.mirrored){ctx.translate(outW,0);ctx.scale(-1,1);}
+   if(!film||!filmProfile){ctx.drawImage(source,0,0,outW,outH);}
+   else{
+    // GPU output can be mirrored by the target transform. On older devices
+    // use the allocation-free CPU fallback at the same resolution.
+    if(!filmGPU?.render(source,target,filmProfile,clamp(state.filmStrength,0,100)/100)){
+     ctx.drawImage(source,0,0,outW,outH);
+     const img=ctx.getImageData(0,0,outW,outH);
+     if(filmProfile.type==='builtin')root.VideoFilmCore.filmBuiltin(img.data,filmProfile.recipe,clamp(state.filmStrength,0,100)/100);
+     else if(filmProfile.fields)root.VideoFilmCore.filmXMP(img.data,filmProfile,clamp(state.filmStrength,0,100)/100);
+     ctx.putImageData(img,0,0);
+    }
+   }
+   ctx.restore();
+   if(active&&root.VHSVideoCameraOSD?.draw&&state.camera)root.VHSVideoCameraOSD.draw(ctx,outW,outH,state.camera,state.speed||'SP',Number(options.elapsed)||0);
+   renderCount++;return{duration:performance.now()-start,width:w,height:h,outputWidth:outW,outputHeight:outH,engine:'native/GPU FILM',renderCount,filmApplied:film&&!!filmProfile,vhsApplied:false,glitchApplied:false,holdApplied:false};
+  }
   px.clearRect(0,0,w,h);
   px.save();
   if(options.mirrored){px.translate(w,0);px.scale(-1,1);}
   px.drawImage(source,0,0,w,h);
   px.restore();
-  const filmProfile=options.filmProfile||null;
   const needsPixels=film||vhs||damaged||extra||transferred||hold||
    active&&state.creative?.aging?.enabled;
   if(needsPixels){
@@ -131,7 +150,6 @@ function create(){
    }
    px.putImageData(image,0,0);
   }
-  const ctx=target.getContext('2d',{alpha:false});
   ctx.imageSmoothingEnabled=true;
   ctx.drawImage(pixel,0,0,outW,outH);
   // Draw indicators in ORIGINAL VIDEO coordinates; separate canvas means
