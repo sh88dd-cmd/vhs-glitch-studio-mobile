@@ -290,6 +290,12 @@ function mount({getSettings,getFilmProfile,onImport}){
   try{
    ensureOutput();
    const time=Math.max(0,(started-cameraStartedAt)/1000);
+   const clean=!holding&&!root.VHSVideoCleanPath?.hasVisualEffects({...state,fxMode:'classic'},0);
+   // No canvas redraw when native preview is sufficient. Baked recording
+   // still requires actual frames in the capture canvas.
+   if(clean&&(!recording||activeCaptureMode==='editable')){
+    fx.hidden=true;lastCompositorMs=0;
+   }else{
    lastFxReport=engine.render(video,processed,state,{
     time,elapsed:time,seed,filmSeed,holding,
     mirrored:facing==='user',filmProfile,agingDuration:60
@@ -306,6 +312,7 @@ function mount({getSettings,getFilmProfile,onImport}){
    // the recorded canvas: both surfaces get the same exact frame buffer.
    if(recording)meta.textContent='REC · реальный VHS/FILM · '+recordFrameCount+
     ' кадров · обработка '+Math.round(lastCompositorMs)+' мс';
+   }
   }catch(err){
    console.warn('Live camera FX render:',err);
    fx.hidden=true;
@@ -313,10 +320,10 @@ function mount({getSettings,getFilmProfile,onImport}){
   }
   if(active&&ready&&!resultBlob&&token===session){
    const elapsed=performance.now()-started;
-   const rate=recording?Number(frames.value)||20:15;
+   const rate=recording?Number(frames.value)||24:30;
    // Never accumulate delayed frames; drop when CPU is busy. On iPhone
    // native video stays behind the processed layer for immediate recovery.
-   const delay=Math.max(12,Math.min(300,1000/rate-elapsed));
+   const delay=Math.max(4,1000/rate-elapsed);
    overlayTimer=setTimeout(()=>{overlayTimer=null;overlay(token);},delay);
   }
  }
@@ -431,8 +438,8 @@ function mount({getSettings,getFilmProfile,onImport}){
     attachMicrophoneAudio(stream);
    }
    const rec=new MediaRecorder(stream,{mimeType:mime,
-    videoBitsPerSecond:activeCaptureMode==='editable'?5000000:
-     quality.value==='720'?3000000:1650000});
+    videoBitsPerSecond:activeCaptureMode==='editable'?8000000:
+     quality.value==='720'?6000000:3500000});
    recorder=rec;recordStream=stream;chunks=[];recordMime=mime;
    rec.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data);};
    rec.onerror=e=>message('Ошибка записи: '+(e.error?.message||'неизвестно'));
