@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VHS STATS — панель владельца</title>
+<style>
+:root{color-scheme:dark;--bg:#080909;--panel:#17191a;--line:#313336;--muted:#a8aaa9;--orange:#ff981c;--white:#fafafa;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{background:var(--bg);color:var(--white);margin:0;min-width:310px}
+main{max-width:900px;margin:auto;padding:calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 28px)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding-bottom:22px}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:44px;height:44px;display:grid;place-items:center;border-radius:11px;background:var(--orange);color:#151515;font-weight:1000;font-size:20px}
+h1{font-size:23px;margin:0;letter-spacing:-.7px;font-weight:950}h1 span,.orange{color:var(--orange)}
+.sub{font-size:10px;color:var(--muted);letter-spacing:1.4px;font-weight:700;margin:4px 0 0}
+.lock{font-size:11px;border:1px solid #414345;border-radius:50px;padding:8px 10px;white-space:nowrap}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:23px 0 13px}
+h2{margin:0;font-size:15px}.muted{font-size:11px;color:var(--muted)}
+button{font:inherit;cursor:pointer}.refresh{background:#2a2a2b;color:white;border:1px solid #505050;border-radius:9px;padding:9px 12px;font-size:12px}
+.periods{display:flex;gap:6px;margin-bottom:16px}.periods button{flex:1;min-width:0;background:#202122;color:#ddd;border:1px solid #343536;border-radius:10px;min-height:41px;font-weight:750;font-size:12px}
+.periods button[aria-pressed=true]{background:var(--orange);color:#151515;border-color:var(--orange)}
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.metric,.app,.plot,.logs{background:var(--panel);border:1px solid #2f3031;border-radius:15px}
+.metric{padding:18px 14px}.metric label{display:block;font-size:11px;color:#c4c4c4}
+.metric strong{display:block;font-weight:900;font-size:36px;letter-spacing:-1.5px;margin:10px 0 5px;font-variant-numeric:tabular-nums}
+.metric small{color:#999;font-size:10px;line-height:1.4;display:block}
+.legend{font-size:10px;color:#bdbdbd}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 5px 0 10px}
+.plot{padding:16px 11px 7px}.plot svg{width:100%;display:block;height:auto;max-height:275px}
+.apps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.app{padding:14px}
+.app h3{font-size:12px;margin:0 0 14px}.app h3 small{display:block;font-size:10px;color:#999;font-weight:400;margin-top:5px}
+.app dl{margin:0}.app dl div{display:flex;justify-content:space-between;gap:6px;padding:9px 0;border-top:1px solid #303133;font-size:11px}
+.app dt{color:var(--muted)}.app dd{margin:0;font-weight:850;font-size:13px;font-variant-numeric:tabular-nums}
+.logs{overflow:hidden}.entry{display:grid;grid-template-columns:72px 1fr 56px;gap:10px;border-bottom:1px solid #2e3031;padding:11px 12px;font-size:11px;align-items:center}
+.entry:last-child{border-bottom:0}.entry time,.entry span:last-child{color:#a8a8a8}.status{margin-top:17px;font-size:12px;color:#adadad;min-height:24px}
+.note{font-size:10px;color:#999;line-height:1.65;margin:22px 0 0}
+@media(max-width:390px){.lock{font-size:0;padding:8px}.metric strong{font-size:31px}.metric{padding:14px 11px}.app{padding:12px}.entry{grid-template-columns:66px 1fr 46px;gap:4px;font-size:10px}}
+</style></head><body>
+<main>
+<header class="top"><div class="brand"><div class="logo">V</div><div><h1>VHS <span>STATS</span></h1><p class="sub">АНАЛИТИКА ПРИЛОЖЕНИЙ</p></div></div><div class="lock">🔒 ТОЛЬКО ВЛАДЕЛЕЦ</div></header>
+<div class="row"><h2>Общая статистика</h2><button class="refresh" id="refresh">↻ Обновить</button></div>
+<div class="periods" aria-label="Выбор периода">
+<button data-days="1" aria-pressed="false">24 часа</button>
+<button data-days="7" aria-pressed="true">7 дней</button>
+<button data-days="30" aria-pressed="false">30 дней</button>
+<button data-days="90" aria-pressed="false">90 дней</button>
+</div>
+<div class="metrics">
+<div class="metric"><label>Уникальные устройства*</label><strong id="visitors">—</strong><small>Приблизительная оценка</small></div>
+<div class="metric"><label>Открытия приложений</label><strong id="visits">—</strong><small>Фото + видео</small></div>
+<div class="metric"><label>Действия</label><strong id="events">—</strong><small>Камера, съёмка, экспорт</small></div>
+<div class="metric"><label>Кнопки сохранения</label><strong id="exports">—</strong><small>Нажатия, не успешные экспорты</small></div>
+</div>
+<div class="row"><h2>Активность по дням</h2><div class="legend"><i class="dot" style="background:var(--orange)"></i>Фото <i class="dot" style="background:var(--white)"></i>Видео</div></div>
+<div class="plot"><svg id="chart" viewBox="0 0 640 220" aria-label="График активности" role="img"><text x="320" y="105" text-anchor="middle" fill="#aaa" font-size="15">Данных пока нет</text></svg></div>
+<div class="row"><h2>По приложениям</h2></div>
+<div class="apps">
+<div class="app"><h3 class="orange">▣ PHOTO VHS<small>Фото · X50 · камера</small></h3><dl>
+<div><dt>Устройства*</dt><dd id="pVisitors">—</dd></div>
+<div><dt>Открытия</dt><dd id="pVisits">—</dd></div>
+<div><dt>Камера</dt><dd id="pCamera">—</dd></div>
+<div><dt>Затвор</dt><dd id="pCapture">—</dd></div>
+<div><dt>Сохранение</dt><dd id="pExports">—</dd></div>
+</dl></div>
+<div class="app"><h3>▣ VHS VIDEO LAB<small>Видео · REC · монтаж</small></h3><dl>
+<div><dt>Устройства*</dt><dd id="vVisitors">—</dd></div>
+<div><dt>Открытия</dt><dd id="vVisits">—</dd></div>
+<div><dt>Камера</dt><dd id="vCamera">—</dd></div>
+<div><dt>REC</dt><dd id="vCapture">—</dd></div>
+<div><dt>Экспорт</dt><dd id="vExports">—</dd></div>
+</dl></div></div>
+<div class="row"><h2>Последние события</h2></div><div class="logs" id="logs"><div class="entry">Пока нет событий</div></div>
+<p class="status" id="status" role="status">Подключение к Google Таблице…</p>
+<p class="note">* Устройство определяется по случайному анонимному идентификатору браузера. Это не точное количество людей. Фото, видео и имена файлов не передаются. Доступ к панели защищён настройкой развертывания Google Apps Script «Только я».</p>
+</main><script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id);},period=7;
+var nf=new Intl.NumberFormat('ru-RU');
+var labels={visit:'Открытие',camera_open:'Открыта камера',shutter_click:'Нажат затвор',record_click:'Нажата REC',export_click:'Экспорт',camera_save_click:'Сохранение',x50_export_click:'Экспорт X50',frame_export_click:'Сохранение кадра'};
+function number(id,v){$(id).textContent=nf.format(Number(v)||0);}
+function elem(tag,attrs){var e=document.createElementNS('http://www.w3.org/2000/svg',tag);Object.keys(attrs).forEach(function(a){e.setAttribute(a,attrs[a]);});return e;}
+function draw(rows){
+var svg=$('chart');svg.replaceChildren();if(!Array.isArray(rows)||!rows.length)return;
+var pad=27,w=640,h=220,maximum=1;
+rows.forEach(function(row){maximum=Math.max(maximum,Number(row.photo)||0,Number(row.video)||0);});
+for(var j=0;j<4;j++){var yy=pad+(h-2*pad)*j/3;svg.appendChild(elem('line',{x1:pad,x2:w-pad,y1:yy,y2:yy,stroke:'#35383a','stroke-width':1}));}
+[['photo','#ff981c'],['video','#f5f5f4']].forEach(function(item){
+var pts=rows.map(function(row,i){var xx=pad+(w-2*pad)*(rows.length===1?.5:i/(rows.length-1));var yy=h-pad-(h-2*pad)*(Number(row[item[0]])||0)/maximum;return xx.toFixed(1)+','+yy.toFixed(1);}).join(' ');
+svg.appendChild(elem('polyline',{points:pts,fill:'none',stroke:item[1],'stroke-width':3.3,'stroke-linecap':'round','stroke-linejoin':'round'}));
+});
+var first=elem('text',{x:pad,y:h-4,fill:'#aaa','font-size':12});first.textContent=rows[0].date.slice(5);svg.appendChild(first);
+var last=elem('text',{x:w-pad,y:h-4,fill:'#aaa','font-size':12,'text-anchor':'end'});last.textContent=rows[rows.length-1].date.slice(5);svg.appendChild(last);
+}
+function render(data){
+number('visitors',data.overall.visitors);number('visits',data.overall.visits);number('events',data.overall.events);
+number('exports',(Number(data.photo.exports)||0)+(Number(data.video.exports)||0));
+[['p','photo'],['v','video']].forEach(function(pair){
+var p=pair[0],a=data[pair[1]];number(p+'Visitors',a.visitors);number(p+'Visits',a.visits);
+number(p+'Camera',a.camera);number(p+'Capture',a.capture);number(p+'Exports',a.exports);
+});
+draw(data.chart);
+var logs=$('logs');logs.replaceChildren();
+(data.lastEvents||[]).forEach(function(item){
+var row=document.createElement('div');row.className='entry';
+var time=document.createElement('time');time.textContent=item.at;
+var action=document.createElement('strong');action.textContent=labels[item.action]||item.action;
+var app=document.createElement('span');app.textContent=item.app==='video'?'Видео':'Фото';
+row.append(time,action,app);logs.appendChild(row);
+});
+if(!logs.children.length){var empty=document.createElement('div');empty.className='entry';empty.textContent='Пока нет событий';logs.appendChild(empty);}
+$('status').textContent='Обновлено: '+new Date(data.updated).toLocaleString('ru-RU')+' · Время таблицы: '+(data.timezone||'');
+}
+function load(){
+$('status').textContent='Загружаю статистику…';
+if(!window.google||!google.script||!google.script.run){$('status').textContent='Открой эту панель через закрытую ссылку Apps Script.';return;}
+google.script.run.withSuccessHandler(render).withFailureHandler(function(error){
+$('status').textContent='Не удалось загрузить статистику: '+(error&&error.message||'ошибка доступа');
+}).getDashboard(period);
+}
+document.querySelectorAll('[data-days]').forEach(function(btn){btn.addEventListener('click',function(){
+period=Number(btn.dataset.days);
+document.querySelectorAll('[data-days]').forEach(function(b){b.setAttribute('aria-pressed',b===btn?'true':'false');});load();
+});});
+$('refresh').addEventListener('click',load);load();
+})();
+</script></body></html>
