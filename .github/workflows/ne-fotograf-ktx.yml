@@ -1,0 +1,66 @@
+name: NE FOTOGRAF GPU compressed cast
+on:
+  push:
+    paths:
+      - '.github/workflows/ne-fotograf-ktx.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  compress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Khronos KTX encoder and glTF Transform
+        run: |
+          curl -fL --retry 3 'https://github.com/KhronosGroup/KTX-Software/releases/download/v4.4.2/KTX-Software-4.4.2-Linux-x86_64.deb' -o /tmp/ktx.deb
+          echo 'ca635ed489d8bf54fac8d7687056c651193de0740830a7738cc034adc63e3027  /tmp/ktx.deb' | sha256sum -c -
+          sudo dpkg -i /tmp/ktx.deb
+          npm install --prefix "$RUNNER_TEMP/nf-gltf" --no-save @gltf-transform/cli@4.3.0
+          ktx --version
+      - name: Compress full-size textures without changing geometry
+        run: |
+          set -eu
+          cli="$RUNNER_TEMP/nf-gltf/node_modules/.bin/gltf-transform"
+          mkdir -p ne-fotograf/models/ara-ktx
+          for p in ne-fotograf/models/ara/*.glb; do
+            "$cli" uastc "$p" "ne-fotograf/models/ara-ktx/$(basename "$p")" --level 2 --zstd 18
+          done
+          "$cli" uastc ne-fotograf/models/Nudgirl1.glb ne-fotograf/models/ara-ktx/imported.glb --level 2 --zstd 18
+          python - <<'PY'
+          import pathlib,struct,json
+          root=pathlib.Path('ne-fotograf/models')
+          out=root/'ara-ktx'
+          def doc(p):
+              b=p.read_bytes()
+              magic,v,total,n,typ=struct.unpack_from('<5I',b)
+              assert magic==0x46546c67 and v==2 and total==len(b)
+              return json.loads(b[20:20+n])
+          def counts(d):
+              return sorted((d['accessors'][p['attributes']['POSITION']]['count'],d['accessors'][p['indices']]['count'] if 'indices' in p else 0) for m in d['meshes'] for p in m['primitives'])
+          files=sorted(out.glob('*.glb'))
+          assert len(files)==9
+          for p in files:
+              original=doc(root/'Nudgirl1.glb' if p.stem=='imported' else root/'ara'/p.name)
+              d=doc(p)
+              assert counts(d)==counts(original),p
+              assert sorted(a['name'] for a in d['animations'])==sorted(a['name'] for a in original['animations']),p
+              assert len(d.get('skins',[]))==len(original.get('skins',[])),p
+              assert 'KHR_texture_basisu' in d.get('extensionsUsed',[]),p
+              print(p.name,p.stat().st_size,len(d.get('images',[])),flush=True)
+          (out/'manifest.json').write_text(json.dumps({'version':1,'models':[p.name for p in files]}))
+          PY
+      - name: Publish verified compressed models
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ne-fotograf/models/ara-ktx
+          if ! git diff --cached --quiet; then
+            git commit -m 'NE FOTOGRAF: GPU-compressed full-resolution character textures'
+            git pull --rebase
+            git push
+          fi
