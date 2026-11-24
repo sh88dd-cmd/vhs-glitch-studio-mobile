@@ -31,6 +31,19 @@ button{font:inherit;cursor:pointer}.refresh{background:#2a2a2b;color:white;borde
 .entry:last-child{border-bottom:0}.entry time,.entry span:last-child{color:#a8a8a8}.status{margin-top:17px;font-size:12px;color:#adadad;min-height:24px}
 .note{font-size:10px;color:#999;line-height:1.65;margin:22px 0 0}
 @media(max-width:390px){.lock{font-size:0;padding:8px}.metric strong{font-size:31px}.metric{padding:14px 11px}.app{padding:12px}.entry{grid-template-columns:66px 1fr 46px;gap:4px;font-size:10px}}
+.rankSwitch{display:flex;gap:6px;align-items:center}
+.rankSwitch button{background:#282828;color:#eee;border:1px solid #424242;border-radius:9px;min-height:36px;font-size:11px;font-weight:800;padding:8px 9px;flex:1}
+.rankSwitch button[aria-pressed="true"]{background:#ff981c;border-color:#ff981c;color:#121212}
+.rankGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.rankPanel{background:var(--panel);border:1px solid #333;border-radius:15px;padding:13px 10px}
+.rankPanel h3{font-size:13px;margin:2px 0 15px}
+.rankRow{display:grid;grid-template-columns:minmax(0,1fr) 32px;gap:6px;margin:9px 0}
+.rankRow label{display:block;font-size:10px;color:#eee;line-height:1.35;overflow-wrap:anywhere}
+.rankRow strong{font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+.rankTrack{grid-column:1 / -1;background:#303030;border-radius:5px;height:5px;overflow:hidden}
+.rankFill{display:block;background:#ff981c;height:100%;border-radius:5px}
+.rankPanel:nth-child(2) .rankFill{background:#f5f5f5}
+@media(max-width:355px){.rankGrid{grid-template-columns:1fr}}
 </style></head><body>
 <main>
 <header class="top"><div class="brand"><div class="logo">V</div><div><h1>VHS <span>STATS</span></h1><p class="sub">АНАЛИТИКА ПРИЛОЖЕНИЙ</p></div></div><div class="lock">🔒 ТОЛЬКО ВЛАДЕЛЕЦ</div></header>
@@ -65,6 +78,17 @@ button{font:inherit;cursor:pointer}.refresh{background:#2a2a2b;color:white;borde
 <div><dt>REC</dt><dd id="vCapture">—</dd></div>
 <div><dt>Экспорт</dt><dd id="vExports">—</dd></div>
 </dl></div></div>
+<div class="row"><h2>Популярность разделов и функций</h2></div>
+<div class="rankSwitch" role="group" aria-label="Для какого приложения показывать популярность">
+<button data-rank-scope="all" aria-pressed="true">ВСЕ</button>
+<button data-rank-scope="photo" aria-pressed="false">ФОТО</button>
+<button data-rank-scope="video" aria-pressed="false">ВИДЕО</button>
+</div>
+<p class="note">Частота нажатий и выборов — не время работы и не число разных людей.</p>
+<div class="rankGrid">
+ <section class="rankPanel"><h3>★ Топ разделов</h3><div id="rankSections" aria-live="polite">Пока нет данных</div></section>
+ <section class="rankPanel"><h3>⚡ Топ функций</h3><div id="rankFeatures" aria-live="polite">Пока нет данных</div></section>
+</div>
 <div class="row"><h2>Последние события</h2></div><div class="logs" id="logs"><div class="entry">Пока нет событий</div></div>
 <p class="status" id="status" role="status">Подключение к Google Таблице…</p>
 <p class="note">* Устройство определяется по случайному анонимному идентификатору браузера. Это не точное количество людей. Фото, видео и имена файлов не передаются. Доступ к панели защищён настройкой развертывания Google Apps Script «Только я».</p>
@@ -88,7 +112,67 @@ svg.appendChild(elem('polyline',{points:pts,fill:'none',stroke:item[1],'stroke-w
 var first=elem('text',{x:pad,y:h-4,fill:'#aaa','font-size':12});first.textContent=rows[0].date.slice(5);svg.appendChild(first);
 var last=elem('text',{x:w-pad,y:h-4,fill:'#aaa','font-size':12,'text-anchor':'end'});last.textContent=rows[rows.length-1].date.slice(5);svg.appendChild(last);
 }
+var rankCache=null,rankScope='all';
+var sectionLabels={
+ vhs:'VHS',film:'FILM',glitch:'GLITCH',cassettes:'КАССЕТЫ',
+ masks:'МАСКИ',correction:'КОРРЕКЦИЯ',polaroid:'POLAROID',
+ shoot:'СЪЁМКА',photobooth:'ФОТОБУДКА',x50:'X50',
+ camera:'КАМЕРА',timeline:'СЦЕНЫ',keyframes:'КЛЮЧЕВЫЕ КАДРЫ',
+ frametools:'ПОКАДРОВО',filmdamage:'ПЛЁНКА FX',audio:'АУДИО',
+ touch:'КАСАНИЯ',speed:'СКОРОСТЬ',live:'ЖИВЫЕ ПОМЕХИ',
+ export:'ЭКСПОРТ'
+};
+var featureLabels={
+ reroll:'Новые помехи',reset:'Сброс эффектов',compare:'До / После',
+ photobooth:'Фотобудка',best_shot:'BEST SHOT',double_exposure:'Двойная экспозиция',
+ film_burn:'Плёночные засветы',face_tools:'Лица / Касания',
+ brush_tools:'Кисть',brush_draw:'Рисование',face_auto:'Поиск лиц',
+ face_mark:'Отметить лицо',speed_point:'Точка скорости',
+ speed_reverse:'Обратное воспроизведение',speed_forward:'Ускорение',
+ audio_beats:'Авто по биту',timeline_event:'События таймлайна',
+ keyframe_add:'Ключевые кадры',frame_step:'Покадровая обработка',
+ film_only:'Только плёнка',film_gallery:'Галерея плёнок',
+ cassette_save:'Сохранить кассету',cassette_clear:'Сброс кассеты',
+ cassette_aging:'Старение кассеты',glitch_hold:'Зажим помех',
+ glitch_mild:'Мягкий глитч',glitch_chaos:'Сильный глитч',
+ vhs_preset:'Пресеты VHS',film_category:'Категории плёнок',
+ film_select:'Выбор плёнки',film_toggle:'Включение плёнки',
+ vhs_toggle:'Включение VHS',glitch_toggle:'Включение глитча',
+ face_style:'Стиль обработки лиц',face_pixel:'Пиксели лица',
+ tape_kind:'Тип видеокассеты',output_size:'Разрешение экспорта',
+ film_damage:'Повреждения плёнки',touch_mode:'Режим касаний'
+};
+function fillRanks(id,rows,labels){
+ var node=$(id);node.replaceChildren();
+ if(!Array.isArray(rows)||!rows.length){node.textContent='Данных пока нет';return;}
+ var top=rows[0].count||1;
+ rows.slice(0,10).forEach(function(item,index){
+  var wrap=document.createElement('div');wrap.className='rankRow';
+  var label=document.createElement('label');label.textContent=(index+1)+'. '+(labels[item.id]||item.id);
+  var number=document.createElement('strong');number.textContent=nf.format(item.count);
+  var track=document.createElement('div');track.className='rankTrack';
+  var bar=document.createElement('span');bar.className='rankFill';
+  bar.style.width=Math.max(2,Math.round((item.count||0)*100/top))+'%';
+  track.appendChild(bar);wrap.append(label,number,track);node.appendChild(wrap);
+ });
+}
+function renderRank(){
+ if(!rankCache)return;
+ var d=rankCache,scope=rankScope;
+ fillRanks('rankSections',scope==='photo'?d.photoSections:scope==='video'?d.videoSections:d.topSections,sectionLabels);
+ fillRanks('rankFeatures',scope==='photo'?d.photoFeatures:scope==='video'?d.videoFeatures:d.topFeatures,featureLabels);
+}
+document.querySelectorAll('[data-rank-scope]').forEach(function(btn){
+ btn.addEventListener('click',function(){
+  rankScope=btn.dataset.rankScope;
+  document.querySelectorAll('[data-rank-scope]').forEach(function(other){
+   other.setAttribute('aria-pressed',other===btn?'true':'false');
+  });
+  renderRank();
+ });
+});
 function render(data){
+rankCache=data;renderRank();
 number('visitors',data.overall.visitors);number('visits',data.overall.visits);number('events',data.overall.events);
 number('exports',(Number(data.photo.exports)||0)+(Number(data.video.exports)||0));
 [['p','photo'],['v','video']].forEach(function(pair){
