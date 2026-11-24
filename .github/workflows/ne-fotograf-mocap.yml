@@ -1,0 +1,65 @@
+name: NE FOTOGRAF mocap cast
+on:
+  push:
+    paths:
+      - '.github/workflows/ne-fotograf-mocap.yml'
+      - 'ne-fotograf/next09/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: nf-mocap-cast
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ARA3D_VERSION: '0.16.0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate distinct clothed characters and recorded locomotion
+        run: |
+          set -eu
+          npm install --prefix "$RUNNER_TEMP/ara-cli" --no-save "ara3d@$ARA3D_VERSION"
+          export ARA3D_CACHE="$RUNNER_TEMP/ara-data"
+          mkdir -p "$RUNNER_TEMP/nf-cast" ne-fotograf/models/ara
+          python - <<'PY'
+          import json, pathlib, os, subprocess, struct, shutil
+          cast=[["hero","The Gangster"],["photographer","The Photographer"],["dj","The DJ"],["executive","The Female Executive"],["driver","The Getaway Driver"],["chef","The Chef"],["adventurer","The Adventurer"],["street","The Street Racer"]]
+          temp=pathlib.Path(os.environ['RUNNER_TEMP'])
+          cli=temp/'ara-cli/node_modules/.bin/ara3d'
+          for ident,preset in cast:
+              dest=temp/'nf-cast'/ident
+              dest.mkdir(parents=True,exist_ok=True)
+              subprocess.run([str(cli),'export','--preset',preset,'--detail','medium' if ident=='hero' else 'low','--formats','glb','--animations','idle,walk,run,wave,talk','--out',str(dest)],check=True)
+              files=list(dest.rglob('*.glb'))
+              assert len(files)==1, (ident,files)
+              b=files[0].read_bytes()
+              magic,version,total,n,typ=struct.unpack_from('<5I',b)
+              assert magic==0x46546c67 and version==2 and total==len(b) and len(b)<40_000_000,ident
+              d=json.loads(b[20:20+n])
+              assert d.get('meshes') and d.get('skins') and max(len(s['joints']) for s in d['skins'])>20,ident
+              names=[a.get('name','').lower() for a in d.get('animations',[])]
+              assert all(any(c==k or c.endswith(k) for c in names) for k in ('idle','walk','run')),(ident,names)
+              shutil.copyfile(files[0],pathlib.Path('ne-fotograf/models/ara')/(ident+'.glb'))
+              print(ident,len(b),names,flush=True)
+          PY
+      - name: Activate only after every model is verified
+        run: |
+          set -eu
+          cp ne-fotograf/next09/index.html ne-fotograf/index.html
+          cp ne-fotograf/next09/sw.js ne-fotograf/sw.js
+          cp ne-fotograf/next09/city-v09.js ne-fotograf/city-v09.js
+          cp ne-fotograf/next09/credits.html ne-fotograf/credits.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ne-fotograf/models/ara ne-fotograf/index.html ne-fotograf/sw.js ne-fotograf/city-v09.js ne-fotograf/credits.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'NE FOTOGRAF 0.9: activate verified Ara character cast'
+            git pull --rebase
+            git push
+          fi
