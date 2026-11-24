@@ -12,7 +12,7 @@ class TapeAudio{
  constructor(element){
   this.element=element;this.ctx=null;this.stream=null;this.filter=null;this.delay=null;this.saturator=null;this.gain=null;this.noiseGain=null;this.noise=null;this.bypass=false;this.connected=false;
   this.state={enabled:false,mode:'linear',strength:55,hiss:45,wow:40,flutter:30,drop:25,saturation:20,seed:0};
-  this.mix={videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true,fadeIn:0,fadeOut:0};
+  this.mix={videoEnabled:true,musicEnabled:true,videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true,fadeIn:0,fadeOut:0};
   this.musicBuffer=null;this.musicSource=null;this.musicPlayAt=-1;this.musicCtxStart=0;this.extraAudio=[];
  }
  async resume(requireRunning=true){
@@ -151,6 +151,7 @@ class TapeAudio{
  setMix(settings){
   const prev=this.mix;
   const next={...prev,...(settings||{})};
+  next.videoEnabled=next.videoEnabled!==false;next.musicEnabled=next.musicEnabled!==false;
   next.videoVolume=C(Number(next.videoVolume)||0,0,100);
   next.musicVolume=C(Number(next.musicVolume)||0,0,100);
   next.musicStart=C(Number(next.musicStart)||0,0,7200);
@@ -158,13 +159,13 @@ class TapeAudio{
   next.musicTrimEnd=C(Number(next.musicTrimEnd)||0,0,7200);
   next.musicLoop=!!next.musicLoop;
   next.fadeIn=C(Number(next.fadeIn)||0,0,30);next.fadeOut=C(Number(next.fadeOut)||0,0,30);
-  const shift=next.musicStart!==prev.musicStart||next.musicOffset!==prev.musicOffset||next.musicTrimEnd!==prev.musicTrimEnd||next.musicLoop!==prev.musicLoop;
+  const shift=next.musicStart!==prev.musicStart||next.musicOffset!==prev.musicOffset||next.musicTrimEnd!==prev.musicTrimEnd||next.musicLoop!==prev.musicLoop||next.musicEnabled!==prev.musicEnabled;
   this.mix=next;
   if(this.connected){
    const now=this.ctx.currentTime;
-   this.videoGain.gain.setTargetAtTime(next.videoVolume/100,now,.014);
-   this.musicGain.gain.setTargetAtTime(next.musicVolume/100,now,.014);
-   if(shift)this.stopMusic();
+   this.videoGain.gain.setTargetAtTime(next.videoEnabled?next.videoVolume/100:0,now,.014);
+   this.musicGain.gain.setTargetAtTime(next.musicEnabled?next.musicVolume/100:0,now,.014);
+   if(shift)this.stopMainMusic();
   }
  }
  setMusicBuffer(buffer){
@@ -215,7 +216,7 @@ class TapeAudio{
  syncMusic(videoTime,playing){
   if(!this.connected||!playing||this.ctx.state!=='running'){this.stopMusic();return;}
   const duration=this.getMusicDuration();
-  if(duration>0){
+  if(duration>0&&this.mix.musicEnabled!==false){
    const start=C(this.mix.musicOffset,0,Math.max(0,duration-.05));
    const end=this.mix.musicTrimEnd>0?C(this.mix.musicTrimEnd,start+.05,duration):duration;
    const length=end-start,local=Number(videoTime)-this.mix.musicStart;
@@ -247,7 +248,7 @@ class TapeAudio{
    const end=Number(track.trimEnd)>0?C(Number(track.trimEnd),start+.05,d):d;
    const length=end-start,local=Number(videoTime)-(Number(track.at)||0);
    const looping=!!track.loop;
-   if(!Number.isFinite(local)||local<0||length<=0||(!looping&&local>=length)){
+   if(track.enabled===false||!Number.isFinite(local)||local<0||length<=0||(!looping&&local>=length)){
     if(track.node){
      const node=track.node;track.node=null;node.onended=null;
      try{node.stop()}catch{}try{node.disconnect()}catch{}
@@ -279,7 +280,9 @@ class TapeAudio{
  }
  getLevels(){
   if(!this.connected||!this.analyser||!this.spectrum||this.ctx?.state!=='running')return{bass:0,mid:0,high:0,rms:0,available:false};
-  const active=(this.musicBuffer||this.extraAudio.length)?this.musicAnalyser:this.analyser;
+  const hasMusic=(this.musicBuffer&&this.mix.musicEnabled!==false&&this.mix.musicVolume>0)||this.extraAudio.some(t=>t.enabled!==false&&t.volume>0);
+  if(!hasMusic&&(!this.mix.videoEnabled||this.mix.videoVolume<=0))return{bass:0,mid:0,high:0,rms:0,available:false};
+  const active=hasMusic?this.musicAnalyser:this.analyser;
   active.getByteFrequencyData(this.spectrum);
   const nyquist=this.ctx.sampleRate/2,bins=this.spectrum.length;
   function band(lo,hi){
