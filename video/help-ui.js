@@ -76,6 +76,7 @@ function decorateButton(node){
  if(!parent||parent.nodeType!==1)return;
  const title=cleanTitle(node),key=findKey(node);
  const wrap=document.createElement('span');wrap.className='helpButtonSlot';
+ if(node.matches('.compareButton'))wrap.classList.add('compareOverlaySlot');
  if(node.matches('.modeChoice,[data-audio-section],[data-tab]'))wrap.classList.add('helpNavSlot');
  if(node.matches('label.button'))wrap.classList.add('helpFileSlot');
  parent.insertBefore(wrap,node);wrap.append(node,iconFor(key,title,targetType(node)));
