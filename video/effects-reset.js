@@ -49,7 +49,7 @@ function zero(state){
  // Keep original video's native soundtrack, mute (not delete) imported music.
  // Preserve the mix object: Audio Studio holds a reference to it.
  if(state.mix){
-  Object.assign(state.mix,{videoVolume:100,musicVolume:0,musicStart:0,
+  Object.assign(state.mix,{videoEnabled:true,musicEnabled:true,videoVolume:100,musicVolume:0,musicStart:0,
    musicOffset:0,musicTrimEnd:0,musicLoop:false,fadeIn:0,fadeOut:0});
  }
  return state;
@@ -72,7 +72,7 @@ function restore(state,saved){
    continue;
   }
   if(key==='mix'&&value&&typeof value==='object'&&!Array.isArray(value)){
-   Object.assign(state.mix,value);continue;
+   Object.assign(state.mix,{videoEnabled:true,musicEnabled:true},value);continue;
   }
   if(key==='camera'&&value&&typeof value==='object'&&!Array.isArray(value)){
    // A reset can introduce disabled flag keys absent from older snapshots.
