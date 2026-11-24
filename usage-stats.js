@@ -19,6 +19,52 @@
    videoLiveRecord:'record_click',export:'export_click',
    frameSavePng:'frame_export_click'
  };
+ // Record categories only. Never transmit search terms, preset names,
+ // XMP/LUT names, captured media, filenames or user-entered text.
+ const SECTIONS=new Set([
+  'vhs','film','glitch','cassettes','masks','correction','polaroid',
+  'shoot','photobooth','x50','camera','timeline','keyframes',
+  'frametools','filmdamage','audio','touch','speed','live','export'
+ ]);
+ const BUTTON_FEATURES={
+  reroll:'reroll',regenerate:'reroll',allPhotoFxToggle:'reset',
+  allEffectsToggle:'reset',compare:'compare',compareMain:'compare',
+  boothOpen:'photobooth',liveCameraBest:'best_shot',
+  liveCameraDouble:'double_exposure',
+  edgeBurnReroll:'film_burn',touchFaceTab:'face_tools',
+  touchBrushTab:'brush_tools',touchStartDrawing:'brush_draw',
+  faceAuto:'face_auto',faceMark:'face_mark',
+  speedAddPoint:'speed_point',speedReverse:'speed_reverse',
+  speedForward:'speed_forward',autoBeatGenerate:'audio_beats',
+  addTimelineEvent:'timeline_event',keyframeAdd:'keyframe_add',
+  frameBack:'frame_step',frameForward:'frame_step',
+  filmOnlyMode:'film_only',filmGalleryPrev:'film_gallery',
+  cassetteSave:'cassette_save',cassetteDeselect:'cassette_clear',
+  cassetteAgingTab:'cassette_aging',holdGlitch:'glitch_hold',
+  videoLiveHold:'glitch_hold',gentleGlitch:'glitch_mild',
+  chaosGlitch:'glitch_chaos'
+ };
+ const SELECT_FEATURES={
+  vhsPreset:'vhs_preset',filmCategory:'film_category',
+  filmSelect:'film_select',filmEnabled:'film_toggle',
+  vhsEnabled:'vhs_toggle',glitchEnabled:'glitch_toggle',
+  faceStyle:'face_style',facePixelSize:'face_pixel',
+  tapeKind:'tape_kind',outputSize:'output_size',
+  filmDamageEnabled:'film_damage',touchEnabled:'touch_mode',
+  speedReverseEnabled:'speed_reverse'
+ };
+ const ALLOWED_FEATURES=new Set([
+  'reroll','reset','compare','photobooth','best_shot',
+  'double_exposure','film_burn','face_tools','brush_tools',
+  'brush_draw','face_auto','face_mark','speed_point',
+  'speed_reverse','speed_forward','audio_beats','timeline_event',
+  'keyframe_add','frame_step','film_only','film_gallery',
+  'cassette_save','cassette_clear','cassette_aging','glitch_hold',
+  'glitch_mild','glitch_chaos','vhs_preset','film_category',
+  'film_select','film_toggle','vhs_toggle','glitch_toggle',
+  'face_style','face_pixel','tape_kind','output_size',
+  'film_damage','touch_mode'
+ ]);
  // URL hash is a local opt-out tool, NOT an authentication or secret code.
  try{
   if(location.hash==='#stats-owner-off'){
@@ -84,7 +130,11 @@
  }
  const enabled=active&&/^[a-f0-9]{32}$/.test(visitor);
  function send(action){
-  if(!enabled||!/^(visit|camera_open|shutter_click|record_click|export_click|camera_save_click|x50_export_click|frame_export_click)$/.test(action))return;
+  if(!enabled)return;
+  const ordinary=/^(visit|camera_open|shutter_click|record_click|export_click|camera_save_click|x50_export_click|frame_export_click)$/.test(action);
+  const section=action.startsWith('section_')&&SECTIONS.has(action.slice(8));
+  const feature=action.startsWith('feature_')&&ALLOWED_FEATURES.has(action.slice(8));
+  if(!ordinary&&!section&&!feature)return;
   const body=JSON.stringify({app:APP,action:action,visitor:visitor});
   // Google Apps Script cross-origin redirect does not offer CORS response headers.
   // Simple POST (text/plain + no-cors) reaches doPost without exposing a response.
@@ -110,8 +160,26 @@
     if(!document.hidden)visit();
   },{passive:true});
   document.addEventListener('click',evt=>{
-   const button=evt.target&&evt.target.closest&&evt.target.closest('button[id]');
-   if(button&&!button.disabled&&EVENTS[button.id])send(EVENTS[button.id]);
+   const target=evt.target;
+   if(!target||typeof target.closest!=='function')return;
+   const tab=target.closest('nav.tabs button[data-tab]');
+   if(tab){
+    const tabName=String(tab.dataset.tab||'').toLowerCase();
+    if(SECTIONS.has(tabName))send('section_'+tabName);
+   }
+   const button=target.closest('button[id]');
+   if(button&&!button.disabled){
+    if(EVENTS[button.id])send(EVENTS[button.id]);
+    const feature=BUTTON_FEATURES[button.id];
+    if(feature&&ALLOWED_FEATURES.has(feature))send('feature_'+feature);
+   }
+   // Only note that a film card was selected; never send which film it was.
+   if(target.closest('.filmcard'))send('feature_film_select');
+  },{passive:true});
+  document.addEventListener('change',evt=>{
+   const input=evt.target;
+   const feature=input&&SELECT_FEATURES[input.id];
+   if(feature&&ALLOWED_FEATURES.has(feature))send('feature_'+feature);
   },{passive:true});
  }
  root.VHSUsageStats=Object.freeze({enabled:()=>enabled,excluded:()=>excluded});
