@@ -9,7 +9,7 @@ const FIELDS=[
  'modeStrength','eventDensity','glitchStrength','fxMode',
  'music','timelineEvents','timelineStrength','holdEvents','holdBalance',
  'filmStrength','signal','glitches','audio','camera','filmDamage','keyframesEnabled','keyframes','creative',
- 'selectedCassetteId','mix'
+ 'selectedCassetteId','mix','correction'
 ];
 const CAMERA_FLAGS=['rec','play','battery','date','counter','zoom','modeInfo','focus','frame'];
 const deep=value=>JSON.parse(JSON.stringify(value));
@@ -33,6 +33,7 @@ function zero(state){
   state.creative.audioDevice='off';
  }
  state.filmStrength=0;state.selectedCassetteId=null;
+ if(state.correction&&root.VHSVideoCorrection)state.correction=root.VHSVideoCorrection.defaults();
  for(const key of Object.keys(state.signal||{}))if(typeof state.signal[key]==='number')state.signal[key]=0;
  for(const key of Object.keys(state.glitches||{}))if(typeof state.glitches[key]==='number')state.glitches[key]=0;
  for(const key of ['sensitivity','threshold','strength','release'])
