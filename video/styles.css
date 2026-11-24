@@ -1779,3 +1779,16 @@ body.help-visible main nav.tabs button[data-tab].is-lit::after{
 .transitionRow select,.transitionRow input,#photoVideoDialog .transitionRow input,#photoVideoDialog .transitionRow select{min-width:0;width:100%;min-height:36px;padding:5px;margin:0;font-size:14px;border:1px solid #685136;border-radius:7px;background:#211e1a;color:#fff}
 #photoVideoList>.transitionRow{padding:4px 5px;background:#151515;margin:2px 0 5px;border-radius:6px}
 .transitionPanel .hint{margin:4px 0}
+
+/* 0.9.32 — individual audio track cards in trim. */
+.trackEnabled{display:flex;align-items:center;gap:8px;min-height:36px;margin:7px 0;font-size:12px;font-weight:750}
+.trackEnabled input{width:21px;height:21px;flex:none;accent-color:var(--hub-orange,#ff9818)}
+.trackMuted .extraAudioHeading strong,.trackMuted .trackEnabled span{color:#999}
+#mainTrackEditor>.musicTrim{margin:9px 0;padding:9px;border-color:#494949}
+#mainTrackEditor .waveformHead h2{font-size:11px}
+#mainTrackEditor #musicMixerControls .control,#videoMixerControls .control{padding:6px 0}
+#extraTrackList .extraAudioFields .trackVolumeField{grid-column:1/-1}
+#extraTrackList .trackVolumeField output{float:right;color:#ffc46d;font-size:12px;font-weight:700}
+#extraTrackList .trackVolumeField input{padding:0;min-height:30px;background:transparent;border:none}
+#extraTrackList .trackTrimInfo{margin:4px 0}
+#extraTrackSummary{overflow-wrap:anywhere}
