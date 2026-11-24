@@ -2184,7 +2184,7 @@
    // A playable processed frame is present before encoding starts.
    drawFrame(recordCanvas,true);
    const blobs=[];
-   const bitrate=Number(state.size)>=720?8_000_000:
+   const bitrate=Number(state.size)>=1920?14_000_000:Number(state.size)>=1280?10_000_000:Number(state.size)>=720?8_000_000:
     Number(state.size)>=480?5_000_000:3_000_000;
    // isTypeSupported() may return true for a codec string that the installed
    // WebKit build nevertheless rejects when constructing a recorder.
@@ -2472,6 +2472,20 @@
  }
  async function init(){
   mountControls();mountKeyframes();initEvents();mountVideoCapture();
+  if(window.VHSPhotoVideo)window.VHSPhotoVideo.mount({
+   canOpen:()=>!recording&&!videoImportBusy,
+   onOpen:()=>{source.pause();audioEngine.suspendNoise();},
+   onImport:async (generated,options)=>{
+    await loadVideo([generated],'photos');
+    if(file!==generated)throw Error('Созданное видео не удалось открыть в редакторе.');
+    state.size=String(options.limit);state.fps=options.fps;state.exportScope='full';
+    $('outputSize').value=state.size;$('fps').value=String(state.fps);$('exportScope').value='full';
+    persist();renderCurrentFrame();
+    importStatus('Видео из фотографий готово. Добавь эффекты и сохрани весь ролик в разделе ЭКСПОРТ.',false);
+    $('videoStage').scrollIntoView?.({block:'start'});
+   }
+  });
+  else $('photoVideoOpen').disabled=true;
   const mixSnapshots=(a,b,v)=>{
    if(typeof a==='number'&&typeof b==='number')return a+(b-a)*v;
    if(a&&b&&typeof a==='object'&&typeof b==='object'&&!Array.isArray(a)&&!Array.isArray(b)){
