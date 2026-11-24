@@ -1,6 +1,6 @@
 /* VHS Video Lab offline assets; separate cache and service worker from photo app. */
-const VERSION='vhs-video-lab-0.9.13';
-const FILES=['./','./index.html','./app.js','./live-camera.js','./live-fx.js','./film-gallery.js','./film-core.js','./glitch-engine.js','./audio-engine.js','./audio-studio.js','./effects-reset.js','./clean-path.js','./camera-osd.js','./keyframes.js','./film-damage.js','./audio-extract.js','./special-modes.js','./player-ui.js','./help-content.js','./help-illustrations.js','./help-ui.js','./face-ai.js','./creative-engine.js','./creative-ui.js','./vendor/tracking-min.js','./vendor/tracking-face-min.js','./styles.css','./manifest.webmanifest','./icons/icon-192.png',
+const VERSION='vhs-video-lab-0.9.14';
+const FILES=['./','./index.html','../usage-stats.js','./app.js','./live-camera.js','./live-fx.js','./film-gallery.js','./film-core.js','./glitch-engine.js','./audio-engine.js','./audio-studio.js','./effects-reset.js','./clean-path.js','./camera-osd.js','./keyframes.js','./film-damage.js','./audio-extract.js','./special-modes.js','./player-ui.js','./help-content.js','./help-illustrations.js','./help-ui.js','./face-ai.js','./creative-engine.js','./creative-ui.js','./vendor/tracking-min.js','./vendor/tracking-face-min.js','./styles.css','./manifest.webmanifest','./icons/icon-192.png',
  '../camera-capture-controls.js','../ntsc-photo.js','../looks.json','../jszip.min.js'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));
