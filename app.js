@@ -57,12 +57,34 @@
     ['streaks','Тонкие цветные штрихи',0]
   ];
   const positions=[['left-top','Слева сверху'],['right-top','Справа сверху'],['left-bottom','Слева снизу'],['right-bottom','Справа снизу']];
-  const looks={}; let xmpProfiles=[];let activeLook=null;let cubeLut=null;let filmPage=0;let favoritesPage=0;let batchFiles=[];let batchPage=0;let dialogFileIndex=-1;let dialogRenderToken=0;let busy=false;
+  const looks={}; let xmpProfiles=[],bundledXMP=[];let activeLook=null;let cubeLut=null;let filmPage=0;let favoritesPage=0;let batchFiles=[];let batchPage=0;let dialogFileIndex=-1;let dialogRenderToken=0;let busy=false;
   let original=null, photoName='photo',showingOriginal=false; let mainSeedHistory=[]; let latestPreview=null, rendering=false, rerender=false, renderTimer=0, pageToken=0;
   let mainViewerToken=0; const mainViewerView={zoom:1,x:0,y:0,gesture:null};
   const PREVIEW_MAX=1040, DETAIL_PREVIEW_MAX=1800, BATCH_PREVIEW=440, FILM_PAGE_SIZE=24;
   const power={"VHS 90s":1,"Camcorder 90s":.75,"VHS — мягкий":.4,"VHS — повреждённая кассета":1.25,"Dirty VHS Extreme":1.4,"Tracking Error":1.2,"Аналоговый шум":.8,"Цветные помехи":1.15,"RGB Split":1.0};
 
+  // Bundled EmulsionPresets v3.1.4: every user receives all 451 films.
+  // Same-origin JSON is cached for offline use; custom imports remain editable.
+  async function loadBundledXMP(){
+    try{
+      const response=await fetch('./assets/emulsion-451.json');
+      if(!response.ok)throw Error('HTTP '+response.status);
+      const packageData=await response.json();
+      if(packageData?.count!==451||!Array.isArray(packageData.presets)||
+         packageData.presets.length!==451)throw Error('Неполная библиотека XMP');
+      if(packageData.presets.some(p=>!p?.id?.startsWith('xmp:')||!p.name||
+          !p.fields||!p.category))throw Error('Неверная структура XMP');
+      bundledXMP=packageData.presets;
+    }catch(error){
+      console.warn('451 bundled films unavailable, imported films remain accessible',error);
+      bundledXMP=[];
+      const status=$('importStatus');
+      if(status)status.textContent='Встроенная библиотека пока не загрузилась. Подключись к интернету и обнови приложение.';
+    }
+  }
+  function combinedXMP(custom){
+    return [...new Map([...bundledXMP,...custom].map(p=>[p.id,p])).values()];
+  }
   function notify(message, alertToo=false){$('notice').textContent=message;if(alertToo)alert(message);}
   function updateFxIndicators(){
     const states={
@@ -563,7 +585,7 @@
   }
   function renderFilmPage(){
     const items=shownFilms(),pages=Math.max(1,Math.ceil(items.length/FILM_PAGE_SIZE));filmPage=clamp(filmPage,0,pages-1);
-    $('filmCount').textContent=`${items.length} профилей · ${Object.keys(looks).length} встроено · ${xmpProfiles.length} XMP · ★ ${state.favoriteFilms.length}`;
+    $('filmCount').textContent=`${items.length} профилей · ${Object.keys(looks).length} авторских · ${bundledXMP.length} встроенных XMP · ★ ${state.favoriteFilms.length}`;
     $('filmPageLabel').textContent=`${filmPage+1} / ${pages}`;
     $('prevFilmPage').disabled=filmPage===0;$('nextFilmPage').disabled=filmPage>=pages-1;
     renderFilmCards($('filmGrid'),items.slice(filmPage*FILM_PAGE_SIZE,(filmPage+1)*FILM_PAGE_SIZE));
@@ -599,8 +621,8 @@
     }else throw Error('Выбери файл .xmp или .zip с XMP-профилями');
     if(!found.length)throw Error('Не удалось прочитать ни одного Lightroom XMP-пресета');
     await dbPutMany('xmp',found);
-    xmpProfiles=await dbAll('xmp');showFilmGrid();
-    $('importStatus').textContent=`Импортировано ${found.length} · всего в памяти телефона ${xmpProfiles.length} XMP`;
+    xmpProfiles=combinedXMP(await dbAll('xmp'));showFilmGrid();
+    $('importStatus').textContent=`Импортировано ${found.length} · встроено ${bundledXMP.length} · всего доступно ${xmpProfiles.length} XMP`;
     notify(`Установлено ${found.length} XMP-пресетов. Теперь они доступны офлайн. Рекомендую сразу сохранить резервную копию.`);
   }
   function parseCube(text,name){let n=0,data=[];
@@ -988,7 +1010,7 @@
     const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});saveBlob(blob,'VHS_Studio_BACKUP_'+new Date().toISOString().slice(0,10)+'.json');notify('Резервная копия создана. Сохрани файл в «Файлы» и по возможности на другое устройство.');}
   async function importBackup(file){if(!file)return;if(file.size>25e6)throw Error('Резервная копия слишком большая');const record=JSON.parse(await file.text());
     if(record.kind!=='VHS_STUDIO_MOBILE_BACKUP'||record.version!==1||!record.settings)throw Error('Файл не является резервной копией VHS Studio');
-    if(Array.isArray(record.xmpProfiles)&&record.xmpProfiles.length<=1200){await dbClear('xmp');await dbPutMany('xmp',record.xmpProfiles);xmpProfiles=await dbAll('xmp');}
+    if(Array.isArray(record.xmpProfiles)&&record.xmpProfiles.length<=1200){await dbClear('xmp');await dbPutMany('xmp',record.xmpProfiles);xmpProfiles=combinedXMP(await dbAll('xmp'));}
     if(Array.isArray(record.lut)&&record.lut.length<=5){await dbClear('assets');await dbPutMany('assets',record.lut);cubeLut=record.lut.find(r=>r.id==='custom')||null;}
     state={...clone(defaults),...record.settings};persist();location.reload();
   }
@@ -1324,9 +1346,13 @@
       onConfigure:()=>showTab('vhs')
     });
     try{Object.assign(looks,await (await fetch('./looks.json')).json());}catch(err){notify('Каталог плёнок не загрузился. Открой программу через HTTPS или локальный сервер.');}
-    xmpProfiles=await dbAll('xmp');cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
+    const [customXMP]=await Promise.all([dbAll('xmp'),loadBundledXMP()]);
+    xmpProfiles=combinedXMP(customXMP);
+    cubeLut=(await dbAll('assets')).find(x=>x.id==='custom')||null;
     if(state.film.profileId)activeLook=xmpProfiles.find(p=>p.id===state.film.profileId)||null;
-    showFilmGrid();checkOffline();
+    showFilmGrid();
+    if(bundledXMP.length) $('importStatus').textContent=`451 XMP-плёнка уже в приложении · 13 категорий · офлайн · без ZIP`;
+    checkOffline();
   }
   init().catch(err=>{console.error(err);notify('Ошибка инициализации: '+err.message,true);});
 })();
