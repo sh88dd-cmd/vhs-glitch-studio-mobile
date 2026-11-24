@@ -1718,3 +1718,32 @@ body.help-visible main nav.tabs button[data-tab].is-lit::after{
 }
 .stageCanvas.is-exporting>.compareOverlaySlot,
 .stageCanvas.is-exporting>.helpButtonSlot:has(>#compareMain){display:none!important}
+
+/* 0.9.27 — viewport controls have fixed anchors, independent of video aspect ratio.
+   Both plain controls and their optional help wrappers occupy the same corner. */
+.stageCanvas>.expandOverlaySlot{
+ position:absolute!important;top:9px!important;right:9px!important;bottom:auto!important;left:auto!important;
+ z-index:21!important;display:inline-flex!important;flex:none!important;width:40px!important;height:40px!important;
+ min-width:40px!important;max-width:40px!important;align-items:center;justify-content:center;
+}
+.stageCanvas>#openViewer,.stageCanvas>.expandOverlaySlot>#openViewer{
+ width:40px!important;height:40px!important;min-width:40px!important;max-width:40px!important;
+ flex:none!important;white-space:nowrap;line-height:1;writing-mode:horizontal-tb;
+}
+.stageCanvas>.expandOverlaySlot>#openViewer{position:relative!important;inset:auto!important;}
+.stageCanvas>#openViewer{position:absolute!important;top:9px!important;right:9px!important;z-index:21!important;}
+.stageCanvas>.compareOverlaySlot,.viewerCanvasBox>.compareOverlaySlot{
+ width:auto!important;max-width:none!important;flex:0 0 auto!important;isolation:isolate;
+}
+#compareMain,#compareViewer{
+ display:inline-flex!important;align-items:center;justify-content:center;
+ white-space:nowrap!important;writing-mode:horizontal-tb!important;
+ width:auto!important;min-width:100px!important;max-width:none!important;
+ min-height:38px!important;line-height:1.1!important;flex:0 0 auto!important;
+ padding:8px 11px!important;box-sizing:border-box;
+}
+.stageCanvas>#compareMain,.viewerCanvasBox>#compareViewer{
+ position:absolute!important;left:9px!important;bottom:9px!important;top:auto!important;right:auto!important;z-index:20!important;
+}
+.stageCanvas.is-exporting>.expandOverlaySlot,.stageCanvas.is-exporting>.compareOverlaySlot,
+.stageCanvas.is-exporting #openViewer,.stageCanvas.is-exporting #compareMain{display:none!important;}
