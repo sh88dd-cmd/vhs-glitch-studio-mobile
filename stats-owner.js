@@ -45,10 +45,24 @@
   x50_export_click:'Экспорт X50',frame_export_click:'Сохранение кадра'
  };
  const number=new Intl.NumberFormat('ru-RU');
- let overlay=null,priorFocus=null,busy=false,lastReport=null,days=7,scope='all';
+ let overlay=null,priorFocus=null,busy=false,lastReport=null,days=7,scope='all',sessionCredential=null;
  function $(id){return overlay&&overlay.querySelector('#'+id);}
  function safeReadKey(){try{return localStorage.getItem(KEY_NAME)||'';}catch(_){return '';}}
- function validKey(key){return /^[a-f0-9]{64}$/.test(key);}
+ function validKey(key){return typeof key==='string'&&/^[a-f0-9]{64}$/.test(key);}
+ function validCredential(key){return validKey(key)||!!(key&&typeof key==='object'&&key.type==='secret'&&key.algorithm?.name==='HMAC'&&key.usages?.includes('sign'));}
+ // Secondary local storage: store a non-exportable signing key, never send it to a server.
+ function credentialDB(mode,action){return new Promise((resolve,reject)=>{
+  let done=false,db=null;
+  const finish=(ok,value)=>{if(done)return;done=true;clearTimeout(timer);if(db)db.close();ok?resolve(value):reject(value);};
+  const timer=setTimeout(()=>finish(false,Error('Хранилище недоступно')),2000);
+  try{const req=indexedDB.open('vhs-stats-owner',1);
+   req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('credentials'))req.result.createObjectStore('credentials');};
+   req.onerror=()=>finish(false,req.error);req.onblocked=()=>finish(false,Error('Хранилище занято'));
+   req.onsuccess=()=>{db=req.result;if(done){db.close();return;}try{const tx=db.transaction('credentials',mode);const op=action(tx.objectStore('credentials'));tx.oncomplete=()=>finish(true,op.result);tx.onerror=()=>finish(false,tx.error);tx.onabort=()=>finish(false,tx.error);}catch(e){finish(false,e);}};
+  }catch(e){finish(false,e);}
+ });}
+ async function readCredential(){const local=safeReadKey();if(validKey(local))return local;if(validCredential(sessionCredential))return sessionCredential;try{const key=await credentialDB('readonly',store=>store.get('owner'));return validCredential(key)?key:null;}catch(_){return null;}}
+ async function signingKey(key){if(!validKey(key))return key;return crypto.subtle.importKey('raw',Uint8Array.from(key.match(/../g),x=>parseInt(x,16)),{name:'HMAC',hash:'SHA-256'},false,['sign']);}
  function hex(bytes){return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');}
  function button(el,text){el.textContent=text;el.type='button';}
  function notify(text,error){
@@ -60,18 +74,22 @@
  function changeView(authorized){
   show('vhsAdminLogin',!authorized);
   show('vhsAdminReport',authorized);
+  show('vhsAdminReconnect',false);
  }
- function setKey(key){
-  try{
-   localStorage.setItem(KEY_NAME,key);
-   // The owner does not count as a visitor on this installed PWA.
-   localStorage.setItem(OWNER_EXCLUSION,'1');
-  }catch(_){notify('Хранилище недоступно: ключ нужно будет вводить заново.',true);}
+ async function setKey(key){
+  sessionCredential=key;let local=false,backup=false;
+  try{if(validKey(key)){localStorage.setItem(KEY_NAME,key);local=safeReadKey()===key;}localStorage.setItem(OWNER_EXCLUSION,'1');}catch(_){}
+  try{const protectedKey=await signingKey(key);await credentialDB('readwrite',store=>store.put(protectedKey,'owner'));backup=true;}catch(_){}
+  return local||backup;
  }
- function forgetKey(){try{localStorage.removeItem(KEY_NAME);}catch(_){}
-  lastReport=null;changeView(false);const input=$('vhsAdminKey');
+ async function forgetKey(){
+  sessionCredential=null;
+  try{localStorage.removeItem(KEY_NAME);}catch(_){}
+  try{await credentialDB('readwrite',store=>store.delete('owner'));}catch(_){notify('Не удалось очистить резервное хранилище. Повтори попытку.',true);return;}
+  lastReport=null;show('vhsAdminReconnect',false);changeView(false);const input=$('vhsAdminKey');
   if(input)input.value='';notify('Ключ сброшен на этом устройстве.');
  }
+ function reconnectView(){changeView(false);show('vhsAdminLogin',false);show('vhsAdminReconnect',true);}
  function close(){
   if(!overlay)return;
   const old=overlay;overlay=null;lastReport=null;
@@ -146,6 +164,12 @@
      <button type="button" class="orangeBtn" id="vhsAdminConnect">ПОКАЗАТЬ СТАТИСТИКУ</button>
      <p class="adminSub">После успешного входа этот iPhone будет исключён из подсчёта посещений данного приложения.</p>
     </section>
+    <section class="adminCard adminLogin" id="vhsAdminReconnect" hidden>
+     <h2>VHS STATS · Доступ владельца</h2>
+     <p>Используем сохранённый доступ. При ошибке связи повтори запрос — вводить ключ заново не нужно.</p>
+     <button type="button" class="orangeBtn" id="vhsAdminRetry">↻ ПОВТОРИТЬ ЗАПРОС</button>
+     <button type="button" class="adminClose" id="vhsAdminChange">Сменить ключ</button>
+    </section>
     <section id="vhsAdminReport" hidden>
      <div class="adminPeriods" role="group" aria-label="Период">
       <button data-admin-days="1" aria-pressed="false">24 часа</button>
@@ -187,10 +211,9 @@
   return screen;
  }
  async function getSignedStats(key,period){
-  if(!validKey(key))throw Error('Нужен личный ключ из 64 символов.');
+  if(!validCredential(key))throw Error('Нужен личный ключ из 64 символов.');
   if(!crypto||!crypto.subtle||!crypto.getRandomValues)throw Error('Безопасные запросы не поддерживаются.');
-  const bytes=Uint8Array.from(key.match(/../g),x=>parseInt(x,16));
-  const hmacKey=await crypto.subtle.importKey('raw',bytes,{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const hmacKey=await signingKey(key);
   const ts=Date.now();
   const nonce=hex(crypto.getRandomValues(new Uint8Array(16)));
   const signed=await crypto.subtle.sign('HMAC',hmacKey,new TextEncoder().encode('stats|'+ts+'|'+nonce+'|'+period));
@@ -305,21 +328,27 @@
  }
  async function refresh(entered){
   if(busy||!overlay)return;
-  const key=(entered||safeReadKey()).trim().toLowerCase();
+  const view=overlay;busy=true;
   const button=$('vhsAdminConnect');
-  if(!validKey(key)){notify('Вставь личный ключ из 64 символов.',true);return;}
-  busy=true;if(button)button.disabled=true;notify('Загружаю закрытую статистику…');
+  if(button)button.disabled=true;
   try{
+   const key=typeof entered==='string'?entered.trim().toLowerCase():entered||await readCredential();
+   if(overlay!==view)return;
+   if(!validCredential(key)){changeView(false);notify('Вставь личный ключ из 64 символов.',true);return;}
+   if(!lastReport&&typeof entered!=='string')reconnectView();
+   notify('Загружаю закрытую статистику…');
    const result=await getSignedStats(key,days);
-   if(!overlay)return;
+   if(overlay!==view)return;
    if(!result||result.ok!==true){
     const msg=result&&result.error==='setup_required'?'Сначала создай личный ключ в Google Apps Script.'
      :result&&result.error==='denied'?'Ключ не подошёл. Проверь его и время iPhone.'
      :'Сборщик ещё не обновлён или временно недоступен.';
     notify(msg,true);return;
    }
-   setKey(key);
+   const saved=await setKey(key);
+   if(overlay!==view)return;
    display(result.data);
+   if(!saved)notify('Статистика загружена, но iOS не разрешила сохранить доступ между запусками.',true);
   }catch(e){if(overlay)notify(e.message||'Ошибка подключения',true);}
   finally{busy=false;if(button&&button.isConnected)button.disabled=false;}
  }
@@ -332,7 +361,9 @@
   $('vhsAdminConnect').addEventListener('click',()=>refresh($('vhsAdminKey').value));
   $('vhsAdminKey').addEventListener('keydown',e=>{if(e.key==='Enter')refresh(e.target.value);});
   $('vhsAdminRefresh').addEventListener('click',()=>refresh());
-  $('vhsAdminForget').addEventListener('click',forgetKey);
+  $('vhsAdminForget').addEventListener('click',()=>{if(!busy)void forgetKey();});
+  $('vhsAdminChange').addEventListener('click',()=>{if(!busy)void forgetKey();});
+  $('vhsAdminRetry').addEventListener('click',()=>refresh());
   overlay.querySelectorAll('[data-admin-days]').forEach(button=>button.addEventListener('click',()=>{
    days=Number(button.dataset.adminDays);
    overlay.querySelectorAll('[data-admin-days]').forEach(x=>x.setAttribute('aria-pressed',x===button?'true':'false'));
@@ -344,9 +375,9 @@
    ranks();
   }));
   $('vhsAdminClose').focus({preventScroll:true});
-  const key=safeReadKey();
-  if(validKey(key))refresh(key);
-  else notify('Нужен личный ключ, созданный в Google Apps Script.');
+  reconnectView();
+  notify('Проверяю сохранённый доступ…');
+  void refresh();
  }
  function mount(){
   const title=document.querySelector(IS_VIDEO?'.top .logo':'.top .brand');
