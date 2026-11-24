@@ -15,7 +15,7 @@
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.28 · КАМЕРА И МОНТАЖ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.29 · КАМЕРА И МОНТАЖ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -179,9 +179,6 @@
       <label class="button full">＋ Звук из второго видео<input type="file" id="extraMusicVideo" accept=".mp4,.mov,.m4v,video/mp4,video/quicktime" hidden></label>
       <div id="extraTrackList"></div>
     </div>
-      <h2>ЗВУКОВОЙ МИКШЕР</h2>
-  <p class="hint">Громкость оригинального видео и добавленной дорожки настраиваются отдельно. VHS AUDIO обрабатывает их общую сумму и сохраняется при поддерживаемом экспорте.</p>
-  <div id="musicMixerControls"></div>
 
       <p id="musicLoadStatus" class="hint" role="status" aria-live="polite">Дорожка не выбрана. Нажми «Добавить аудиофайл» или «Извлечь звук из видео».</p>
 
@@ -216,6 +213,9 @@
   <div class="switch"><span>Повторять выбранный отрывок</span><input id="musicLoop" type="checkbox" checked></div>
 
     </div>
+    <h2>ЗВУКОВОЙ МИКШЕР</h2>
+    <p class="hint">Громкость оригинального видео и добавленной дорожки настраиваются отдельно. VHS AUDIO обрабатывает их общую сумму и сохраняется при поддерживаемом экспорте.</p>
+    <div id="musicMixerControls"></div>
     <p class="hint">Для дополнительных дорожек начало, конец, громкость и плавность настраиваются в «ТРЕКИ» у каждой отдельной карточки.</p>
   </div>
   <div id="audioArea-beat" class="audioArea">
@@ -242,7 +242,7 @@
   <div class="switch"><span>Повреждать звук</span><input type="checkbox" id="audioEnabled"></div>
   <label>Тип звуковой дорожки<select id="audioMode"><option value="linear">VHS Linear / SP-LP-EP</option><option value="hifi">VHS Hi-Fi AFM</option></select></label>
   <div id="audioControls"></div>
-  <p class="hint">Шипение, низкочастотная фильтрация, wow/flutter, провалы громкости и насыщение применяются к общей сумме звука видео и добавленной музыки. Громкость каждой дорожки регулируется в разделе «АУДИО → ТРЕКИ».</p>
+  <p class="hint">Шипение, низкочастотная фильтрация, wow/flutter, провалы громкости и насыщение применяются к общей сумме звука видео и добавленной музыки. Громкость оригинала и основной дорожки регулируется в «АУДИО → ОБРЕЗКА», дополнительных — в «ТРЕКИ».</p>
 </div>
 </section>
 <section id="panel-timeline" class="panel">
@@ -496,7 +496,7 @@
  <button id="exportBannerClose" type="button" aria-label="Скрыть состояние экспорта">✕</button>
 </div>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.9.28</span>
+  <span>VHS Video Lab · 0.9.29</span>
   <button id="videoForceUpdate" class="button mini" type="button">↻ Обновить приложение</button>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
