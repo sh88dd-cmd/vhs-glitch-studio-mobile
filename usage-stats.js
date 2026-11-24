@@ -34,6 +34,33 @@
  let excluded=false;
  try{excluded=localStorage.getItem(EXCLUDE_KEY)==='1';}catch(_){}
  if(navigator.doNotTrack==='1'||navigator.globalPrivacyControl===true)excluded=true;
+ // Hidden, local-only owner opt-out: tap the version label six times
+ // on EACH installed PWA, including before stats are activated.
+ // This excludes this app's local browser storage; it grants no admin access.
+ function installOwnerOptOut(){
+  const label=document.querySelector(isVideo?'.logo small':'.brand small');
+  if(!label)return;
+  let count=0,lastTap=0;
+  label.addEventListener('click',()=>{
+   const now=Date.now();
+   if(now-lastTap>2300)count=0;
+   lastTap=now;
+   if(++count<6)return;
+   count=0;
+   try{
+    localStorage.setItem(EXCLUDE_KEY,'1');
+    excluded=true;
+    alert('Статистика: посещения этого приложения на данном устройстве больше не учитываются.');
+    // Stop already-loaded tracking for the current PWA instance as well.
+    location.reload();
+   }catch(_){
+    alert('Не удалось сохранить исключение статистики на устройстве.');
+   }
+  });
+ }
+ if(document.readyState==='loading')
+  document.addEventListener('DOMContentLoaded',installOwnerOptOut,{once:true});
+ else installOwnerOptOut();
  let ready=false;
  const queue=[];
  function send(action){
