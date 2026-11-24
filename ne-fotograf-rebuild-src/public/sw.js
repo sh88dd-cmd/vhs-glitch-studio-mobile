@@ -1,0 +1,2 @@
+// No stale shell: every game navigation and version check goes straight to network.
+self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||!u.pathname.startsWith(new URL(self.registration.scope).pathname))return;if(e.request.mode==='navigate'||u.pathname.endsWith('/version.json'))e.respondWith(fetch(e.request,{cache:'no-store'}));});

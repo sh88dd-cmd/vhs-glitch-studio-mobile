@@ -24,7 +24,7 @@ self.addEventListener('activate',event=>{
 self.addEventListener('fetch',event=>{
   const req=event.request,url=new URL(req.url);
   // Independent game PWA: do not put its navigations in the PHOTO VHS shell cache.
-  if(url.pathname.startsWith(new URL('./ne-fotograf/',self.registration.scope).pathname))return;
+  if(['./ne-fotograf/','./ne-fotograf-next/'].some(p=>url.pathname.startsWith(new URL(p,self.registration.scope).pathname)))return;
   if(req.method!=='GET'||url.origin!==location.origin||!url.pathname.startsWith(new URL('./',self.registration.scope).pathname))return;
   const networkFirst=req.mode==='navigate'||/\.(?:js|css|json|webmanifest)$/.test(url.pathname);
   event.respondWith((async()=>{

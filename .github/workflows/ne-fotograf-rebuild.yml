@@ -1,4 +1,4 @@
-name: NE FOTOGRAF rebuild 02
+name: NE FOTOGRAF rebuild 03
 on:
   push:
     paths:
@@ -37,6 +37,11 @@ jobs:
                       assert d.get('skins') and d.get('meshes')
               print(name,p.stat().st_size,flush=True)
           PY
+      - name: Bake actual OpenStreetMap data
+        working-directory: ne-fotograf-rebuild-src
+        run: |
+          python tools/bake-osm.py
+          cp ../ne-fotograf/icon-192.png public/icon-192.png
       - name: Build independent engine
         working-directory: ne-fotograf-rebuild-src
         run: |
@@ -57,7 +62,7 @@ jobs:
             await page.waitForFunction(()=>window.NF_NEW!==undefined,null,{timeout:90000});
             let state=await page.evaluate(()=>NF_NEW.ready?NF_NEW.inspect():NF_NEW);
             console.log('Before',state);
-            if(state.people!==5||state.view!==3||!state.actions.includes('run'))throw Error(JSON.stringify(state));
+            if(state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.buildings<10||state.roads<5||!state.actions.includes('run'))throw Error(JSON.stringify(state));
             await page.locator('#start').click();
             await page.keyboard.down('KeyW');await page.waitForTimeout(2200);await page.keyboard.up('KeyW');
             const beforeRight=await page.evaluate(()=>NF_NEW.inspect().position);
@@ -72,7 +77,8 @@ jobs:
             await page.locator('#view').click();
             state=await page.evaluate(()=>NF_NEW.inspect());console.log('After',state);
             if(state.view!==3||state.position[2]<=-13.8||errors.length)throw Error(JSON.stringify({state,errors}));
-            if(state.staticAfter>=state.staticBefore*.5)throw Error('Static batching insufficient: '+JSON.stringify(state));
+            if(state.staticBefore>100&&state.staticAfter>=state.staticBefore*.65)throw Error('Static batching insufficient: '+JSON.stringify(state));
+            if(await page.locator('#quality').count()!==0||await page.locator('#update').count()!==1)throw Error('UI');
             await page.screenshot({path:'/tmp/nf-rebuild.png'});
           }finally{await browser.close()}
           JS
