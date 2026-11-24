@@ -128,9 +128,9 @@ function create({engine,mix,sync,status,isRecording,onChange}){
   if(tracks.length>=2){status('Можно добавить максимум две дополнительные дорожки.');return;}
   const ticket=++seq;status('Загружаю дополнительную аудиодорожку…');busy=true;
   try{
-   await engine.start();
+   await engine.start(false);
    const bytes=kind==='video'?await window.VHSVideoAudioExtract.extract(file):
-    (file.size<=100*1024*1024?await file.arrayBuffer():Promise.reject(Error('Слишком большой аудиофайл.')));
+    (file.size<=100*1024*1024?await file.arrayBuffer():await Promise.reject(Error('Слишком большой аудиофайл.')));
    if(ticket!==seq)return;
    const buffer=await engine.ctx.decodeAudioData(bytes);
    if(ticket!==seq)return;
