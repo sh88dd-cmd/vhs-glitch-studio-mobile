@@ -52,7 +52,9 @@
  const audioEngine=window.VHSVideoTapeAudio.create(source);
  const signalCanvas=document.createElement('canvas');
  const signalContext=signalCanvas.getContext('2d',{willReadFrequently:true});
- let adaptivePreviewWidth=240,adaptiveExportWidth=240,slowFrames=0,fastFrames=0;
+ const filmGPU=window.VideoFilmCore?.createGPU?.();
+ const PREVIEW_LONG_SIDE=1280;
+ let lastRenderedMediaTime=-1,lastAudioSync=0;
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
  let musicRequest=0,musicLoading=false,audioStudio=null,holdActive=null,comparisonHeld=false,creativeUI=null,liveActive=null;
  let videoImportBusy=false,videoImportCommitted=false,videoImportSerial=0,videoPickerPending=false;
@@ -318,21 +320,7 @@
   input.addEventListener('input',()=>{count.textContent=input.value+'%';onInput(Number(input.value));persist();renderCurrentFrame();});
   wrap.append(head,input);parent.append(wrap);return input;}
  function CFinite(x,a,b){return Number.isFinite(x)?clamp(x,a,b):b;}
- function resetFrameHistory(){creativeUI?.resetTracking();previewProcessor.reset();exportProcessor.reset();holdPreviewProcessor.reset();holdExportProcessor.reset();lastMusicState={bass:0,high:0};lastMusicTime=0;}
- function tuneAdaptiveResolution(cost,exporting){
-  if(state.signalWidth!=='auto')return;
-  if(cost>110){slowFrames++;fastFrames=0;}
-  else if(cost<40){fastFrames++;slowFrames=0;}
-  else{slowFrames=0;fastFrames=0;}
-  const current=exporting?adaptiveExportWidth:adaptivePreviewWidth;
-  if(slowFrames>=2&&current>192){
-   if(exporting)adaptiveExportWidth=192;else adaptivePreviewWidth=192;
-   slowFrames=0;resetFrameHistory();
-  }else if(fastFrames>=25&&current<240){
-   if(exporting)adaptiveExportWidth=240;else adaptivePreviewWidth=240;
-   fastFrames=0;resetFrameHistory();
-  }
- }
+ function resetFrameHistory(){lastRenderedMediaTime=-1;creativeUI?.resetTracking();previewProcessor.reset();exportProcessor.reset();holdPreviewProcessor.reset();holdExportProcessor.reset();lastMusicState={bass:0,high:0};lastMusicTime=0;}
  function clipSeed(){return (state.seed^Math.imul(clipIndex+1,0x6c8e9cf5))>>>0;}
  function syncAudio(playing=!source.paused){
   const active=playing&&!!file&&!source.paused;
@@ -1579,23 +1567,11 @@
   const withoutLocal={...frameState,creative:{...frameState.creative,
    touch:{...touch,enabled:false,facesEnabled:false}}};
   const localOnly=hasLocalEdits&&!window.VHSVideoCleanPath.hasVisualEffects(withoutLocal,holdVideo);
-  // Color-only FILM and photographic damage must retain fine detail in
-  // BOTH the imported-video editor and the new live camera. Downsample
-  // only when an actual low-bandwidth VHS or temporal glitch is active.
-  const lossySignal=!state.masterBypass&&(
-   (frameState.fxMode==='classic'&&frameState.vhsEnabled&&frameState.master>0)||
-   frameState.fxMode!=='classic'||
-   // Active GLITCH uses normal canvas resolution, not 192/240px VHS signal.
-
-   (frameState.mode!=='vhs'&&frameState.modeStrength>0)||
-   holdVideo>0
-  );
   if(canvas===preview){
    // Full original quality is provided by the native video element, not a
    // continuously redrawn 1080p canvas (too costly for mobile Safari).
    $('videoStage').querySelector('.stageCanvas').classList.toggle('native-clean',clean);
-   const [width,height]=videoDimensions(clean?960:localOnly?1280:
-    lossySignal?520:960);
+   const [width,height]=videoDimensions(PREVIEW_LONG_SIDE);
    if(canvas.width!==width)canvas.width=width;
    if(canvas.height!==height)canvas.height=height;
   }
@@ -1604,10 +1580,27 @@
    if(localOnly&&!comparisonHeld)creativeUI?.drawTouch(canvas.getContext('2d'),atTime,clipIndex);
    return;
   }
-  const limit=lossySignal?
-   (state.signalWidth==='auto'?
-    (forExport||recording?adaptiveExportWidth:adaptivePreviewWidth):Number(state.signalWidth)):
-   Math.max(canvas.width,canvas.height);
+  const osdActive=Object.keys(frameState.camera||{}).some(k=>frameState.camera[k]===true&&['rec','play','battery','date','counter','zoom','modeInfo','focus','frame'].includes(k));
+  const withoutFilmAndOsd={...frameState,filmEnabled:false,camera:{}};
+  const onlyFilmOrOsd=!window.VHSVideoCleanPath.hasVisualEffects(withoutFilmAndOsd,holdVideo);
+  if(onlyFilmOrOsd){
+   const f=frameState.filmEnabled&&frameState.filmStrength>0?selectedFilm():null;
+   const profile=f?.type==='builtin'?{...f,recipe:builtin[f.name]}:f;
+   if(!f){window.VHSVideoCleanPath.drawClean(source,canvas);}
+   else if(!filmGPU?.render(source,canvas,profile,frameState.filmStrength/100)){
+    window.VHSVideoCleanPath.drawClean(source,canvas);
+    const out=canvas.getContext('2d'),img=out.getImageData(0,0,canvas.width,canvas.height);
+    if(f.type==='builtin')window.VideoFilmCore.filmBuiltin(img.data,builtin[f.name],frameState.filmStrength/100);
+    else if(f.fields)window.VideoFilmCore.filmXMP(img.data,f,frameState.filmStrength/100);
+    out.putImageData(img,0,0);
+   }
+   if(osdActive&&!state.masterBypass)drawOsd(canvas.getContext('2d'),canvas.width,canvas.height);
+   return;
+  }
+  // Automatic mode preserves the canvas resolution. Only a deliberately
+  // selected VHS signal width simulates a low-bandwidth tape.
+  const vhsActive=!state.masterBypass&&frameState.fxMode==='classic'&&frameState.vhsEnabled&&frameState.master>0;
+  const limit=vhsActive&&state.signalWidth!=='auto'?Number(state.signalWidth):Math.max(canvas.width,canvas.height);
   const ratio=CFinite(Math.min(1,limit/Math.max(canvas.width,canvas.height)),.1,1);
   const iw=Math.max(2,Math.round(canvas.width*ratio/2)*2),ih=Math.max(2,Math.round(canvas.height*ratio/2)*2);
   if(signalCanvas.width!==iw)signalCanvas.width=iw;
@@ -1619,7 +1612,7 @@
   ctx.fillStyle='#050707';ctx.fillRect(0,0,iw,ih);
   ctx.drawImage(source,(iw-tw)/2,(ih-th)/2,tw,th);
   const time=source.currentTime||0;
-  const image=ctx.getImageData(0,0,iw,ih);
+  let image=ctx.getImageData(0,0,iw,ih);
   if(frameState.creative?.look?.enabled&&frameState.creative.look.target&&frameState.creative.look.strength>0)
    window.VHSVideoCreative.transfer(image.data,iw,ih,frameState.creative.look.target,frameState.creative.look.strength);
   if(!state.masterBypass&&frameState.filmEnabled){
@@ -1628,9 +1621,8 @@
    else if(f?.fields)window.VideoFilmCore.filmXMP(image.data,f,strength);
   }
   if(!state.masterBypass&&frameState.filmDamage.enabled)window.VHSVideoFilmDamage.apply(image.data,iw,ih,{...frameState.filmDamage,time:globalVideoTime(),seed:clipSeed()});
-  ctx.putImageData(image,0,0);
-  creativeUI?.drawTouch(ctx,atTime,clipIndex);
-  if(!state.masterBypass)drawOsd(ctx,iw,ih);
+  // Flush only for drawing operations that genuinely require the canvas.
+  if(hasLocalEdits||osdActive){ctx.putImageData(image,0,0);if(hasLocalEdits)creativeUI?.drawTouch(ctx,atTime,clipIndex);if(osdActive&&!state.masterBypass)drawOsd(ctx,iw,ih);image=ctx.getImageData(0,0,iw,ih);}
   const frameIndex=Math.floor(time*(Number(state.fps)||15));
   // A mechanical tape splice is strongest at real clip joins.
   const splicePulse=Math.max(
@@ -1639,20 +1631,19 @@
   );
   const seed=(clipSeed()^Math.imul(frameIndex+1,0x9e3779b9))>>>0;
   if(!state.masterBypass&&frameState.fxMode==='classic'&&frameState.vhsEnabled&&frameState.master>0){
-   const signal=ctx.getImageData(0,0,iw,ih);
+   const signal=image;
    const tape=window.VHSVideoGlitchFX.TAPES.find(t=>t.id===state.tape)||window.VHSVideoGlitchFX.TAPES[1];
    const preset=state.preset==='damaged'?1.25:state.preset==='camcorder'?.75:1;
    window.VHSPhotoEngine.apply(signal.data,iw,ih,{
     master:clamp(frameState.master/100*preset*tape.level,0,1.4),seed,
     signal:{...frameState.signal,noise:Math.min(100,frameState.signal.noise*tape.noise),tracking:Math.min(100,frameState.signal.tracking*tape.head),tapeSpeed:state.speed}
    });
-   ctx.putImageData(signal,0,0);
   }
   const runningGlitch=frameState.glitchEnabled&&frameState.glitchStrength>0&&
    window.VHSVideoGlitchFX.hasActiveSettings(frameState.glitches,frameState.eventDensity);
   if(!state.masterBypass&&(frameState.fxMode!=='classic'||runningGlitch||
      (frameState.mode!=='vhs'&&frameState.modeStrength>0))){
-   const signal=ctx.getImageData(0,0,iw,ih);
+   const signal=image;
    const engine=forExport||recording?exportProcessor:previewProcessor;
    engine.apply(signal.data,iw,ih,{
     time,seed:clipSeed(),mode:state.fxMode==='classic'?state.mode:'vhs',
@@ -1662,36 +1653,38 @@
     strength:frameState.fxMode==='classic'?(runningGlitch?frameState.glitchStrength/100:0):1,
     effects:frameState.fxMode==='classic'&&runningGlitch?frameState.glitches:{}
    });
-   ctx.putImageData(signal,0,0);
   }
   const intensity=holdStrengthsAt(time,clipIndex).video;
   if(!state.masterBypass&&intensity>0){
-   const signal=ctx.getImageData(0,0,iw,ih);
+   const signal=image;
    const engine=forExport||recording?holdExportProcessor:holdPreviewProcessor;
    engine.apply(signal.data,iw,ih,{
     time,seed:clipSeed(),mode:'vhs',tape:state.tape,strength:1,density:0,
     manualEffects:{tapeChew:intensity,vhold:intensity*.77,dropouts:intensity*.85,
      colorBurst:intensity*.77,rf:intensity*.8,headClog:intensity*.45}
    });
-   ctx.putImageData(signal,0,0);
   }
   // Independent aging overlay: visible in every mode and in saved video.
   const age=window.VHSVideoCreative.agingAt(frameState.creative?.aging,time,source.duration||0);
   if(!state.masterBypass&&age>.002){
-   const agedImage=ctx.getImageData(0,0,iw,ih);
+   const agedImage=image;
    window.VHSVideoCreative.damageTape(agedImage.data,iw,ih,age,time,clipSeed());
-   ctx.putImageData(agedImage,0,0);
   }
+  ctx.putImageData(image,0,0);
   const output=canvas.getContext('2d');
   output.imageSmoothingEnabled=true;
   output.clearRect(0,0,canvas.width,canvas.height);
   output.drawImage(signalCanvas,0,0,canvas.width,canvas.height);
  }
  function renderCurrentFrame(){
-  if(!file||source.readyState<2||recording||renderBusy)return;
-  renderBusy=true;
-  try{drawFrame(preview);videoUI?.render();}catch(e){textStatus('Ошибка обработки: '+e.message);console.error(e);}
-  finally{renderBusy=false;}
+  if(!file||source.readyState<2||recording||framePending)return;
+  // Coalesce slider input and UI changes; never draw multiple frames in one paint.
+  framePending=true;requestAnimationFrame(()=>{
+   framePending=false;if(!file||source.readyState<2||recording||renderBusy)return;
+   renderBusy=true;
+   try{drawFrame(preview);lastRenderedMediaTime=source.currentTime;videoUI?.render();}catch(e){textStatus('Ошибка обработки: '+e.message);console.error(e);}
+   finally{renderBusy=false;}
+  });
  }
  function tick(now){
   // Always schedule the next paint first. A broken speed plug-in must never
@@ -1704,13 +1697,15 @@
    try{source.playbackRate=1;}catch{}
   }
   if(!file||(source.paused&&!creativeUI?.isReverse())||source.ended)return;
-  const fps=recording?Number(state.fps):
-   $('videoStage').querySelector('.stageCanvas').classList.contains('native-clean')?6:12;
-  if(now-lastDraw<1000/fps)return;
-  lastDraw=now;
+  if(!recording&&(framePending||renderBusy))return;
+  const nativeClean=$('videoStage').querySelector('.stageCanvas').classList.contains('native-clean');
+  const fps=recording?Number(state.fps):nativeClean?12:30;
+  if(now-lastDraw<1000/fps-2)return;
+  const mediaTime=source.currentTime||0;
+  if(!recording&&mediaTime===lastRenderedMediaTime)return;
+  lastDraw=now;lastRenderedMediaTime=mediaTime;
   try{
-   const begin=performance.now();
-   syncAudio(true);
+   if(recording||now-lastAudioSync>=100){lastAudioSync=now;syncAudio(true);}
    if(recording){
     drawFrame(recordCanvas,true);
     stage.drawImage(recordCanvas,0,0,preview.width,preview.height);
@@ -1722,7 +1717,7 @@
    }else{drawFrame(preview);}
    creativeUI?.syncButtons();
    videoUI?.render();
-   tuneAdaptiveResolution(performance.now()-begin,!!recording);
+
   }catch(e){
    console.error(e);if(recording){exportStatus('Ошибка обработки видео: '+e.message);stopExport();}
    else textStatus('Не удалось обработать кадр: '+e.message);
@@ -1925,8 +1920,7 @@
  }
  function onLoaded(force=false){
   if((videoImportBusy&&!videoImportCommitted&&force!==true)||!source.videoWidth||!source.videoHeight)return;
-  const renderState=window.VHSVideoKeyframes.effective(state,clipIndex,source.currentTime||0);
-  const [w,h]=videoDimensions(window.VHSVideoCleanPath.hasVisualEffects(renderState,holdStrengthsAt(source.currentTime||0,clipIndex).video)?520:960);
+  const [w,h]=videoDimensions(PREVIEW_LONG_SIDE);
   source.loop=!recording&&clips.length===1;
   preview.width=w;preview.height=h;
   if(clips[clipIndex])clips[clipIndex].duration=Number.isFinite(source.duration)?source.duration:0;
@@ -2094,7 +2088,7 @@
    catch(e){exportStatus('Safari не разрешил запустить исходное видео: '+e.message);return;}
   }
   const [w,h]=videoDimensions(Number(state.size));
-  recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();adaptiveExportWidth=240;slowFrames=0;fastFrames=0;
+  recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();
   // Safari may suspend capture from a 1x1 offscreen Canvas.
   // The actual capture canvas is made VISIBLE while encoding.
   markExportCanvas(true);
