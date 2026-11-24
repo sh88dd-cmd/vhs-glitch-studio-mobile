@@ -1,8 +1,8 @@
 /* Private VHS STATS drawer for both PWAs.
  * Hold ▥ for 1.6 seconds (or use five taps as a fallback). This is
  * discoverability only: security comes from the Google "Only myself" deployment.
- * Google may refuse third-party iframes or a sign-in inside iOS standalone PWA;
- * in that case the owner may open the same PRIVATE dashboard directly.
+ * Owner-only Google Apps Script cannot reliably authenticate in a third-party iframe;
+ * open the private dashboard in the user's normal signed-in browser instead.
  * Does not grant data access, send analytics or touch media.
  */
 (function(){
@@ -13,11 +13,11 @@
   const title=document.querySelector(video?'.top .logo':'.top .brand');
   if(!title)return;
   let taps=0,lastTap=0;
-  let overlay=null,frame=null,previousFocus=null;
+  let overlay=null,previousFocus=null;
   function close(){
    if(!overlay)return;
    overlay.remove();
-   overlay=null;frame=null;
+   overlay=null;
    document.documentElement.style.overflow='';
    if(previousFocus&&previousFocus.isConnected)previousFocus.focus({preventScroll:true});
   }
@@ -41,18 +41,29 @@
    back.addEventListener('click',close);
    head.append(heading,back);
    const info=document.createElement('p');
-   info.textContent='Доступ только через твой Google-аккаунт. Если Google не открывается внутри приложения, используй кнопку ниже.';
-   info.style.cssText='color:#bbb;font-size:12px;line-height:1.35;margin:9px 14px;';
+   info.textContent='Google не разрешает вход в закрытую статистику внутри окна приложения. Открой панель с помощью кнопки ниже — данные останутся доступны только твоему Google-аккаунту.';
+   info.style.cssText='color:#bbb;font-size:14px;line-height:1.55;margin:18px 16px;';
    const visit=document.createElement('a');
    visit.href=PRIVATE_DASHBOARD;visit.target='_blank';visit.rel='noopener noreferrer';
-   visit.textContent='↗ Открыть защищённую панель';
-   visit.style.cssText='display:block;padding:12px;margin:0 14px 8px;text-align:center;font-size:13px;font-weight:800;background:#ff9818;color:#101010;border-radius:10px;text-decoration:none;';
-   frame=document.createElement('iframe');
-   frame.title='Закрытая статистика VHS STATS';
-   frame.src=PRIVATE_DASHBOARD;
-   frame.referrerPolicy='no-referrer';
-   frame.style.cssText='display:block;border:0;background:#fff;flex:1;min-height:150px;width:100%;';
-   overlay.append(head,info,visit,frame);
+   visit.textContent='↗ ОТКРЫТЬ VHS STATS';
+   visit.style.cssText='display:block;padding:17px;margin:0 16px 14px;text-align:center;font-size:15px;font-weight:900;background:#ff9818;color:#101010;border-radius:12px;text-decoration:none;';
+   const content=document.createElement('div');
+   content.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:26px 22px 44px;text-align:center;background:#080808;';
+   const lock=document.createElement('div');
+   lock.textContent='◉';
+   lock.setAttribute('aria-hidden','true');
+   lock.style.cssText='display:grid;place-items:center;border-radius:24px;width:78px;height:78px;background:#1d1d1d;border:1px solid #414141;color:#ff9818;font-size:48px;';
+   const name=document.createElement('strong');
+   name.textContent='ТВОЯ ЛИЧНАЯ СТАТИСТИКА';
+   name.style.cssText='font-size:17px;letter-spacing:.4px;color:#fff;';
+   const note=document.createElement('p');
+   note.textContent='Фото · Видео · Разделы · Функции · Графики';
+   note.style.cssText='font-size:13px;color:#aaa;line-height:1.6;margin:0;';
+   const security=document.createElement('p');
+   security.textContent='Друзьям статистика недоступна. Вход контролирует Google.';
+   security.style.cssText='font-size:12px;line-height:1.6;color:#9a9a9a;max-width:300px;';
+   content.append(lock,name,note,security);
+   overlay.append(head,info,visit,content);
    document.body.appendChild(overlay);
    document.documentElement.style.overflow='hidden';
    back.focus({preventScroll:true});
