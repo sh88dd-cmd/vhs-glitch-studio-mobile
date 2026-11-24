@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest?v=0.9.13">
 <link rel="icon" type="image/png" href="./icons/icon-192.png?v=0.9.13">
 <link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png?v=0.9.13">
-<link rel="stylesheet" href="./styles.css?v=0.9.30">
+<link rel="stylesheet" href="./styles.css?v=0.9.32">
 <title>VHS Video Lab</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.31 · КАМЕРА И МОНТАЖ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.32 · КАМЕРА И МОНТАЖ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -180,13 +180,18 @@
       <p class="hint">Добавь ещё две независимые дорожки — звук, музыку или запись из другого видео. Каждая регулируется отдельно; максимум три одновременно.</p>
       <label class="button full">＋ Ещё аудиодорожка<input type="file" id="extraMusicFile" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg" hidden></label>
       <label class="button full">＋ Звук из второго видео<input type="file" id="extraMusicVideo" accept=".mp4,.mov,.m4v,video/mp4,video/quicktime" hidden></label>
-      <div id="extraTrackList"></div>
+      <p id="extraTrackSummary" class="hint">Дополнительных дорожек пока нет.</p>
+      <button type="button" class="button full" id="openTrackTrim">✂ Настроить дорожки</button>
     </div>
 
       <p id="musicLoadStatus" class="hint" role="status" aria-live="polite">Дорожка не выбрана. Нажми «Добавить аудиофайл» или «Извлечь звук из видео».</p>
 
   </div>
   <div id="audioArea-trim" class="audioArea">
+    <h2>ЗВУКОВОЙ МИКШЕР</h2>
+    <p class="hint">Включай нужные дорожки галочками. Громкость и отрывок каждой сохраняются при выключении.</p>
+    <div class="extraAudioCard originalAudioCard"><div class="extraAudioHeading"><strong>ОРИГИНАЛЬНЫЙ ЗВУК ВИДЕО</strong></div><label class="trackEnabled"><input id="videoTrackEnabled" type="checkbox" checked><span>Включить оригинальный звук</span></label><div id="videoMixerControls"></div></div>
+    <div class="extraAudioCard mainTrackEditor" id="mainTrackEditor" hidden><div class="extraAudioHeading"><strong id="mainTrackName">Основная дорожка</strong></div><label class="trackEnabled"><input id="musicTrackEnabled" type="checkbox" checked><span id="musicTrackEnabledText">Дорожка включена</span></label><div id="musicMixerControls"></div>
     <div class="waveformHead"><h2>ОБРЕЗКА ОСНОВНОЙ ДОРОЖКИ</h2><span id="waveformInfo">—</span></div>
     <canvas id="musicWaveform" width="500" height="98" aria-label="Волновая форма выбранной аудиодорожки"></canvas>
       <div id="musicTrim" class="musicTrim" hidden>
@@ -216,10 +221,10 @@
   <div class="switch"><span>Повторять выбранный отрывок</span><input id="musicLoop" type="checkbox" checked></div>
 
     </div>
-    <h2>ЗВУКОВОЙ МИКШЕР</h2>
-    <p class="hint">Громкость оригинального видео и добавленной дорожки настраиваются отдельно. VHS AUDIO обрабатывает их общую сумму и сохраняется при поддерживаемом экспорте.</p>
-    <div id="musicMixerControls"></div>
-    <p class="hint">Для дополнительных дорожек начало, конец, громкость и плавность настраиваются в «ТРЕКИ» у каждой отдельной карточки.</p>
+    </div>
+    <h2>ДОПОЛНИТЕЛЬНЫЕ ДОРОЖКИ</h2>
+    <div id="extraTrackList"></div>
+    <p class="hint">Добавляй дорожки в «ТРЕКИ». Все включённые дорожки звучат вместе при просмотре и экспорте со звуком.</p>
   </div>
   <div id="audioArea-beat" class="audioArea">
   <h2>♫ ПОМЕХИ В ТАКТ МУЗЫКЕ</h2>
@@ -245,7 +250,7 @@
   <div class="switch"><span>Повреждать звук</span><input type="checkbox" id="audioEnabled"></div>
   <label>Тип звуковой дорожки<select id="audioMode"><option value="linear">VHS Linear / SP-LP-EP</option><option value="hifi">VHS Hi-Fi AFM</option></select></label>
   <div id="audioControls"></div>
-  <p class="hint">Шипение, низкочастотная фильтрация, wow/flutter, провалы громкости и насыщение применяются к общей сумме звука видео и добавленной музыки. Громкость оригинала и основной дорожки регулируется в «АУДИО → ОБРЕЗКА», дополнительных — в «ТРЕКИ».</p>
+  <p class="hint">Шипение, низкочастотная фильтрация, wow/flutter, провалы громкости и насыщение применяются к общей сумме звука видео и добавленной музыки. Громкость каждой дорожки регулируется в «АУДИО → ОБРЕЗКА».</p>
 </div>
 </section>
 <section id="panel-timeline" class="panel">
@@ -499,7 +504,7 @@
  <button id="exportBannerClose" type="button" aria-label="Скрыть состояние экспорта">✕</button>
 </div>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.9.31</span>
+  <span>VHS Video Lab · 0.9.32</span>
   <button id="videoForceUpdate" class="button mini" type="button">↻ Обновить приложение</button>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
@@ -637,17 +642,17 @@
 <script src="../ntsc-photo.js?v=1.1.3" defer></script>
 <script src="./film-core.js?v=0.9.24" defer></script>
 <script src="./glitch-engine.js?v=0.9.11" defer></script>
-<script src="./audio-engine.js?v=0.9.31" defer></script>
-<script src="./audio-studio.js?v=0.9.31" defer></script>
+<script src="./audio-engine.js?v=0.9.32" defer></script>
+<script src="./audio-studio.js?v=0.9.32" defer></script>
 <script src="./audio-extract.js?v=0.6.1" defer></script>
 <script src="./film-damage.js?v=0.7.0" defer></script>
 <script src="./special-modes.js?v=0.4.0" defer></script>
 <script src="./player-ui.js?v=0.9.24" defer></script>
-<script src="./effects-reset.js?v=0.7.4" defer></script>
-<script src="./clean-path.js?v=0.9.11" defer></script>
+<script src="./effects-reset.js?v=0.9.32" defer></script>
+<script src="./clean-path.js?v=0.9.32" defer></script>
 <script src="./camera-osd.js?v=0.7.6" defer></script>
 <script src="./keyframes.js?v=0.7.7" defer></script>
-<script src="./help-content.js?v=0.8.6" defer></script>
+<script src="./help-content.js?v=0.9.32" defer></script>
 <script src="./help-illustrations.js?v=0.7.9" defer></script>
 <script src="./help-ui.js?v=0.9.27" defer></script>
 <script src="./vendor/tracking-min.js?v=1.1.3" defer></script>
@@ -663,7 +668,7 @@
 <script src="../usage-stats.js?v=0.9.16" defer></script>
 <script src="./transitions.js?v=0.9.30" defer></script>
 <script src="./photo-video.js?v=0.9.30" defer></script>
-<script src="./app.js?v=0.9.31" defer></script>
+<script src="./app.js?v=0.9.32" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
  const button=document.getElementById('export');
