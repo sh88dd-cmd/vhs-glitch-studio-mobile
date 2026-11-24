@@ -1,4 +1,4 @@
-name: NE FOTOGRAF rebuild 01
+name: NE FOTOGRAF rebuild 02
 on:
   push:
     paths:
@@ -60,11 +60,19 @@ jobs:
             if(state.people!==5||state.view!==3||!state.actions.includes('run'))throw Error(JSON.stringify(state));
             await page.locator('#start').click();
             await page.keyboard.down('KeyW');await page.waitForTimeout(2200);await page.keyboard.up('KeyW');
+            const beforeRight=await page.evaluate(()=>NF_NEW.inspect().position);
+            await page.keyboard.down('KeyD');await page.waitForTimeout(950);await page.keyboard.up('KeyD');
+            const afterRight=await page.evaluate(()=>NF_NEW.inspect().position);
+            if(afterRight[0]>=beforeRight[0]-.10)throw Error('Right direction: '+JSON.stringify({beforeRight,afterRight}));
+            await page.keyboard.down('KeyA');await page.waitForTimeout(950);await page.keyboard.up('KeyA');
+            const afterLeft=await page.evaluate(()=>NF_NEW.inspect().position);
+            if(afterLeft[0]<=afterRight[0]+.10)throw Error('Left direction: '+JSON.stringify({afterRight,afterLeft}));
             await page.locator('#view').click();
             if((await page.evaluate(()=>NF_NEW.inspect())).view!==1)throw Error('view 1');
             await page.locator('#view').click();
             state=await page.evaluate(()=>NF_NEW.inspect());console.log('After',state);
             if(state.view!==3||state.position[2]<=-13.8||errors.length)throw Error(JSON.stringify({state,errors}));
+            if(state.staticAfter>=state.staticBefore*.5)throw Error('Static batching insufficient: '+JSON.stringify(state));
             await page.screenshot({path:'/tmp/nf-rebuild.png'});
           }finally{await browser.close()}
           JS
