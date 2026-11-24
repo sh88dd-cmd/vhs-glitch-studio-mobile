@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest?v=0.9.13">
 <link rel="icon" type="image/png" href="./icons/icon-192.png?v=0.9.13">
 <link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png?v=0.9.13">
-<link rel="stylesheet" href="./styles.css?v=0.9.21">
+<link rel="stylesheet" href="./styles.css?v=0.9.25">
 <title>VHS Video Lab</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.24 · КАМЕРА И МОНТАЖ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.25 · КАМЕРА И МОНТАЖ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -38,6 +38,8 @@
     <button type="button" id="compareMain" class="compareButton" disabled aria-label="Зажми для сравнения с исходным видео">◉ ДО / ПОСЛЕ</button>
     <div id="empty" class="empty"><strong>VHS / VIDEO</strong><span>Открой видео с iPhone</span></div>
   </div>
+  <div class="seekRow"><span id="timeCurrent">00:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Позиция видео" disabled><span id="timeTotal">00:00</span></div>
+  <p id="status" class="hint" role="status" aria-live="polite">Всё обрабатывается на устройстве. Выбирай одно видео или до 10 клипов подряд. Первую проверку лучше проводить на коротких роликах.</p>
   <div class="stageButtons">
     <label class="button primary">＋ Одно видео<input id="videoInput" type="file" accept="video/*" hidden></label>
     <button id="play" class="button" disabled>▶ Просмотр</button>
@@ -65,8 +67,6 @@
   <span id="holdStatus" class="hint">0 записей</span>
 </div>
   <div class="playlistRow"><span id="clipLabel" class="hint">Один видеоклип</span><button class="button mini" type="button" id="prevClip" disabled>← Клипы</button><button class="button mini" type="button" id="nextClip" disabled>След. →</button></div>
-  <div class="seekRow"><span id="timeCurrent">00:00</span><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Позиция видео" disabled><span id="timeTotal">00:00</span></div>
-  <p id="status" class="hint" role="status" aria-live="polite">Всё обрабатывается на устройстве. Выбирай одно видео или до 10 клипов подряд. Первую проверку лучше проводить на коротких роликах.</p>
 </section>
 <aside id="monitorDock" class="monitorDock" aria-label="Закреплённый видеомонитор" hidden>
   <div class="dockUpper">
@@ -495,7 +495,7 @@
  <button id="exportBannerClose" type="button" aria-label="Скрыть состояние экспорта">✕</button>
 </div>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.9.24</span>
+  <span>VHS Video Lab · 0.9.25</span>
   <button id="videoForceUpdate" class="button mini" type="button">↻ Обновить приложение</button>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
