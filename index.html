@@ -89,7 +89,7 @@
 <p class="hint" id="extrasStatus" role="status" aria-live="polite">Новые функции сохраняются вместе с настройками. Исходная фотография не изменяется.</p><footer class="footer"><button type="button" id="photoHelpToggle" class="btn mini">? Показать объяснения</button><p id="notice">Все фотографии обрабатываются на устройстве без отправки на сервер.</p><button class="btn mini" id="openSettings">Резервная копия · Настройки</button><button class="btn primary full photoFooterUpdate" id="photoFooterUpdate" type="button">↻ ОБНОВИТЬ ПРИЛОЖЕНИЕ</button></footer>
 </main>
 <dialog id="liveCameraDialog" aria-label="Съёмка с VHS и плёночными эффектами">
- <div class="liveCameraTop"><div><strong>КАМЕРА · СЪЁМКА С ЭФФЕКТАМИ</strong><small id="liveCameraProfile">Выбранные настройки</small></div>
+ <div class="liveCameraTop"><div class="cameraHeaderInfo" aria-hidden="true"><strong>КАМЕРА · СЪЁМКА С ЭФФЕКТАМИ</strong><small id="liveCameraProfile">Выбранные настройки</small></div>
  <button class="btn mini" id="liveCameraClose" type="button" aria-label="Закрыть камеру">✕</button></div>
  <div class="liveCameraViewport" id="liveCameraViewport">
  <div class="liveCameraStage" id="liveCameraStage">
@@ -120,9 +120,9 @@
 </div></details>
  </div>
  <div class="liveCameraActions">
- <button class="btn" type="button" id="liveCameraFlip">↻ ФРОНТ / ТЫЛ</button>
+ <button class="btn" type="button" id="liveCameraFlip" aria-label="Переключить фронтальную и заднюю камеру">↻ КАМЕРА</button>
  <button class="liveCameraShutter" type="button" id="liveCameraShot" aria-label="Сделать фотографию"><span></span></button>
- <button class="btn" type="button" id="liveCameraConfigure">⚙ НАСТРОЙКИ</button>
+ <button class="btn" type="button" id="liveCameraConfigure" aria-label="Настроить эффекты камеры">⚙ ОПЦИИ</button>
  </div>
  <div class="captureModeRow" id="photoCreativeModes">
  <button type="button" id="liveCameraDouble" aria-pressed="false">◉ DOUBLE</button>
