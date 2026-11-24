@@ -66,16 +66,23 @@ function create({engine,mix,sync,status,isRecording,onChange}){
  }
  function render(){
   const list=$('extraTrackList');list.replaceChildren();
+  const summary=$('extraTrackSummary');summary.textContent=tracks.length?tracks.map((t,i)=>(i+2)+'. '+t.name).join(' · '):'Дополнительных дорожек пока нет.';
   if(!tracks.length){const hint=document.createElement('p');hint.className='hint';hint.textContent='Дополнительных дорожек пока нет.';list.append(hint);}
   for(const track of tracks){
    const card=document.createElement('article');card.className='extraAudioCard';
    const head=document.createElement('div');head.className='extraAudioHeading';
-   const label=document.createElement('strong');label.textContent=track.name;
+   const label=document.createElement('strong');label.textContent=(tracks.indexOf(track)+2)+'. '+track.name;
    const del=document.createElement('button');del.type='button';del.className='button';del.textContent='✕ Удалить';
    del.onclick=()=>{if(isRecording())return;tracks=tracks.filter(t=>t.id!==track.id);refresh();render();};
    head.append(label,del);card.append(head);
+   const enabledLabel=document.createElement('label');enabledLabel.className='trackEnabled';
+   const enabled=document.createElement('input');enabled.type='checkbox';enabled.checked=track.enabled!==false;
+   const enabledText=document.createElement('span');enabledText.textContent=enabled.checked?'Дорожка включена':'Дорожка выключена';
+   enabledLabel.append(enabled,enabledText);card.append(enabledLabel);
+   card.classList.toggle('trackMuted',!enabled.checked);
+   enabled.onchange=()=>{if(isRecording()){enabled.checked=track.enabled!==false;return;}track.enabled=enabled.checked;enabledText.textContent=enabled.checked?'Дорожка включена':'Дорожка выключена';card.classList.toggle('trackMuted',!enabled.checked);refresh();};
    const wave=document.createElement('canvas');wave.className='trackWave';wave.width=500;wave.height=75;
-   card.append(wave);
+   wave.setAttribute('aria-label','Волновая форма '+track.name+'; перетаскивай границы фрагмента');card.append(wave);
    const fields=document.createElement('div');fields.className='extraAudioFields';
    const params=[
     ['at','Начало в видео, сек',0,7200],
@@ -85,7 +92,7 @@ function create({engine,mix,sync,status,isRecording,onChange}){
     ['fadeIn','Появление, сек',0,30],
     ['fadeOut','Затухание, сек',0,30]
    ];
-   const inputs={};
+   const inputs={};let volumeOutput=null,trimInfo=null;
    function validate(){
     const d=track.buffer.duration;
     track.trimStart=clamp(Number(track.trimStart)||0,0,Math.max(0,d-.1));
@@ -95,19 +102,24 @@ function create({engine,mix,sync,status,isRecording,onChange}){
     track.fadeIn=clamp(Number(track.fadeIn)||0,0,30);
     track.fadeOut=clamp(Number(track.fadeOut)||0,0,30);
     for(const [k] of params)inputs[k].value=String(Number(track[k].toFixed(2)));
+    if(volumeOutput)volumeOutput.textContent=track.volume+'%';
+    if(trimInfo)trimInfo.textContent='Фрагмент: '+(track.trimEnd-track.trimStart).toFixed(1)+' с из '+d.toFixed(1)+' с';
     drawWave(wave,track.buffer,track.trimStart,track.trimEnd);
    }
    for(const [key,name,min,max] of params){
     const label=document.createElement('label');label.textContent=name;
-    const input=document.createElement('input');input.type='number';input.step=key==='volume'?'1':'.1';
+    const input=document.createElement('input');input.type=key==='volume'?'range':'number';input.step=key==='volume'?'1':'.1';
     input.min=String(min);input.max=String(max);input.value=String(track[key]);
-    input.onchange=()=>{if(isRecording())return;track[key]=Number(input.value);validate();refresh();};
+    const update=()=>{if(isRecording()){input.value=track[key];return;}track[key]=Number(input.value);validate();refresh();};
+    input.onchange=update;if(key==='volume'){input.oninput=update;label.classList.add('trackVolumeField');volumeOutput=document.createElement('output');volumeOutput.textContent=track.volume+'%';label.append(volumeOutput);}
     inputs[key]=input;label.append(input);fields.append(label);
    }
    card.append(fields);
+   trimInfo=document.createElement('p');trimInfo.className='hint trackTrimInfo';card.append(trimInfo);
+   const reset=document.createElement('button');reset.type='button';reset.className='button mini full';reset.textContent='↻ Восстановить полную длину';reset.onclick=()=>{if(isRecording())return;track.trimStart=0;track.trimEnd=track.buffer.duration;validate();refresh();};card.append(reset);
    const loopLabel=document.createElement('label');loopLabel.className='extraAudioLoop';
    const check=document.createElement('input');check.type='checkbox';check.checked=track.loop;
-   check.onchange=()=>{track.loop=check.checked;refresh();};
+   check.onchange=()=>{if(isRecording()){check.checked=track.loop;return;}track.loop=check.checked;refresh();};
    loopLabel.append(check,document.createTextNode(' Повторять выбранный отрывок'));card.append(loopLabel);
    list.append(card);
    bindWave(wave,()=>({duration:track.buffer.duration,start:track.trimStart,end:track.trimEnd}),(edge,sec)=>{
@@ -138,8 +150,8 @@ function create({engine,mix,sync,status,isRecording,onChange}){
    const mb=(buffer.length*buffer.numberOfChannels*4+tracks.reduce((s,t)=>s+t.buffer.length*t.buffer.numberOfChannels*4,0)+(engine.musicBuffer?.length||0)*(engine.musicBuffer?.numberOfChannels||0)*4)/1048576;
    if(mb>160)throw Error('Суммарная память аудиодорожек превышает 160 МБ.');
    tracks.push({id:'layer'+Date.now()+'-'+Math.round(Math.random()*1000),name:file.name,
-    buffer,at:0,trimStart:0,trimEnd:buffer.duration,volume:75,loop:false,fadeIn:0,fadeOut:0});
-   refresh();render();status('Дополнительная дорожка '+file.name+' подключена.');
+    buffer,enabled:true,at:0,trimStart:0,trimEnd:buffer.duration,volume:75,loop:false,fadeIn:0,fadeOut:0});
+   refresh();render();status('Дополнительная дорожка '+file.name+' подключена. Настройки в «ОБРЕЗКА».');
   }catch(e){if(ticket===seq)status('Не удалось добавить дорожку: '+e.message);}
   finally{if(ticket===seq)busy=false;}
  }
@@ -147,7 +159,7 @@ function create({engine,mix,sync,status,isRecording,onChange}){
   $(id).onchange=e=>{const f=e.target.files?.[0];if(f)importFile(f,kind);e.target.value='';};
  }
  render();redrawMain();
- const SETTINGS=['at','trimStart','trimEnd','volume','fadeIn','fadeOut','loop'];
+ const SETTINGS=['at','trimStart','trimEnd','volume','fadeIn','fadeOut','loop','enabled'];
  const snapshotTracks=()=>tracks.map(t=>Object.fromEntries([
   ['id',t.id],...SETTINGS.map(key=>[key,t[key]])
  ]));
@@ -165,13 +177,14 @@ function create({engine,mix,sync,status,isRecording,onChange}){
    const before=stored.get(track.id);if(!before)continue;
    for(const key of SETTINGS){
     if(key==='loop')track.loop=!!before.loop;
+    else if(key==='enabled')track.enabled=before.enabled!==false;
     else if(Number.isFinite(Number(before[key])))track[key]=Number(before[key]);
    }
   }
   refresh();render();
  }
  return Object.freeze({
-  redrawMain,count:()=>tracks.length,isMuted:()=>tracks.every(t=>Number(t.volume)===0),snapshotTracks,resetTrackSettings,restoreTrackSettings,
+  redrawMain,count:()=>tracks.length,isMuted:()=>tracks.every(t=>t.enabled===false||Number(t.volume)===0),snapshotTracks,resetTrackSettings,restoreTrackSettings,
   clear(){seq++;tracks=[];refresh();render();},
   get busy(){return busy;}
  });
