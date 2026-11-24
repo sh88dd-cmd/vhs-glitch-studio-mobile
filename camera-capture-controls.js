@@ -35,6 +35,7 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
  if(!flash||!ev||!value||!reset||!lock||!marker)throw Error('Camera exposure UI not mounted: '+prefix);
  let track=null,caps={},torchOn=false,brightness=0,hardwareEV=false,locked=false;
  let active=false,serial=0,evSerial=0,pointTimer=0,pressPoint=null,scratch=null;
+ let lockParts=[],lockBusy=false,lockRejected=false,pointRejected=false,priorModes={};
  const usable=()=>!!track&&track.readyState==='live'&&canInteract();
  const notify=text=>{if(active)onStatus?.(text);};
  const modes=(name)=>Array.isArray(caps[name])?caps[name]:[];
@@ -43,7 +44,9 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
   return v===true||(Array.isArray(v)&&v.includes(true))||
    !!navigator.mediaDevices?.getSupportedConstraints?.().torch;
  };
- const canLock=()=>modes('focusMode').includes('manual')&&modes('exposureMode').includes('manual');
+ const lockable=()=>['focusMode','exposureMode'].filter(name=>modes(name).includes('manual')&&(modes(name).includes('continuous')||modes(name).includes('single-shot')||modes(name).includes('auto')));
+ const canLock=()=>!lockRejected&&lockable().length>0&&typeof track?.applyConstraints==='function';
+ const lockName=parts=>parts.length===2?'AE/AF':parts.includes('focusMode')?'AF':'AE';
  const cssFilter=()=>!hardwareEV&&brightness!==0?
   'brightness('+Math.pow(2,brightness).toFixed(5)+')':'none';
  const render=()=>{
@@ -54,11 +57,12 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
   flash.disabled=!usable()||!torchSupported();
   flash.title=!torchSupported()?'Устройство не предоставляет фонарик браузеру':
    'Аппаратный фонарик. В фото он подсвечивает кадр до нажатия без задержки затвора';
-  lock.textContent=locked?'🔒 AE/AF':'◎ AE/AF';
+  lock.textContent=locked?'🔒 '+lockName(lockParts):canLock()?'◎ '+lockName(lockable()):'◎ AUTO';
   lock.setAttribute('aria-pressed',String(locked));
-  lock.disabled=!usable()||!canLock();
-  lock.title=!canLock()?'Браузер не предоставляет блокировку экспозиции и фокуса':
-   'Коснись или удерживай кадр, чтобы зафиксировать экспозицию и фокус';
+  lock.disabled=!usable()||lockBusy||(!locked&&!canLock());
+  lock.title=!canLock()&&!locked?'Автофокус и автоэкспозиция: ручная блокировка недоступна в этом браузере':
+   locked?'Снять фиксацию '+lockName(lockParts):'Удерживай кадр для фиксации '+lockName(lockable());
+  lock.setAttribute('aria-label',lock.title);
   stage.classList.toggle('camera-ae-locked',locked);
   onChange?.();
  };
@@ -116,62 +120,69 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
    if(operation===serial&&device===track)render();
   }
  }
- async function unlock(){
-  if(!usable()){locked=false;render();return;}
-  const device=track;
-  try{
-   const advanced={};
-   if(modes('focusMode').includes('continuous'))advanced.focusMode='continuous';
-   else if(modes('focusMode').includes('single-shot'))advanced.focusMode='single-shot';
-   if(modes('exposureMode').includes('continuous'))advanced.exposureMode='continuous';
-   if(Object.keys(advanced).length)await device.applyConstraints({advanced:[advanced]});
-  }catch(err){console.warn('AE/AF unlock:',err);}
-  if(device!==track)return;
-  locked=false;marker.hidden=true;render();
-  notify('Автоматические фокус и экспозиция восстановлены.');
+ async function restoreModes(device,parts,previous){
+  const restore={};
+  for(const name of parts){
+   const available=modes(name);
+   const original=previous[name];
+   const mode=original&&original!=='manual'&&available.includes(original)?original:available.find(x=>x==='continuous')||available.find(x=>x==='auto')||available.find(x=>x==='single-shot');
+   if(mode)restore[name]={exact:mode};
+  }
+  if(Object.keys(restore).length)await device.applyConstraints(restore);
  }
- async function toggleLock(x=.5,y=.5){
-  if(!usable())return;
-  if(locked){await unlock();return;}
-  if(!canLock()){
-   notify('AE/AF LOCK недоступен: Safari не разрешает блокировать датчик камеры.');
-   return;
-  }
-  const device=track,settings=device.getSettings?.()||{};
-  const advanced={focusMode:'manual',exposureMode:'manual'};
-  // Hold the current focus/exposure whenever the browser exposes their values.
-  for(const name of ['focusDistance','exposureTime','iso']){
-   if(Number.isFinite(settings[name])&&caps[name]&&
-      settings[name]>=caps[name].min&&settings[name]<=caps[name].max)
-    advanced[name]=settings[name];
-  }
+ async function unlock(){
+  if(lockBusy||!locked)return;
+  if(!usable()){locked=false;lockParts=[];render();return;}
+  const device=track;lockBusy=true;render();
   try{
-   await device.applyConstraints({advanced:[advanced]});
+   await restoreModes(device,lockParts,priorModes);
    if(device!==track)return;
    const actual=device.getSettings?.()||{};
-   if((actual.focusMode&&actual.focusMode!=='manual')||
-      (actual.exposureMode&&actual.exposureMode!=='manual'))
-    throw Error('Camera reported auto mode');
-   locked=true;setMarker(x,y);render();
-   notify('AE/AF LOCK · фокус и экспозиция зафиксированы.');
-  }catch(err){
-   locked=false;render();
-   notify('Не удалось заблокировать AE/AF на этой камере.');
+   if(lockParts.some(name=>actual[name]==='manual'))throw Error('Camera still manual');
+   locked=false;lockParts=[];marker.hidden=true;
+  }catch(err){if(device===track)notify('Не удалось снять фиксацию. Переключи камеру.');}
+  finally{if(device===track){lockBusy=false;render();}}
+ }
+ async function toggleLock(x=.5,y=.5){
+  if(!usable()||lockBusy)return;
+  if(locked){await unlock();return;}
+  // Unsupported hardware is left in automatic mode. Do not simulate a lock.
+  if(!canLock())return;
+  const device=track,settings=device.getSettings?.()||{},parts=lockable();
+  const requested=Object.fromEntries(parts.map(name=>[name,{exact:'manual'}]));
+  for(const name of ['focusDistance','exposureTime','iso']){
+   const relevant=name==='focusDistance'?parts.includes('focusMode'):parts.includes('exposureMode');
+   if(relevant&&Number.isFinite(settings[name])&&caps[name]&&settings[name]>=caps[name].min&&settings[name]<=caps[name].max)
+    requested[name]={exact:settings[name]};
   }
+  lockBusy=true;render();
+  try{
+   await device.applyConstraints(requested);
+   if(device!==track)return;
+   const actual=device.getSettings?.()||{};
+   const confirmed=parts.filter(name=>actual[name]==='manual');
+   if(confirmed.length!==parts.length)throw Error('Lock not confirmed by camera');
+   priorModes=settings;lockParts=confirmed;locked=true;setMarker(x,y);
+  }catch(err){
+   if(device!==track)return;
+   try{await restoreModes(device,parts,settings);}catch(_){}
+   if(device!==track)return;
+   locked=false;lockParts=[];lockRejected=true;marker.hidden=true;
+  }finally{if(device===track){lockBusy=false;render();}}
  }
  async function focusAt(x,y){
-  if(!usable())return;
-  if(locked){notify('AE/AF LOCK · сначала сними блокировку.');return;}
-  const available=!!caps.pointsOfInterest&&typeof track.applyConstraints==='function';
-  if(!available){notify('Safari не разрешает выбрать точку фокуса вручную.');return;}
+  if(!usable()||locked||lockBusy||pointRejected||!caps.pointsOfInterest||typeof track.applyConstraints!=='function')return;
+  const device=track;
   try{
-   await track.applyConstraints({advanced:[{pointsOfInterest:[{x:clamp(x,0,1),y:clamp(y,0,1)}]}]});
-   setMarker(x,y);
-   notify('Точка фокуса выбрана. Удерживай для AE/AF LOCK.');
-  }catch(err){notify('Точка фокуса недоступна этой камере.');}
+   await device.applyConstraints({advanced:[{pointsOfInterest:[{x:clamp(x,0,1),y:clamp(y,0,1)}]}]});
+   if(device!==track)return;
+   // Only show a marker when the browser reports a point actually applied.
+   const actual=device.getSettings?.()?.pointsOfInterest;
+   if(Array.isArray(actual)&&actual.some(p=>Math.abs(p.x-x)<.05&&Math.abs(p.y-y)<.05)){setMarker(x,y);setTimeout(()=>{if(device===track&&!locked)marker.hidden=true;},1000);}
+  }catch(err){if(device===track)pointRejected=true;}
  }
  function bind(device){
-  serial++;evSerial++;torchOn=false;locked=false;marker.hidden=true;
+  serial++;evSerial++;torchOn=false;locked=false;lockParts=[];lockBusy=false;lockRejected=false;pointRejected=false;priorModes={};marker.hidden=true;
   track=device?.readyState==='live'?device:null;
   try{caps=track?.getCapabilities?.()||{};}catch(err){caps={};}
   active=!!track;hardwareEV=false;render();
@@ -179,7 +190,7 @@ function mount({prefix,video,stage,onStatus,onChange,canInteract}){
  }
  function unbind(){
   serial++;evSerial++;
-  const old=track;track=null;caps={};active=false;torchOn=false;hardwareEV=false;locked=false;
+  const old=track;track=null;caps={};active=false;torchOn=false;hardwareEV=false;locked=false;lockParts=[];lockBusy=false;lockRejected=false;pointRejected=false;priorModes={};
   marker.hidden=true;clearTimeout(pointTimer);pressPoint=null;
   if(old?.readyState==='live'&&old.applyConstraints)
    void old.applyConstraints({advanced:[{torch:false}]}).catch(()=>{});
