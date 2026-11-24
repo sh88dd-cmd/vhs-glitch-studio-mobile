@@ -973,3 +973,123 @@ a{color:#f4f4f4}
  outline:2px solid #fff!important;
  outline-offset:3px!important;
 }
+
+
+/* PHOTO VHS 1.8.19 — iPhone-like live capture: image first, minimal controls.
+   Scoped to the camera dialog; editor and image rendering remain unchanged. */
+#liveCameraDialog[open]{
+ padding:calc(env(safe-area-inset-top) + 3px) 6px
+         calc(env(safe-area-inset-bottom) + 5px)!important;
+ gap:4px!important;
+ overflow:hidden!important;
+ background:#050505!important;
+}
+#liveCameraDialog .liveCameraTop{
+ position:absolute!important;
+ top:calc(env(safe-area-inset-top) + 11px)!important;
+ left:14px!important;right:auto!important;
+ width:42px!important;height:42px!important;
+ min-height:0!important;max-height:42px!important;
+ z-index:120!important;flex:0 0 0!important;
+ margin:0!important;padding:0!important;
+ pointer-events:none!important;
+}
+#liveCameraDialog .liveCameraTop>.cameraHeaderInfo{display:none!important}
+#liveCameraDialog #liveCameraClose{
+ display:flex!important;align-items:center;justify-content:center;
+ width:42px!important;height:42px!important;min-height:42px!important;
+ min-width:42px!important;max-width:42px!important;
+ border:1px solid #888a!important;border-radius:50%!important;
+ font-size:21px!important;line-height:1!important;padding:0!important;
+ background:#171717b9!important;color:#fff!important;
+ pointer-events:auto!important;touch-action:manipulation;
+ backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+}
+#liveCameraDialog #liveCameraBadge{display:none!important}
+#liveCameraDialog #liveCameraViewport{
+ flex:1 1 0!important;min-height:0!important;
+ width:100%!important;overflow:hidden!important;
+}
+#liveCameraDialog #liveCameraStage{
+ border-radius:10px!important;border:1px solid #373737!important;
+ max-height:100%!important;
+}
+#liveCameraDialog .captureQuickBar{
+ flex:0 0 34px!important;min-height:34px!important;max-height:34px!important;
+ height:34px!important;gap:6px!important;
+ padding:0 1px!important;margin:0!important;
+ align-items:center!important;
+}
+#liveCameraDialog .captureAspectSelect{
+ flex:1 1 0!important;min-width:0!important;
+ gap:5px!important;font-size:10px!important;
+}
+#liveCameraDialog .captureAspectSelect select{
+ margin:0!important;min-height:33px!important;height:33px!important;
+ font-size:11px!important;padding:4px 20px 4px 7px!important;
+}
+#liveCameraDialog .captureSettings{
+ flex:0 0 89px!important;width:89px!important;
+ min-width:0!important;margin:0!important;
+ background:transparent!important;
+ border:0!important;padding:0!important;
+}
+#liveCameraDialog .captureSettings>summary{
+ padding:0 5px!important;min-height:33px!important;height:33px!important;
+ font-size:10px!important;line-height:1!important;
+}
+#liveCameraDialog .captureSettings[open]>.liveCameraOptions{
+ bottom:calc(100% + 7px)!important;right:0!important;
+ width:min(92vw,355px)!important;
+ max-height:min(62dvh,390px)!important;
+ z-index:100!important;
+}
+#liveCameraDialog .liveCameraActions{
+ display:grid!important;grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr)!important;
+ align-items:center!important;justify-items:stretch!important;
+ flex:0 0 70px!important;min-height:70px!important;height:70px!important;
+ gap:7px!important;margin:0!important;
+}
+#liveCameraDialog .liveCameraActions .btn{
+ display:flex!important;min-width:0!important;
+ min-height:43px!important;height:43px!important;
+ padding:5px 4px!important;margin:0!important;
+ font-size:11px!important;line-height:1.15!important;
+ font-weight:800!important;white-space:nowrap!important;
+ border-radius:11px!important;
+}
+#liveCameraDialog #liveCameraShot{
+ width:66px!important;height:66px!important;
+ min-width:66px!important;min-height:66px!important;
+ padding:6px!important;justify-self:center!important;
+ border-width:4px!important;margin:0!important;
+}
+#liveCameraDialog #photoCreativeModes{
+ flex:0 0 28px!important;min-height:28px!important;
+ height:28px!important;gap:6px!important;margin:0!important;
+}
+#liveCameraDialog #photoCreativeModes button{
+ height:28px!important;min-height:28px!important;
+ font-size:10px!important;padding:3px 5px!important;
+ border-radius:9px!important;line-height:1.1!important;
+}
+#liveCameraDialog.is-review .liveCameraReviewActions{
+ flex:0 0 auto!important;min-height:55px!important;
+ gap:5px!important;
+}
+#liveCameraDialog.is-review .liveCameraReviewActions .btn{
+ min-height:48px!important;font-size:10px!important;
+ padding:6px 4px!important;
+}
+@media(max-height:690px){
+ #liveCameraDialog #liveCameraShot{width:60px!important;height:60px!important;min-width:60px!important;min-height:60px!important}
+ #liveCameraDialog .liveCameraActions{flex-basis:63px!important;min-height:63px!important;height:63px!important;grid-template-columns:minmax(0,1fr) 64px minmax(0,1fr)!important}
+ #liveCameraDialog #photoCreativeModes{flex-basis:26px!important;min-height:26px!important;height:26px!important}
+ #liveCameraDialog #photoCreativeModes button{height:26px!important;min-height:26px!important}
+}
+@media(max-width:350px){
+ #liveCameraDialog .liveCameraActions{gap:4px!important}
+ #liveCameraDialog .liveCameraActions .btn{font-size:9.5px!important;padding:4px 2px!important}
+ #liveCameraDialog .captureSettings{flex-basis:76px!important;width:76px!important}
+ #liveCameraDialog .captureAspectSelect{font-size:9px!important}
+}
