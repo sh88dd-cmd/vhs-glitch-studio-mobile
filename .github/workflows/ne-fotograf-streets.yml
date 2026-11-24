@@ -1,0 +1,41 @@
+name: NE FOTOGRAF streets and people
+on:
+  push:
+    paths:
+      - '.github/workflows/ne-fotograf-streets.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and store assets
+        run: |
+          python - <<'PY'
+          import pathlib,json,struct,subprocess
+          sources={"city/plane-tree.glb":"https://tevy.dev/models/plane-tree/v1/lod1.glb","city/birch.glb":"https://tevy.dev/models/silver-birch/v1/lod1.glb","dog-walker.glb":"https://tevy.dev/models/dog-walker/v1/lod0.glb","road-worker.glb":"https://tevy.dev/models/road-worker/v1/lod0.glb"}
+          for name,url in sources.items():
+              p=pathlib.Path('ne-fotograf/models')/name
+              p.parent.mkdir(parents=True,exist_ok=True)
+              subprocess.run(['curl','-fL','--retry','2','--max-time','60',url,'-o',str(p)],check=True)
+              b=p.read_bytes()
+              magic,ver,total,n,typ=struct.unpack_from('<5I',b)
+              assert magic==0x46546c67 and ver==2 and total==len(b)
+              d=json.loads(b[20:20+n])
+              assert d.get('meshes'),name
+              if not name.startswith('city/'):
+                  assert d.get('skins'),name
+                  clips=[a.get('name','').lower() for a in d.get('animations',[])]
+                  assert all(any(c.endswith(k) for c in clips) for k in ('idle','walk')),(name,clips)
+              print(name,len(b),d.get('extensionsRequired',[]))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ne-fotograf/models/city/plane-tree.glb ne-fotograf/models/city/birch.glb ne-fotograf/models/dog-walker.glb ne-fotograf/models/road-worker.glb
+          if ! git diff --cached --quiet; then
+            git commit -m 'NE FOTOGRAF: vendor detailed trees and pedestrians'
+            git pull --rebase
+            git push
+          fi
