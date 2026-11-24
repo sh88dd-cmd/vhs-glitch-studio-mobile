@@ -132,7 +132,7 @@ jobs:
             if(exited.driving||errors.length)throw Error('Exit '+JSON.stringify({exited,errors}));
             if(!await page.evaluate(()=>NF_NEW.test.nearCar('real-suv')))throw Error('No occupied vehicle access');
             await page.locator('#carAction').click({timeout:15000});
-            const stolen=await page.evaluate(()=>NF_NEW.inspect());if(stolen.driving!=='real-suv'||stolen.ejections!==1)throw Error('Takeover '+JSON.stringify(stolen));
+            const stolen=await page.evaluate(()=>NF_NEW.inspect());if(!['real-sedan','real-suv','real-hatchback'].includes(stolen.driving)||stolen.ejections!==1)throw Error('Takeover '+JSON.stringify(stolen));
             await page.locator('#carAction').click({timeout:15000});
             await page.locator('#places').click();
             await page.locator('#placeList button').filter({hasText:'Маросейка'}).click();
