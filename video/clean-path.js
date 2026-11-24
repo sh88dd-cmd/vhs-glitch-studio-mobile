@@ -24,7 +24,7 @@ function hasVisualEffects(settings,holdVideo=0){
  return false;
 }
 function canCopyOriginal(s,opts={}){
- if(hasVisualEffects(s,opts.holdVideo))return false;
+ if(hasVisualEffects(s,opts.holdVideo)||opts.trimmed||root.VHSVideoCorrection?.active(s.correction))return false;
  if(s.creative?.speed?.enabled&&
   (s.creative.speed.reverse||Number(s.creative.speed.rate)!==1||
    s.creative.speed.curveEnabled&&s.creative.speed.points?.length))return false;
@@ -52,8 +52,9 @@ function rawCanvasSize(width,height,limit=1920){
 function drawClean(source,canvas){
  const width=canvas.width,height=canvas.height;
  const ctx=canvas.getContext('2d');
- const scale=Math.min(width/source.videoWidth,height/source.videoHeight);
- const w=Math.max(1,source.videoWidth*scale),h=Math.max(1,source.videoHeight*scale);
+ const sw=source.videoWidth||source.width,sh=source.videoHeight||source.height;
+ const scale=Math.min(width/sw,height/sh);
+ const w=Math.max(1,sw*scale),h=Math.max(1,sh*scale);
  ctx.imageSmoothingEnabled=true;
  ctx.fillStyle='#000';
  ctx.fillRect(0,0,width,height);
