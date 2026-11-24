@@ -164,7 +164,8 @@
    if(!target||typeof target.closest!=='function')return;
    const tab=target.closest('nav.tabs button[data-tab]');
    if(tab){
-    const tabName=String(tab.dataset.tab||'').toLowerCase();
+    const internalTab=String(tab.dataset.tab||'').toLowerCase();
+   const tabName=internalTab==='batch'?'x50':internalTab;
     if(SECTIONS.has(tabName))send('section_'+tabName);
    }
    const button=target.closest('button[id]');
