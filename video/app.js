@@ -1039,7 +1039,7 @@
   clearMusicSource();state.selectedTrack=null;showMusicSelection();
   musicLoadStatus(kind==='video'?'Извлекаю только звуковые данные из видео, не включая видеоплеер…':'Открываю аудиофайл…');
   try{
-   await audioEngine.start();
+   await audioEngine.start(false);
    if(request!==musicRequest)return;
    let duration;
    if(kind==='video'){
@@ -1060,15 +1060,16 @@
    }
    if(request!==musicRequest)return;
    state.selectedTrack={kind,title:inputFile.name,duration};
-   if(lastFxSnapshot&&state.mix.musicVolume===0){
-    state.mix.musicVolume=75; // A newly added track is audible after a clean reset.
-    setControlByTitle($('musicMixerControls'),'Громкость добавленной музыки',75);
-   }
-   state.mix.musicOffset=0;
-   state.mix.musicTrimEnd=duration;
+   // New tracks must not inherit a silent timeline from the previous track.
+   if(!Number.isFinite(Number(state.mix.musicVolume))||Number(state.mix.musicVolume)<=0)state.mix.musicVolume=75;
+   Object.assign(state.mix,{musicStart:0,musicOffset:0,musicTrimEnd:duration,musicLoop:true,fadeIn:0,fadeOut:0});
+   state.keepAudio=true;
+   $('keepAudio').checked=true;$('musicVideoStart').value='0';$('musicFadeIn').value='0';$('musicFadeOut').value='0';$('musicLoop').checked=true;
+   setControlByTitle($('musicMixerControls'),'Громкость добавленной музыки',state.mix.musicVolume);
    audioEngine.setMix(state.mix);syncAudio(!source.paused);
    showMusicSelection();persist();
-   musicLoadStatus('Готово: '+timeString(duration)+'. Выбери нужный отрывок ниже. Дорожка будет звучать в просмотре и сохраняться вместе с обработанным видео.');
+   musicLoadStatus('Готово: '+timeString(duration)+'. Нажми ▶ для просмотра со звуком. Если iPhone блокирует звук, нажми «Включить звук».');
+   updateAudioAccess();
   }catch(e){
    if(request===musicRequest){
     clearMusicSource();state.selectedTrack=null;showMusicSelection();persist();
@@ -1085,11 +1086,32 @@
   musicLoadStatus('Дорожка удалена. Оригинальный звук видео сохранён.');
  }
  function releaseOnLeave(event){
+  if(event?.persisted){audioEngine.stopMusic();return;}
   musicRequest++;musicLoading=false;
   clearMusicSource();audioStudio?.clear();
   if(!event?.persisted)audioEngine.release();
  }
+ function updateAudioAccess(){
+  const el=$('audioAccessStatus');if(!el)return;
+  const status=audioEngine.ctx?.state;
+  el.textContent=status==='running'?'Аудиодвижок активен.':status==='interrupted'?'iPhone прервал звук. Нажми «Включить звук».':status==='suspended'?'Звук ожидает разрешения iPhone. Нажми «Включить звук».':'Звук запускается при воспроизведении.';
+ }
+ async function unlockAudio(){
+  await audioEngine.start(true);audioErrorShown=false;updateAudioAccess();syncAudio(!source.paused);
+ }
  function mountMusicLibrary(){
+  audioEngine.onStateChange=()=>{updateAudioAccess();if(audioEngine.ctx?.state==='running')syncAudio(!source.paused);};
+  $('audioUnlock').onclick=async()=>{
+   try{
+    const unlock=unlockAudio();
+    let playback=Promise.resolve();
+    if(file&&source.paused){try{playback=source.play();}catch(err){playback=Promise.reject(err);}}
+    await Promise.all([unlock,playback]);syncAudio(!source.paused);
+    musicLoadStatus(file?'Звук включён. Проверь воспроизведение.':'Звук включён. Добавь видео для воспроизведения.');
+   }catch(err){updateAudioAccess();musicLoadStatus('Не удалось включить звук: '+err.message);}
+  };
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&audioEngine.connected){void audioEngine.resume(false).catch(()=>{});updateAudioAccess();}});
+  updateAudioAccess();
   const mix=$('musicMixerControls');
   control(mix,'Громкость оригинального звука видео',state.mix.videoVolume,v=>{state.mix.videoVolume=v;syncAudio(!source.paused);});
   control(mix,'Громкость добавленной музыки',state.mix.musicVolume,v=>{state.mix.musicVolume=v;syncAudio(!source.paused);});
@@ -1791,6 +1813,7 @@
    try{source.playbackRate=1;}catch{}
   }
   if(!file||(source.paused&&!creativeUI?.isReverse())||source.ended)return;
+  if(!recording&&now-lastAudioSync>=100){lastAudioSync=now;try{syncAudio(true);}catch(err){console.warn('Audio sync',err);}}
   if(!recording&&(framePending||renderBusy||workerBusy))return;
   const nativeClean=$('videoStage').querySelector('.stageCanvas').classList.contains('native-clean');
   const fps=recording?Number(state.fps):30;
@@ -2053,9 +2076,7 @@
     // source.play() must run during the original tap gesture. Awaiting an
     // AudioContext first can prevent video from starting on iPhone Safari.
     const playback=source.play();
-    audioEngine.start().then(()=>syncAudio(true)).catch(err=>{
-     if(!audioErrorShown){textStatus('Звук недоступен: '+err.message);audioErrorShown=true;}
-    });
+    unlockAudio().catch(err=>{textStatus('Звук недоступен: '+err.message);audioErrorShown=true;updateAudioAccess();});
     await playback;
     $('play').textContent='Ⅱ Пауза';
    }else{source.pause();$('play').textContent='▶ Просмотр';}
@@ -2175,8 +2196,7 @@
   if(clips.length>1&&clips.some(c=>!Number.isFinite(c.duration)||c.duration<=0)){
    exportStatus('Не удалось определить длительность всех клипов. Проверь форматы каждого видео или попробуй по одному.');return;
   }
-  // Safari may forbid playback if the first video.play() occurs after await.
-  // Unlock it inside the original user tap, before seeking/audio setup.
+  const audioUnlock=(state.keepAudio||state.fxMode==='music')?audioEngine.start(true).then(()=>null,err=>err):Promise.resolve(null);
   source.loop=false;
   let playbackUnlock=null;
   if(clipIndex===0&&source.paused){
@@ -2205,17 +2225,17 @@
    recordStream=stream;
    if(state.keepAudio||state.fxMode==='music'){
     try{
+     const initialAudioError=await audioUnlock;
+     if(initialAudioError&&audioEngine.ctx?.state!=='running')throw initialAudioError;
      const monitor=await ensureAudioGraph();
-     await audioEngine.ctx.resume();
      // Music-driven glitches need FFT even if the output video is exported mute.
      if(state.keepAudio){
-      const tracks=monitor.stream.getAudioTracks();
+      const tracks=monitor.stream.getAudioTracks().filter(t=>t.readyState==='live');
+      if(!tracks.length)throw Error('Не получена звуковая дорожка для сохранения.');
       for(const track of tracks)stream.addTrack(track);
      }
     }catch(e){
-     exportStatus(state.fxMode==='music'?
-       'Не удалось открыть звуковой анализ: '+e.message+'. Музыкальные глитчи могут отсутствовать.':
-       'Звук недоступен: '+e.message+'. Продолжаю без звука.');
+     throw Error('Не удалось подготовить звук: '+e.message+' Нажми «Включить звук» в АУДИО → ТРЕКИ и повтори экспорт.');
     }
    }
    // A playable processed frame is present before encoding starts.
@@ -2275,6 +2295,7 @@
    let lastMediaTime=Number(source.currentTime)||0,lastAdvancedAt=performance.now();
    exportWatchdog=setInterval(()=>{
     if(!recording||recording.state==='inactive')return;
+    if((state.keepAudio||state.fxMode==='music')&&audioEngine.ctx?.state!=='running'){exportFailedReason='iPhone прервал звук во время экспорта. Файл не сохранён. Повтори после включения звука.';stopExport();return;}
     const t=Number(source.currentTime)||0;
     if(t>lastMediaTime+.04||t<lastMediaTime-.3){
      lastMediaTime=t;lastAdvancedAt=performance.now();
@@ -2403,7 +2424,7 @@
   $('prevClip').onclick=()=>{if(recording)return;selectClip(clipIndex-1,false).catch(e=>textStatus(e.message));};
   $('nextClip').onclick=()=>{if(recording)return;selectClip(clipIndex+1,false).catch(e=>textStatus(e.message));};
   source.addEventListener('loadedmetadata',onLoaded);source.addEventListener('loadeddata',onLoaded);source.addEventListener('canplay',onLoaded);
-  source.addEventListener('seeked',redrawAfterSeek);source.addEventListener('timeupdate',updateTime);
+  source.addEventListener('seeked',redrawAfterSeek);source.addEventListener('timeupdate',()=>{updateTime();if(!source.paused&&!recording){try{syncAudio(true);}catch(err){console.warn(err);}}});
   source.addEventListener('ended',()=>{
    if(clipHasNext()){
     selectClip(clipIndex+1,true,true).catch(e=>{
