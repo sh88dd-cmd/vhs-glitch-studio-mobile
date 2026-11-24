@@ -10,12 +10,12 @@
 <link rel="manifest" href="./manifest.webmanifest?v=0.9.13">
 <link rel="icon" type="image/png" href="./icons/icon-192.png?v=0.9.13">
 <link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png?v=0.9.13">
-<link rel="stylesheet" href="./styles.css?v=0.9.32">
+<link rel="stylesheet" href="./styles.css?v=0.9.33">
 <title>VHS Video Lab</title>
 </head>
 <body>
 <header class="top">
-  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.32 · КАМЕРА И МОНТАЖ</small></div></div>
+  <div class="logo"><span class="mark">▥</span><div>VHS <b>VIDEO</b> LAB<small>ВЕРСИЯ 0.9.33 · КАМЕРА И МОНТАЖ</small></div></div>
   <a class="photoLink" href="../" title="Открыть фоторедактор">ФОТО <span aria-hidden="true">↗</span></a>
 </header>
 <main>
@@ -97,7 +97,7 @@
   </div>
   <p class="hint">Режимы не смешиваются: музыка и таймлайн отключают автоматические случайные помехи. FILM и индикаторы камеры остаются отдельными.</p>
 </section>
-<div class="sectionGridHeading" aria-hidden="true"><strong>РАЗДЕЛЫ</strong><span>15 инструментов · сетка 4 в ряд</span></div>
+<div class="sectionGridHeading" aria-hidden="true"><strong>РАЗДЕЛЫ</strong><span>16 инструментов · сетка 4 в ряд</span></div>
 <nav class="tabs" aria-label="Разделы обработки, по четыре в строке">
   <button class="active" data-tab="vhs">VHS</button>
   <button data-tab="glitch">ГЛИТЧ</button>
@@ -105,6 +105,7 @@
   <button data-tab="keyframes">◆ КЛЮЧЕВЫЕ КАДРЫ</button>
   <button data-tab="frameTools">▦ ПОКАДРОВО</button>
   <button data-tab="film">FILM</button>
+  <button data-tab="correction">КОРРЕКЦИЯ</button>
   <button data-tab="filmDamage">ПЛЁНКА FX</button>
   <button data-tab="audio">♫ АУДИО</button>
   <button data-tab="camera">КАМЕРА</button>
@@ -481,6 +482,21 @@
   <p class="hint">● REC — начало и остановка записи. ⚡ ЗАЖМИ — сильные VHS-помехи только пока удерживаешь кнопку; они попадают в видеозапись. NEW — новый рисунок случайных помех без сброса плёнки и кассеты.</p>
   <p class="hint">Плавный предпросмотр и запись работают через ускоренные браузерные эффекты. Готовый ролик можно открыть в этом видеоредакторе для полного набора его сложных эффектов. Для записи нужен Safari с поддержкой MediaRecorder и Canvas.captureStream.</p>
 </section>
+<section id="panel-correction" class="panel">
+ <h2>КОРРЕКЦИЯ ВИДЕО</h2>
+ <p class="hint">Свет, цвет, детали и геометрия. Применяются ко всему монтажу до плёнок и VHS. «ДО / ПОСЛЕ» показывает исходник.</p>
+ <div class="correctionCard"><h3>СВЕТ / ЦВЕТ / ДЕТАЛИ</h3><div id="correctColorControls"></div><button type="button" class="button full" id="correctResetColor">↻ Сбросить коррекцию цвета</button></div>
+ <div class="correctionCard"><h3>КАДРИРОВАНИЕ И ПОВОРОТ</h3>
+ <div class="correctTurn"><button type="button" class="button mini" id="correctRotateLeft">↶ 90°</button><strong id="correctRotateValue">0°</strong><button type="button" class="button mini" id="correctRotateRight">90° ↷</button><button type="button" class="button mini" id="correctRotate180">180°</button></div>
+ <div class="correctFlip"><label class="trackEnabled"><input id="correct-flipX" type="checkbox">Зеркало ↔</label><label class="trackEnabled"><input id="correct-flipY" type="checkbox">Зеркало ↕</label></div>
+ <label>Пропорции кадра<select id="correct-aspect"><option value="original">Исходные / по повороту</option><option value="9:16">9:16 · вертикальные</option><option value="16:9">16:9 · горизонтальные</option><option value="1:1">1:1 · квадрат</option><option value="4:3">4:3 · классика</option><option value="3:4">3:4</option><option value="4:5">4:5</option><option value="2.35:1">2.35:1 · кино</option></select></label>
+ <div id="correctGeometryControls"></div><p class="hint">Размер экспорта: <strong id="correctOutput">—</strong>. Точный поворот может оставлять чёрные углы; их можно убрать кадрированием.</p>
+ <button type="button" class="button full" id="correctResetGeometry">↻ Сбросить геометрию</button></div>
+ <div class="correctionCard"><h3>✂ ОБРЕЗКА ПО ВРЕМЕНИ</h3><p id="correctTrimName" class="hint">Выбери видео</p><label>Начало<input id="correctTrimStart" type="range" min="0" max="0" step="0.01" value="0"></label><label>Конец<input id="correctTrimEnd" type="range" min="0" max="0" step="0.01" value="0"></label>
+ <div class="musicTrimNumbers"><label>Начало, сек<input id="correctTrimStartNum" type="number" min="0" step=".01" value="0"></label><label>Конец, сек<input id="correctTrimEndNum" type="number" min="0" step=".01" value="0"></label></div>
+ <div class="correctTrimButtons"><button class="button mini" type="button" id="correctTrimUseStart">Текущий кадр → начало</button><button class="button mini" type="button" id="correctTrimUseEnd">Текущий кадр → конец</button></div>
+ <p class="hint">Длительность: <strong id="correctTrimDuration">—</strong>. Границы отдельно для каждого клипа; звук и переходы учитывают сокращённую длительность.</p><button class="button full" type="button" id="correctTrimReset">↻ Полная длительность клипа</button></div>
+</section>
 <section id="panel-export" class="panel">
   <h2>СОХРАНЕНИЕ ВИДЕО</h2>
   <label>Размер видео<select id="outputSize"><option value="360">360p — быстрее на iPhone</option><option value="480">480p — баланс качества</option><option value="720">720 px по длинной стороне</option><option value="1280">1280 px · HD</option><option value="1920">1920 px · Full HD</option></select></label>
@@ -504,7 +520,7 @@
  <button id="exportBannerClose" type="button" aria-label="Скрыть состояние экспорта">✕</button>
 </div>
 <footer class="videoFooter">
-  <span>VHS Video Lab · 0.9.32</span>
+  <span>VHS Video Lab · 0.9.33</span>
   <button id="videoForceUpdate" class="button mini" type="button">↻ Обновить приложение</button>
   <button id="toggleHelpIcons" class="helpVisibilityToggle" type="button"
     aria-pressed="false" aria-label="Показать подсказки для всех функций">
@@ -647,9 +663,9 @@
 <script src="./audio-extract.js?v=0.6.1" defer></script>
 <script src="./film-damage.js?v=0.7.0" defer></script>
 <script src="./special-modes.js?v=0.4.0" defer></script>
-<script src="./player-ui.js?v=0.9.24" defer></script>
-<script src="./effects-reset.js?v=0.9.32" defer></script>
-<script src="./clean-path.js?v=0.9.32" defer></script>
+<script src="./player-ui.js?v=0.9.33" defer></script>
+<script src="./effects-reset.js?v=0.9.33" defer></script>
+<script src="./clean-path.js?v=0.9.33" defer></script>
 <script src="./camera-osd.js?v=0.7.6" defer></script>
 <script src="./keyframes.js?v=0.7.7" defer></script>
 <script src="./help-content.js?v=0.9.32" defer></script>
@@ -668,7 +684,8 @@
 <script src="../usage-stats.js?v=0.9.16" defer></script>
 <script src="./transitions.js?v=0.9.30" defer></script>
 <script src="./photo-video.js?v=0.9.30" defer></script>
-<script src="./app.js?v=0.9.32" defer></script>
+<script src="./correction.js?v=0.9.33" defer></script>
+<script src="./app.js?v=0.9.33" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
  const button=document.getElementById('export');
