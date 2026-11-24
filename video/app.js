@@ -55,6 +55,54 @@
  const filmGPU=window.VideoFilmCore?.createGPU?.();
  const PREVIEW_LONG_SIDE=1280;
  let lastRenderedMediaTime=-1,lastAudioSync=0;
+ let worker=null,workerBusy=false,workerDisabled=false,workerGeneration=0,workerNeedsRefresh=false,workerTimeout=0;
+ function invalidateWorker(){workerGeneration++;if(workerBusy)workerNeedsRefresh=true;}
+ function disableWorker(){
+  clearTimeout(workerTimeout);worker?.terminate();worker=null;workerBusy=false;workerDisabled=true;
+  if(!recording)renderCurrentFrame();
+ }
+ function getPreviewWorker(){
+  if(workerDisabled||typeof Worker!=='function')return null;
+  if(worker)return worker;
+  try{
+   worker=new Worker('./preview-worker.js?v=0.9.24');
+   worker.onerror=disableWorker;
+   worker.onmessage=({data:d})=>{
+    clearTimeout(workerTimeout);workerBusy=false;
+    if(d.error){console.warn('Background video processing:',d.error);disableWorker();return;}
+    if(d.generation===workerGeneration&&!recording&&file&&source.readyState>=2){
+     if(signalCanvas.width!==d.w)signalCanvas.width=d.w;
+     if(signalCanvas.height!==d.h)signalCanvas.height=d.h;
+     signalContext.putImageData(new ImageData(new Uint8ClampedArray(d.buffer),d.w,d.h),0,0);
+     stage.clearRect(0,0,preview.width,preview.height);stage.drawImage(signalCanvas,0,0,preview.width,preview.height);
+     videoUI?.render();
+    }
+    if(workerNeedsRefresh){workerNeedsRefresh=false;if(!recording)renderCurrentFrame();}
+   };
+   return worker;
+  }catch(e){workerDisabled=true;return null;}
+ }
+ function queuePreviewWorker(image,w,h,frameState,holdVideo,atTime){
+  const target=getPreviewWorker();if(!target)return false;
+  if(workerBusy){workerNeedsRefresh=true;return true;}
+  const film=frameState.filmEnabled?selectedFilm():null,c=frameState.creative||{};
+  const reduced={masterBypass:state.masterBypass,filmEnabled:frameState.filmEnabled,filmStrength:frameState.filmStrength,
+   filmDamage:frameState.filmDamage,fxMode:frameState.fxMode,vhsEnabled:frameState.vhsEnabled,master:frameState.master,
+   tape:state.tape,preset:state.preset,signal:frameState.signal,speed:state.speed,
+   glitchEnabled:frameState.glitchEnabled,glitchStrength:frameState.glitchStrength,glitches:frameState.glitches,
+   eventDensity:frameState.eventDensity,mode:state.mode,modeStrength:state.modeStrength,creative:{look:c.look,aging:c.aging}};
+  const splicePulse=Math.max(clipIndex>0?clamp(1-atTime/.33,0,1):0,
+   clipHasNext()&&Number.isFinite(source.duration)?clamp(1-(source.duration-atTime)/.30,0,1):0);
+  const seed=(clipSeed()^Math.imul(Math.floor(atTime*(Number(state.fps)||15))+1,0x9e3779b9))>>>0;
+  try{
+   workerBusy=true;workerNeedsRefresh=false;
+   target.postMessage({generation:workerGeneration,buffer:image.data.buffer,w,h,state:reduced,
+    film:film?.type==='builtin'?{type:'builtin',recipe:builtin[film.name]}:film,
+    time:atTime,globalTime:globalVideoTime(),duration:source.duration||0,clipSeed:clipSeed(),seed,
+    splicePulse,intensity:holdVideo,special:frameState.fxMode==='classic'?null:specialEffectsAt(atTime)},[image.data.buffer]);
+   workerTimeout=setTimeout(disableWorker,8000);return true;
+  }catch(e){workerBusy=false;workerDisabled=true;target.terminate();worker=null;return false;}
+ }
  let selectedTimelineId='',lastMusicState={bass:0,high:0},lastMusicTime=0;
  let musicRequest=0,musicLoading=false,audioStudio=null,holdActive=null,comparisonHeld=false,creativeUI=null,liveActive=null;
  let videoImportBusy=false,videoImportCommitted=false,videoImportSerial=0,videoPickerPending=false;
@@ -320,7 +368,7 @@
   input.addEventListener('input',()=>{count.textContent=input.value+'%';onInput(Number(input.value));persist();renderCurrentFrame();});
   wrap.append(head,input);parent.append(wrap);return input;}
  function CFinite(x,a,b){return Number.isFinite(x)?clamp(x,a,b):b;}
- function resetFrameHistory(){lastRenderedMediaTime=-1;creativeUI?.resetTracking();previewProcessor.reset();exportProcessor.reset();holdPreviewProcessor.reset();holdExportProcessor.reset();lastMusicState={bass:0,high:0};lastMusicTime=0;}
+ function resetFrameHistory(){invalidateWorker();lastRenderedMediaTime=-1;creativeUI?.resetTracking();previewProcessor.reset();exportProcessor.reset();holdPreviewProcessor.reset();holdExportProcessor.reset();lastMusicState={bass:0,high:0};lastMusicTime=0;}
  function clipSeed(){return (state.seed^Math.imul(clipIndex+1,0x6c8e9cf5))>>>0;}
  function syncAudio(playing=!source.paused){
   const active=playing&&!!file&&!source.paused;
@@ -1613,6 +1661,7 @@
   ctx.drawImage(source,(iw-tw)/2,(ih-th)/2,tw,th);
   const time=source.currentTime||0;
   let image=ctx.getImageData(0,0,iw,ih);
+  if(canvas===preview&&!forExport&&!recording&&!hasLocalEdits&&!osdActive&&queuePreviewWorker(image,iw,ih,frameState,holdVideo,time))return;
   if(frameState.creative?.look?.enabled&&frameState.creative.look.target&&frameState.creative.look.strength>0)
    window.VHSVideoCreative.transfer(image.data,iw,ih,frameState.creative.look.target,frameState.creative.look.strength);
   if(!state.masterBypass&&frameState.filmEnabled){
@@ -1677,7 +1726,8 @@
   output.drawImage(signalCanvas,0,0,canvas.width,canvas.height);
  }
  function renderCurrentFrame(){
-  if(!file||source.readyState<2||recording||framePending)return;
+  if(!file||source.readyState<2||recording)return;
+  invalidateWorker();if(framePending)return;
   // Coalesce slider input and UI changes; never draw multiple frames in one paint.
   framePending=true;requestAnimationFrame(()=>{
    framePending=false;if(!file||source.readyState<2||recording||renderBusy)return;
@@ -1697,7 +1747,7 @@
    try{source.playbackRate=1;}catch{}
   }
   if(!file||(source.paused&&!creativeUI?.isReverse())||source.ended)return;
-  if(!recording&&(framePending||renderBusy))return;
+  if(!recording&&(framePending||renderBusy||workerBusy))return;
   const nativeClean=$('videoStage').querySelector('.stageCanvas').classList.contains('native-clean');
   const fps=recording?Number(state.fps):nativeClean?12:30;
   if(now-lastDraw<1000/fps-2)return;
@@ -2088,6 +2138,7 @@
    catch(e){exportStatus('Safari не разрешил запустить исходное видео: '+e.message);return;}
   }
   const [w,h]=videoDimensions(Number(state.size));
+  invalidateWorker();
   recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();
   // Safari may suspend capture from a 1x1 offscreen Canvas.
   // The actual capture canvas is made VISIBLE while encoding.
