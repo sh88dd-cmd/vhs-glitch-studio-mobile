@@ -55,6 +55,36 @@
  const filmGPU=window.VideoFilmCore?.createGPU?.();
  // Fixed high-detail preview, independent of effect selection.
  const PREVIEW_LONG_SIDE=1920;
+ const transitions=window.VHSTransitions;
+ const outgoing=document.createElement('canvas'),incoming=document.createElement('canvas'),fittedOutgoing=document.createElement('canvas');
+ let transitionJoin=-1,workerFrameTime=0;
+ function clearClipTransition(){transitionJoin=-1;outgoing.width=outgoing.height=2;}
+ function activeClipTransition(time){const t=clips[clipIndex-1]?.transition;return transitionJoin===clipIndex&&time>=0&&time<transitions.duration(t,source.duration)?t:null;}
+ function captureClipTransition(index){
+  clearClipTransition();const t=clips[clipIndex]?.transition;
+  if(!transitions||index!==clipIndex+1||!transitions.duration(t,clips[index]?.duration))return;
+  const native=$('videoStage').querySelector('.stageCanvas').classList.contains('native-clean');
+  const media=recording?recordCanvas:native?source:preview;
+  const w=recording?recordCanvas.width:preview.width,h=recording?recordCanvas.height:preview.height;
+  if(!w||!h)return;outgoing.width=w;outgoing.height=h;
+  transitions.fitted(outgoing.getContext('2d'),media,w,h);transitionJoin=index;
+ }
+ function applyClipTransition(canvas,time){
+  if(!transitions||(canvas===preview&&comparisonHeld))return;
+  const t=activeClipTransition(time);if(!t)return;
+  const w=canvas.width,h=canvas.height;
+  if(incoming.width!==w)incoming.width=w;if(incoming.height!==h)incoming.height=h;
+  incoming.getContext('2d').drawImage(canvas,0,0);
+  let before=outgoing;
+  if(outgoing.width!==w||outgoing.height!==h){if(fittedOutgoing.width!==w||fittedOutgoing.height!==h){fittedOutgoing.width=w;fittedOutgoing.height=h;}transitions.fitted(fittedOutgoing.getContext('2d'),outgoing,w,h);before=fittedOutgoing;}
+  transitions.render(canvas.getContext('2d'),before,incoming,time/transitions.duration(t,source.duration),t.type,w,h);
+ }
+ function refreshClipTransitions(){
+  const panel=$('clipTransitionsPanel');if(!panel||!transitions)return;panel.hidden=clips.length<2;
+  $('clipTransitionType').disabled=!!recording;$('clipTransitionSeconds').disabled=!!recording;$('clipTransitionApply').disabled=!!recording;
+  const list=$('clipTransitionList');list.replaceChildren();
+  for(let i=0;i<clips.length-1;i++)transitions.row(list,(i+1)+' → '+(i+2),clips[i].transition||transitions.spec('none',.5),value=>{clips[i].transition=value;if(value.type!=='none'){state.exportScope='full';$('exportScope').value='full';}persist();renderCurrentFrame();},!!recording);
+ }
  let lastRenderedMediaTime=-1,lastAudioSync=0;
  let worker=null,workerBusy=false,workerDisabled=false,workerGeneration=0,workerNeedsRefresh=false,workerTimeout=0;
  function invalidateWorker(){workerGeneration++;if(workerBusy)workerNeedsRefresh=true;}
@@ -81,7 +111,7 @@
       stage.drawImage(signalCanvas,0,0,preview.width,preview.height);
      }
      $('videoStage').querySelector('.stageCanvas').classList.remove('native-clean');
-     videoUI?.render();
+     applyClipTransition(preview,workerFrameTime);videoUI?.render();
     }
     if(workerNeedsRefresh){workerNeedsRefresh=false;if(!recording)renderCurrentFrame();}
    };
@@ -101,7 +131,7 @@
    clipHasNext()&&Number.isFinite(source.duration)?clamp(1-(source.duration-atTime)/.30,0,1):0);
   const seed=(clipSeed()^Math.imul(Math.floor(atTime*(Number(state.fps)||15))+1,0x9e3779b9))>>>0;
   try{
-   workerBusy=true;workerNeedsRefresh=false;
+   workerBusy=true;workerNeedsRefresh=false;workerFrameTime=atTime;
    target.postMessage({generation:workerGeneration,buffer:image.data.buffer,w,h,state:reduced,
     film:film?.type==='builtin'?{type:'builtin',recipe:builtin[film.name]}:film,
     time:atTime,globalTime:globalVideoTime(),duration:source.duration||0,clipSeed:clipSeed(),seed,
@@ -1604,6 +1634,10 @@
   window.VHSVideoCameraOSD.draw(ctx,w,h,state.camera,state.speed,globalVideoTime());
  }
  function drawFrame(canvas,forExport=false){
+  drawFrameCore(canvas,forExport);
+  if(!(canvas===preview&&workerBusy))applyClipTransition(canvas,source.currentTime||0);
+ }
+ function drawFrameCore(canvas,forExport=false){
   if(!file||source.readyState<2||!source.videoWidth)return;
   // A zero-effects frame must never pass through the 192–240px VHS signal
   // buffer: that downsample was blurring the original even after "Reset all".
@@ -1625,12 +1659,12 @@
    // Full original quality is provided by the native video element, not a
    // continuously redrawn 1080p canvas (too costly for mobile Safari).
    // Keep native playback visible until a processed frame is ready.
-   if(clean)$('videoStage').querySelector('.stageCanvas').classList.add('native-clean');
+   if(clean&&(!activeClipTransition(atTime)||comparisonHeld))$('videoStage').querySelector('.stageCanvas').classList.add('native-clean');
    const [width,height]=videoDimensions(PREVIEW_LONG_SIDE);
    if(canvas.width!==width)canvas.width=width;
    if(canvas.height!==height)canvas.height=height;
   }
-  if(clean&&canvas===preview){return;}
+  if(clean&&canvas===preview&&(!activeClipTransition(atTime)||comparisonHeld)){return;}
   if(clean||localOnly){
    if(canvas===preview)$('videoStage').querySelector('.stageCanvas').classList.remove('native-clean');
    window.VHSVideoCleanPath.drawClean(source,canvas);
@@ -1798,6 +1832,7 @@
   $('clipLabel').textContent=clips.length>1?(clipIndex+1)+' / '+clips.length+' · '+(file?.name||''):'Один видеоклип';
   $('prevClip').disabled=recording||clipIndex<=0;
   $('nextClip').disabled=recording||!clipHasNext();
+  refreshClipTransitions();
  }
  async function waitVideoReady(options={}){
   const timeoutMs=Number(options.timeoutMs)||12000;
@@ -1850,11 +1885,12 @@
   resetVideoPickerState();
   importStatus('Safari не передал видео из выбора. Если ты выбирал ролик (а не отменил выбор), попробуй «Через Файлы» ниже.',true);
  }
- async function selectClip(index,autoplay=false){
+ async function selectClip(index,autoplay=false,join=false){
   if(index<0||index>=clips.length)return;
   const clip=clips[index];
   const same=clipIndex===index&&source.src===clip.url&&source.readyState>=2;
   if(!same){
+   if(join)captureClipTransition(index);else clearClipTransition();
    source.pause();audioEngine.suspendNoise();
    clipIndex=index;file=clip.file;sourceUrl=clip.url;
    source.loop=!recording&&clips.length===1;
@@ -1922,7 +1958,7 @@
    if(request!==videoImportSerial)throw Error('Импорт был прерван новым выбором.');
    // Commit only after real first-frame decode. Keep previous Object URLs
    // until then: a failed Photos import must not destroy the old edit.
-   clips=candidate;clipIndex=0;file=first;sourceUrl=candidate[0].url;videoImportCommitted=true;
+   clearClipTransition();clips=candidate;clipIndex=0;file=first;sourceUrl=candidate[0].url;videoImportCommitted=true;
    resetFrameHistory();seedHistory=[];$('undoGlitch').disabled=true;
    state.holdEvents=[];state.keyframes=[];state.keyframesEnabled=true;
    state.creative.touch.strokes=[];state.creative.touch.manualFaces=[];
@@ -2147,6 +2183,7 @@
    try{playbackUnlock=source.play();}
    catch(e){exportStatus('Safari не разрешил запустить исходное видео: '+e.message);return;}
   }
+  clearClipTransition();
   const [w,h]=videoDimensions(Number(state.size));
   invalidateWorker();
   recordCanvas.width=w;recordCanvas.height=h;exportProcessor.reset();
@@ -2369,7 +2406,7 @@
   source.addEventListener('seeked',redrawAfterSeek);source.addEventListener('timeupdate',updateTime);
   source.addEventListener('ended',()=>{
    if(clipHasNext()){
-    selectClip(clipIndex+1,true).catch(e=>{
+    selectClip(clipIndex+1,true,true).catch(e=>{
      textStatus('Не удалось перейти к следующему клипу: '+e.message);
      if(recording)stopExport();
     });
@@ -2472,6 +2509,7 @@
  }
  async function init(){
   mountControls();mountKeyframes();initEvents();mountVideoCapture();
+  if(transitions){transitions.options($('clipTransitionType'));$('clipTransitionApply').onclick=()=>{if(recording)return;const t=transitions.spec($('clipTransitionType').value,$('clipTransitionSeconds').value);clips.forEach(clip=>clip.transition={...t});if(t.type!=='none'){state.exportScope='full';$('exportScope').value='full';}refreshClipTransitions();persist();renderCurrentFrame();};}
   if(window.VHSPhotoVideo)window.VHSPhotoVideo.mount({
    canOpen:()=>!recording&&!videoImportBusy,
    onOpen:()=>{source.pause();audioEngine.suspendNoise();},
