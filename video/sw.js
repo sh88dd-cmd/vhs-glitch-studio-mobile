@@ -1,5 +1,5 @@
 /* VHS Video Lab offline assets; separate cache and service worker from photo app. */
-const VERSION='vhs-video-lab-0.9.22';
+const VERSION='vhs-video-lab-0.9.23';
 const FILES=['./','./index.html','../stats-owner.js','../usage-stats.js','./app.js','./live-camera.js','./live-fx.js','./film-gallery.js','./film-core.js','./glitch-engine.js','./audio-engine.js','./audio-studio.js','./effects-reset.js','./clean-path.js','./camera-osd.js','./keyframes.js','./film-damage.js','./audio-extract.js','./special-modes.js','./player-ui.js','./help-content.js','./help-illustrations.js','./help-ui.js','./face-ai.js','./creative-engine.js','./creative-ui.js','./vendor/tracking-min.js','./vendor/tracking-face-min.js','./styles.css','./manifest.webmanifest','./icons/icon-192.png',
  '../camera-capture-controls.js','../ntsc-photo.js','../looks.json','../assets/emulsion-451.json','../jszip.min.js'];
 self.addEventListener('install',event=>{
@@ -38,7 +38,7 @@ self.addEventListener('fetch',event=>{
   // immediately, then fetch an update in the background when online.
   const script=/\.(?:js|css|json|webmanifest)$/.test(url.pathname);
   if(script){
-   const cached=await cache.match(request,{ignoreSearch:true});
+   const cached=await cache.match(request)||(url.search?null:await cache.match(request,{ignoreSearch:true}));
    if(cached){
     event.waitUntil(fetch(request,{cache:'no-store'}).then(response=>{
      if(response.ok)return cache.put(request,response.clone());
@@ -47,11 +47,11 @@ self.addEventListener('fetch',event=>{
    }
   }
   const offline=await cache.match(request,{ignoreSearch:true});
-  if(offline)return offline;
+  if(offline&&!script)return offline;
   try{
    const response=await fetch(request);
    if(response.ok)event.waitUntil(cache.put(request,response.clone()));
-   return response;
-  }catch{return Response.error();}
+   return response.ok?response:offline||response;
+  }catch{return offline||Response.error();}
  })());
 });
