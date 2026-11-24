@@ -1,0 +1,61 @@
+name: Bundle 451 built-in film presets for both PWAs
+on:
+  push:
+    paths:
+      - '.github/workflows/bundle-emulsion-presets.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bundle-emulsion-451
+  cancel-in-progress: false
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Download pinned EmulsionPresets v3.1.4 release
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --silent --show-error \
+            'https://github.com/peva3/EmulsionPresets/releases/download/v3.1.4/lr-presets-all.xmp.zip' \
+            --output /tmp/emulsion-451.xmp.zip
+          echo '6dc2e63c64fe9893d780bd9d5ee5cf8926d8b671ce9a4fe0b61ed94f16c583f5  /tmp/emulsion-451.xmp.zip' | sha256sum --check
+          curl --fail --location --retry 3 --silent --show-error \
+            'https://raw.githubusercontent.com/peva3/EmulsionPresets/main/LICENSE' \
+            --output /tmp/emulsion-license.txt
+      - name: Convert ZIP to shared offline JSON library
+        run: |
+          python3 tools/bundle-emulsion-presets.py /tmp/emulsion-451.xmp.zip assets/emulsion-451.json
+          cp /tmp/emulsion-license.txt assets/emulsion-451-LICENSE.txt
+          python3 - <<'PY'
+          import json
+          data=json.load(open('assets/emulsion-451.json'))
+          assert data['count']==451 and len(data['presets'])==451
+          assert len({p['id'] for p in data['presets']})==451
+          assert all(p['fields'] and p['category'] and p['name'] for p in data['presets'])
+          print('451 presets verified, unique IDs and categories verified')
+          PY
+      - name: Commit generated shared assets to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/emulsion-451.json assets/emulsion-451-LICENSE.txt
+          if git diff --cached --quiet; then
+            echo 'Pinned film catalogue already up to date.'
+            exit 0
+          fi
+          git commit -m 'Bundle complete 451 film presets locally for PHOTO VHS and VHS Video Lab'
+          for attempt in 1 2 3 4; do
+            if git push; then exit 0; fi
+            echo "Retry push: $attempt"
+            sleep 2
+            git pull --rebase origin main
+          done
+          exit 1
