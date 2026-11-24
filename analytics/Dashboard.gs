@@ -12,7 +12,10 @@ function doGet() {
   // Доступ защищён самим Google, если развернуть «Только я».
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('VHS STATS — только владелец')
-    .addMetaTag('viewport', 'width=device-width,initial-scale=1,viewport-fit=cover');
+    .addMetaTag('viewport', 'width=device-width,initial-scale=1,viewport-fit=cover')
+    // Read-only panel; embedding remains protected by Google owner-only login.
+    // Google/iOS may still reject the iframe; owner entry includes a fallback.
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function getDashboard(period) {
