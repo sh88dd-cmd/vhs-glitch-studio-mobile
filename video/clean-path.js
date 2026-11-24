@@ -35,11 +35,11 @@ function canCopyOriginal(s,opts={}){
  // A "first 30 seconds" export should not silently return the entire file.
  if(s.exportScope!=='full' && !(Number.isFinite(opts.duration)&&opts.duration>0&&opts.duration<=30.02))return false;
  if(s.keepAudio!==true)return false;
- if(num(s.mix?.videoVolume)!==100)return false;
+ if(s.mix?.videoEnabled===false||num(s.mix?.videoVolume)!==100)return false;
  if(s.audio?.enabled&&num(s.audio.strength)>0)return false;
  if(s.creative?.audioDevice&&s.creative.audioDevice!=='off')return false;
- if(num(s.mix?.musicVolume)>0&&(opts.musicLoaded||s.selectedTrack))return false;
- if(Array.isArray(opts.extraTracks)&&opts.extraTracks.some(t=>num(t.volume)>0))return false;
+ if(s.mix?.musicEnabled!==false&&num(s.mix?.musicVolume)>0&&(opts.musicLoaded||s.selectedTrack))return false;
+ if(Array.isArray(opts.extraTracks)&&opts.extraTracks.some(t=>t.enabled!==false&&num(t.volume)>0))return false;
  if(Array.isArray(s.holdEvents)&&s.holdEvents.some(e=>num(e.blend)>0))return false;
  if(num(opts.holdAudio)>0)return false;
  return true;
