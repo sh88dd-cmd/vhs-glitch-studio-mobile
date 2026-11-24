@@ -69,7 +69,7 @@ jobs:
             let state=await page.evaluate(()=>NF_NEW.ready?NF_NEW.inspect():NF_NEW);
             console.log('Before',state);
             if(state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.buildings<10||state.roads<5||!state.actions.includes('run'))throw Error(JSON.stringify(state));
-            if(state.cars.length!==3||state.pedestrians.length!==4||!state.pedestrians.every(p=>p.clear&&p.path>2))throw Error('Traffic or sidewalk init '+JSON.stringify(state));
+            if(state.cars.length!==3||!state.cars.every(c=>c.clear&&c.dir*c.lane<0)||state.pedestrians.length!==4||!state.pedestrians.every(p=>p.clear&&p.path>2))throw Error('Traffic or sidewalk init '+JSON.stringify(state));
             await page.locator('#start').click();
             // Test equal amounts of simulation time even on slow software WebGL.
             async function hold(key,steps){
@@ -98,7 +98,7 @@ jobs:
             if(state.view!==3||state.position[2]<=-13.8||errors.length)throw Error(JSON.stringify({state,errors}));
             if(state.staticBefore>100&&state.staticAfter>=state.staticBefore*.65)throw Error('Static batching insufficient: '+JSON.stringify(state));
             if(await page.locator('#quality').count()!==0||await page.locator('#update').count()!==1)throw Error('UI');
-            if(!state.cars.some(c=>c.travel>.2)||!state.pedestrians.every(p=>p.clear))throw Error('Traffic movement or blocked sidewalk '+JSON.stringify(state));
+            if(!state.cars.some(c=>c.travel>.2)||!state.cars.every(c=>c.clear)||!state.pedestrians.every(p=>p.clear))throw Error('Traffic movement or blocked sidewalk '+JSON.stringify(state));
             const frame=await page.evaluate(()=>NF_NEW.capture());
             writeFileSync('/tmp/nf-rebuild.png',Buffer.from(frame.split(',')[1],'base64'));
             await page.screenshot({path:'/tmp/nf-screen.png'});
