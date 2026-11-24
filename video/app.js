@@ -42,7 +42,7 @@
  }catch{}
  // Old network tracks cannot be restored: v0.6 supports only local files.
  if(state.selectedTrack&&!['file','video'].includes(state.selectedTrack.kind))state.selectedTrack=null;
- let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[],filmGallery=null;
+ let sourceUrl='',file=null,clips=[],clipIndex=0,builtin={},bundledXMP=[],sharedXMP=[],importedXMP=[],profiles=[],favoriteIds=[],filmGallery=null;
  let importedDB=null,recording=null,recordStream=null,exportBlob=null,exportMime='',exportOriginalFile=false;
  let downloadUrl='',exportStopRequested=false,audioContext=null,audioSource=null,audioMonitor=null;
  let lastDraw=0,framePending=false,loopId=0,renderBusy=false,seedHistory=[],audioErrorShown=false,videoUI=null;
@@ -1418,14 +1418,31 @@
   // Camera controls mount their own event handlers with independent corner/size state.
  }
  function selectedFilm(){return profiles.find(p=>p.id===state.filmId)||null;}
+ // Common library of 451 Lightroom presets, converted into app-native grading profiles.
+ // Same data file is shared with PHOTO VHS; installed PWA caches it for offline use.
+ async function loadBundledXMP(){
+  try{
+   const response=await fetch('../assets/emulsion-451.json');
+   if(!response.ok)throw Error('HTTP '+response.status);
+   const data=await response.json();
+   if(data?.count!==451||!Array.isArray(data.presets)||data.presets.length!==451)
+    throw Error('Библиотека XMP неполная');
+   if(data.presets.some(p=>!p?.id?.startsWith('xmp:')||!p.fields||!p.name||!p.category))
+    throw Error('Неверные данные XMP');
+   bundledXMP=data.presets;
+  }catch(error){
+   console.warn('Bundled films could not be loaded; local imports still work',error);
+   bundledXMP=[];
+  }
+ }
  function rebuildFilmList(){
   profiles=[
    ...Object.keys(builtin).map(name=>({id:'builtin:'+name,name,type:'builtin'})),
-   ...[...new Map([...sharedXMP,...importedXMP].map(p=>[p.id,p])).values()].map(p=>({...p,type:'xmp'}))
+   ...[...new Map([...bundledXMP,...sharedXMP,...importedXMP].map(p=>[p.id,p])).values()].map(p=>({...p,type:'xmp'}))
   ];
   profiles.sort((a,b)=>Number(favoriteIds.includes(b.id))-Number(favoriteIds.includes(a.id))||a.name.localeCompare(b.name,'ru'));
   const count=profiles.filter(p=>p.type==='xmp').length;
-  $('filmCount').textContent=profiles.length+' плёнок · '+Object.keys(builtin).length+' встроенных · '+count+' XMP';
+  $('filmCount').textContent=profiles.length+' плёнок · '+Object.keys(builtin).length+' авторских · '+bundledXMP.length+' XMP в комплекте · '+count+' XMP всего';
   renderFilmSelect();
   filmGallery?.refresh();
  }
@@ -2462,7 +2479,7 @@
   window.VHSVideoHelpUI.mount();
   try{builtin=await (await fetch('../looks.json')).json();}catch{throw Error('Не удалось загрузить 23 встроенных плёнки.');}
   importedDB=await openVideoDB();
-  const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles()]);
+  const [savedXMP,fromPhoto]=await Promise.all([readAll(importedDB,'xmp'),readSharedPhotoProfiles(),loadBundledXMP()]);
   importedXMP=savedXMP.slice(0,FILM_LIMIT);
   sharedXMP=fromPhoto.slice(0,FILM_LIMIT);
   try{
@@ -2472,9 +2489,9 @@
    favoriteIds=[...new Set([...fromPhoto,...(Array.isArray(local)?local:[])])];
   }catch{}
   rebuildFilmList();mountFilmGallery();renderCassetteShelf();
-  $('filmImportStatus').textContent=fromPhoto.length?
-   'Автоматически обнаружены '+fromPhoto.length+' XMP-профилей из фото-версии в этом браузере.':
-   'Локальная XMP-библиотека фото-версии пока недоступна. Можно импортировать ZIP либо резервную копию.';
+  $('filmImportStatus').textContent=bundledXMP.length?
+   '451 XMP-плёнка уже встроена · 13 категорий · доступно без ZIP и офлайн. Личные пресеты тоже можно импортировать.':
+   'Встроенная библиотека временно не загрузилась. Подключись к интернету и обнови приложение.';
   loopId=requestAnimationFrame(tick);
   syncSectionLights();syncHoldControls();
   if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(console.warn);
