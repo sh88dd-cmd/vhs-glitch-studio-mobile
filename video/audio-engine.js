@@ -15,8 +15,16 @@ class TapeAudio{
   this.mix={videoVolume:100,musicVolume:75,musicStart:0,musicOffset:0,musicTrimEnd:0,musicLoop:true,fadeIn:0,fadeOut:0};
   this.musicBuffer=null;this.musicSource=null;this.musicPlayAt=-1;this.musicCtxStart=0;this.extraAudio=[];
  }
- async start(){
-  if(this.connected){if(this.ctx.state==='suspended')await this.ctx.resume();return;}
+ async resume(requireRunning=true){
+  const ctx=this.ctx;if(!ctx||ctx.state==='closed')throw Error('Аудиодвижок недоступен.');
+  if(ctx.state==='running')return true;
+  let pending;try{pending=Promise.resolve(ctx.resume());}catch(err){if(requireRunning)throw err;return false;}
+  if(!requireRunning){pending.catch(()=>{});return ctx.state==='running';}
+  let timer;try{await Promise.race([pending,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('iPhone не разрешил запуск звука. Нажми «Включить звук» и повтори.')),3000);})]);}finally{clearTimeout(timer);}
+  if(ctx.state!=='running')throw Error('Звук приостановлен системой. Нажми «Включить звук».');return true;
+ }
+ async start(requireRunning=true){
+  if(this.connected)return this.resume(requireRunning);
   const Context=window.AudioContext||window.webkitAudioContext;
   if(!Context)throw Error('Web Audio недоступен в этом браузере.');
   this.ctx=new Context();
@@ -62,7 +70,8 @@ class TapeAudio{
   this.connected=true;
   this.update(this.state,0,false);
   this.setMix(this.mix);
-  if(ctx.state==='suspended')await ctx.resume();
+  ctx.addEventListener?.('statechange',()=>{if(ctx.state==='running')this.stopMusic();try{this.onStateChange?.(ctx.state);}catch(err){console.warn(err);}});
+  return this.resume(requireRunning);
  }
  update(settings,time,playing=true){
   this.state={...this.state,...settings};
@@ -194,7 +203,7 @@ class TapeAudio{
   }
  }
  async decodeMusic(bytes){
-  await this.start();
+  await this.start(false);
   if(!bytes?.byteLength)throw Error('Аудиоданные пустые.');
   const buffer=await this.ctx.decodeAudioData(bytes.slice(0));
   if(!buffer||!Number.isFinite(buffer.duration)||buffer.duration<=0)throw Error('Не удалось декодировать музыкальный файл.');
@@ -202,7 +211,7 @@ class TapeAudio{
   return buffer;
  }
  syncMusic(videoTime,playing){
-  if(!this.connected||!playing){this.stopMusic();return;}
+  if(!this.connected||!playing||this.ctx.state!=='running'){this.stopMusic();return;}
   const duration=this.getMusicDuration();
   if(duration>0){
    const start=C(this.mix.musicOffset,0,Math.max(0,duration-.05));
@@ -267,7 +276,7 @@ class TapeAudio{
   }
  }
  getLevels(){
-  if(!this.connected||!this.analyser||!this.spectrum||this.ctx?.state==='suspended')return{bass:0,mid:0,high:0,rms:0,available:false};
+  if(!this.connected||!this.analyser||!this.spectrum||this.ctx?.state!=='running')return{bass:0,mid:0,high:0,rms:0,available:false};
   const active=(this.musicBuffer||this.extraAudio.length)?this.musicAnalyser:this.analyser;
   active.getByteFrequencyData(this.spectrum);
   const nyquist=this.ctx.sampleRate/2,bins=this.spectrum.length;
