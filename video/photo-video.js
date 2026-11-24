@@ -34,10 +34,11 @@ async function decode(file){
 }
 function mount({onImport,canOpen,onOpen}){
  const dialog=$('photoVideoDialog'),canvas=$('photoVideoCanvas'),ctx=canvas.getContext('2d',{alpha:false});
+ const T=root.VHSTransitions,from=document.createElement('canvas'),to=document.createElement('canvas');
  let items=[],page=0,running=false,cancelled=false,rec=null,stream=null,current=null;
  const status=(msg)=>{$('photoVideoStatus').textContent=msg;};
  const busy=value=>{
-  running=value;for(const id of ['photoVideoAdd','photoVideoDefault','photoVideoApply','photoVideoTotal','photoVideoApplyTotal','photoVideoAspect','photoVideoFit','photoVideoResolution','photoVideoFps','photoVideoClear','photoVideoPrev','photoVideoNext','photoVideoBuild'])$(id).disabled=value;
+  running=value;for(const id of ['photoVideoAdd','photoVideoDefault','photoVideoApply','photoVideoTotal','photoVideoApplyTotal','photoVideoAspect','photoVideoFit','photoVideoResolution','photoVideoFps','photoVideoClear','photoVideoPrev','photoVideoNext','photoVideoBuild','photoTransitionType','photoTransitionSeconds','photoTransitionApply'])$(id).disabled=value;
   $('photoVideoCancel').hidden=!value;
   $('photoVideoClose').disabled=value;
   $('photoVideoProgress').hidden=!value;
@@ -65,6 +66,7 @@ function mount({onImport,canOpen,onOpen}){
    const move=delta=>{const j=i+delta;[items[i],items[j]]=[items[j],items[i]];page=Math.floor(j/PAGE);render();};
    row.append(name,time,button('↑','Выше',()=>move(-1),i===0),button('↓','Ниже',()=>move(1),i===items.length-1),button('✕','Удалить фото',()=>{items.splice(i,1);render();}));
    $('photoVideoList').append(row);
+   if(i<items.length-1)T.row($('photoVideoList'),'Переход '+(i+1)+' → '+(i+2),item.transition||T.spec('none',.5),value=>{item.transition=value;},running);
   }
   refreshTotal();
  }
@@ -75,6 +77,11 @@ function mount({onImport,canOpen,onOpen}){
   ctx.drawImage(img,...fit(img.naturalWidth,img.naturalHeight,W,H,mode));
  }
  const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ async function transition(photo,next,seconds,mode,type,progress){
+  for(const [buffer,item] of [[from,photo],[to,next]]){buffer.width=canvas.width;buffer.height=canvas.height;T.fitted(buffer.getContext('2d'),item.img,buffer.width,buffer.height,mode);}
+  const start=performance.now();while(!cancelled){const t=Math.min(seconds,(performance.now()-start)/1000);T.render(ctx,from,to,t/seconds,type);progress(t);if(t>=seconds)return;await wait(Math.min(1000/Number($('photoVideoFps').value),Math.max(1,(seconds-t)*1000)));}
+  throw Error('Создание отменено.');
+ }
  async function hold(photo,seconds,mode,progress){
   const end=performance.now()+seconds*1000,start=performance.now();
   // Request frames even when the photo itself is static, so the encoded
@@ -121,16 +128,19 @@ function mount({onImport,canOpen,onOpen}){
     let ready=false;
     if(i+1<list.length)preload=decode(list[i+1].file).then(p=>{next=p;ready=true;return p;},e=>{failed=e.message;return null;});
     status('Создаю видео · фото '+(i+1)+' / '+list.length+' · '+W+' × '+H+' · '+fps+' FPS');
-    await hold(current,list[i].duration,mode,t=>{$('photoVideoProgress').value=100*(elapsed+t)/duration;});
-    elapsed+=list[i].duration;
+    const tr=list[i].transition,seconds=i+1<list.length?T.duration(tr,list[i].duration):0;
+    const still=list[i].duration-seconds;
+    if(still>0)await hold(current,still,mode,t=>{$('photoVideoProgress').value=100*(elapsed+t)/duration;});
     if(i+1<list.length){
      if(!ready&&rec.state==='recording')rec.pause();
      const decoded=await preload;preload=null;
      if(!decoded||cancelled)throw Error(failed||'Создание отменено.');
+     if(rec.state==='paused')rec.resume();
+     if(seconds>0)await transition(current,decoded,seconds,mode,tr.type,t=>{$('photoVideoProgress').value=100*(elapsed+still+t)/duration;});
      current.close();current=decoded;next=null;
      draw(current,mode);
-     if(rec.state==='paused')rec.resume();
     }
+    elapsed+=list[i].duration;
    }
    if(cancelled)throw Error(failed||'Создание отменено.');
    const mime=rec.mimeType||'video/mp4';
@@ -151,7 +161,7 @@ function mount({onImport,canOpen,onOpen}){
    for(const track of stream?.getTracks()||[])track.stop();
    if(preload)await preload.catch(()=>{});
    current?.close();next?.close();current=next=null;stream=rec=null;
-   canvas.hidden=true;canvas.width=2;canvas.height=2;busy(false);
+   canvas.hidden=true;canvas.width=2;canvas.height=2;from.width=to.width=2;from.height=to.height=2;busy(false);
   }
  }
  $('photoVideoOpen').onclick=()=>{if(!canOpen())return;onOpen?.();render();dialog.showModal();};
@@ -160,9 +170,11 @@ function mount({onImport,canOpen,onOpen}){
  $('photoVideoAdd').addEventListener('change',e=>{
   if(running)return;const files=Array.from(e.target.files||[]);e.target.value='';
   const seconds=clampDuration($('photoVideoDefault').value);
-  let added=0;for(const file of files){if(!file.size||file.type&&!file.type.startsWith('image/'))continue;items.push({file,duration:seconds});added++;}
+  let added=0;for(const file of files){if(!file.size||file.type&&!file.type.startsWith('image/'))continue;items.push({file,duration:seconds,transition:T.spec($('photoTransitionType').value,$('photoTransitionSeconds').value)});added++;}
   page=Math.floor(Math.max(0,items.length-1)/PAGE);render();status('Добавлено: '+added+'. Можно добавлять ещё.');
  });
+ T.options($('photoTransitionType'));
+ $('photoTransitionApply').onclick=()=>{const t=T.spec($('photoTransitionType').value,$('photoTransitionSeconds').value);items.forEach(item=>item.transition={...t});render();};
  $('photoVideoApply').onclick=()=>{const seconds=clampDuration($('photoVideoDefault').value);$('photoVideoDefault').value=seconds;items.forEach(x=>x.duration=seconds);render();};
  $('photoVideoApplyTotal').onclick=()=>{try{distribute(items,Number($('photoVideoTotal').value));render();}catch(e){status(e.message);}};
  $('photoVideoClear').onclick=()=>{if(!running){items=[];page=0;render();status('Список очищен.');}};
