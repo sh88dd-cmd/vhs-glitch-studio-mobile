@@ -1,9 +1,9 @@
-const VERSION='vhs-mobile-v1.8.19';
+const VERSION='vhs-mobile-v1.8.20';
 const APP_FILES=['./','./index.html','./styles.css','./stats-owner.js','./usage-stats.js','./app.js','./camera-capture-controls.js','./photo-camera.js','./ntsc-photo.js','./photo-extras-core.js','./photo-extras-ui.js','./photo-polaroid.js','./photo-polaroid-ui.js','./photo-face-ai.js','./photo-face-detect.js',
 './assets/face/vision_bundle.mjs','./assets/face/wasm/vision_wasm_internal.js','./assets/face/wasm/vision_wasm_internal.wasm',
 './assets/face/blaze_face_short_range.tflite','./assets/face/blaze_face_full_range.tflite',
 './assets/fonts/Caveat.ttf','./assets/fonts/BadScript.ttf','./assets/fonts/MarckScript.ttf',
-'./assets/fonts/Neucha.ttf','./assets/fonts/Pangolin.ttf','./assets/fonts/Pacifico.ttf','./video/vendor/tracking-min.js','./video/vendor/tracking-face-min.js','./video/glitch-engine.js','./video/film-damage.js','./video/camera-osd.js','./video/face-ai.js','./looks.json','./jszip.min.js','./manifest.webmanifest','./icons/icon-192.png'];
+'./assets/fonts/Neucha.ttf','./assets/fonts/Pangolin.ttf','./assets/fonts/Pacifico.ttf','./video/vendor/tracking-min.js','./video/vendor/tracking-face-min.js','./video/glitch-engine.js','./video/film-damage.js','./video/camera-osd.js','./video/face-ai.js','./looks.json','./assets/emulsion-451.json','./jszip.min.js','./manifest.webmanifest','./icons/icon-192.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(APP_FILES)).then(()=>self.skipWaiting()));
 });
