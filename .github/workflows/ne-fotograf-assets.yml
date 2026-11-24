@@ -1,0 +1,47 @@
+name: NE FOTOGRAF verified local assets
+on:
+  push:
+    paths:
+      - '.github/workflows/ne-fotograf-assets.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact CC0 GLB files and verify skeleton animations
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ne-fotograf/models
+          base=https://raw.githubusercontent.com/techdou/lumen-gallery/e5a6f82f5277088a99ce215e7613abdd5516a8d5/public/assets/characters
+          for f in casual-man casual-woman business-man worker; do
+            curl --fail --location --retry 3 --max-time 60 "$base/$f.glb" -o "ne-fotograf/models/$f.glb"
+          done
+          python - <<'PY'
+          import pathlib, struct, json, hashlib
+          expected={'casual-man':'f31ba8b389268d4df6005cc62d4d7011de728bce','casual-woman':'818ea386f265f5e22f87d599e865c586594f5739','business-man':'3e97aa2cdfc272d88e30d325dfe90a97f90699b6','worker':'eb29e2adb795972e1f475cd25a000975fe260aa9'}
+          for name,sha in expected.items():
+              p=pathlib.Path('ne-fotograf/models')/(name+'.glb')
+              b=p.read_bytes()
+              assert hashlib.sha1(('blob %d\0'%len(b)).encode()+b).hexdigest()==sha,name
+              magic,ver,total,length,typ=struct.unpack_from('<5I',b)
+              assert magic==0x46546c67 and ver==2 and total==len(b) and typ==0x4e4f534a
+              d=json.loads(b[20:20+length])
+              assert max(len(s['joints']) for s in d['skins'])>10
+              names=[a.get('name','').lower() for a in d['animations']]
+              assert all(any(n.endswith(x) for n in names) for x in ['idle','walk','run']),names
+              print(name, len(b), names)
+          PY
+      - name: Commit verified models only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ne-fotograf/models/*.glb
+          if ! git diff --cached --quiet; then
+            git commit -m 'NE FOTOGRAF: vendor verified CC0 character GLBs'
+            git pull --rebase
+            git push
+          fi
