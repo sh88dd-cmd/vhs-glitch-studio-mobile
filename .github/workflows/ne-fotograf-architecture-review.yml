@@ -1,0 +1,78 @@
+name: NE FOTOGRAF individual architecture review
+on:
+  workflow_run:
+    workflows: ["NE FOTOGRAF rebuild 07"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nf-individual-architecture-review
+  cancel-in-progress: true
+jobs:
+  review:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build audit-only version with current real map
+        working-directory: ne-fotograf-rebuild-src
+        run: |
+          python -m pip install --quiet pillow numpy opencv-python-headless shapely
+          python - <<'PY'
+          import pathlib, json, shutil, subprocess
+          for name,url in json.load(open('assets-sources.json')).items():
+              p=pathlib.Path('public/assets')/name
+              p.parent.mkdir(parents=True,exist_ok=True)
+              old=pathlib.Path('../ne-fotograf-next/assets')/name
+              if old.is_file():shutil.copyfile(old,p)
+              else:subprocess.run(['curl','-fL','--retry','2','--max-time','90',url,'-o',str(p)],check=True)
+          PY
+          if python -c "import json; assert json.load(open('../ne-fotograf-next/assets/kitay-gorod.json')).get('districtExtent')==5"; then
+            cp ../ne-fotograf-next/assets/kitay-gorod.json public/assets/kitay-gorod.json
+          else
+            python tools/expand-osm.py
+          fi
+          if ! python -c "import json; assert json.load(open('public/assets/kitay-gorod.json')).get('detailDataVersion')==1"; then python tools/enrich-osm.py; fi
+          python tools/bake-photo-facades.py
+          mkdir -p public/assets/cars
+          cp ../ne-fotograf/models/city/real-{sedan,suv,hatchback}.glb public/assets/cars/
+          cp ../ne-fotograf/models/city/plane-tree.glb public/assets/props/plane-tree.glb
+          cp ../ne-fotograf/icon-192.png public/icon-192.png
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('main.js')
+          s=p.read_text()
+          a="window.NF_NEW={ready:true,"
+          assert a in s
+          s=s.replace(a,Path('../architecture-review/capture.js').read_text()+"\n"+a,1)
+          s=s.replace("test:{captureStreet:name=>","test:{captureAuditFacade,captureStreet:name=>",1)
+          assert "test:{captureAuditFacade," in s
+          p.write_text(s)
+          PY
+          npm install --no-audit --no-fund
+          mkdir -p public/assets/decoders/{draco,basis}
+          cp -a node_modules/three/examples/jsm/libs/draco/gltf/. public/assets/decoders/draco/
+          cp -a node_modules/three/examples/jsm/libs/basis/. public/assets/decoders/basis/
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Capture every recorded street-facing building
+        working-directory: ne-fotograf-rebuild-src
+        run: |
+          cp ../architecture-review/runner.mjs .nf-audit.mjs
+          python -m http.server 8765 --directory dist >/tmp/nf-architecture-http.log 2>&1 &
+          node .nf-audit.mjs
+          python ../architecture-review/sheets.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: individual-architecture-review
+          path: /tmp/nf-architecture-individual/
+          retention-days: 14
