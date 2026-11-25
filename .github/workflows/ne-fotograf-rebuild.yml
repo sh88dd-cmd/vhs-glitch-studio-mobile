@@ -12,7 +12,7 @@ on:
         default: false
 concurrency:
   group: ne-fotograf-rebuild-publication
-  cancel-in-progress: true
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
@@ -98,6 +98,7 @@ jobs:
             console.log('Before',state);
             if(state.hero!=='Andr 3-rigged'||state.heroVertices!==122663||state.heroSkinned<1||state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.relationBuildings<1||state.buildings<150||state.roads<150||state.locations.length<7||!state.actions.includes('jumpStart')||!state.actions.includes('jumpLoop')||!state.actions.includes('run'))throw Error(JSON.stringify(state));
             if(state.mapHandedness>=0||state.waterPolygons<1||!state.locations.includes('Высотка на Котельнической'))throw Error('Geographic correction/extent '+JSON.stringify(state));
+            if(state.district?.amphitheaterRows!==18||state.district?.parkGround?.height<5||state.district?.canopyTriangles<500)throw Error('Zaryadye topography and canopy missing '+JSON.stringify(state.district));
             if(!state.district?.kotelnicheskaya||!state.district?.plevna||!state.district?.cyrilMethodius||!state.district?.hall||!state.district?.bridge||state.district.parkTrees<12||state.district.streetLamps<8||state.district.streets.length<3)throw Error('District environment missing '+JSON.stringify(state.district));
             if(state.surveyedFacades<9)throw Error('Missing municipal elevations '+JSON.stringify(state));
             if(state.lubyanskyElevations!==8)throw Error('Missing Lubyansky measured lower elevations '+state.lubyanskyElevations);

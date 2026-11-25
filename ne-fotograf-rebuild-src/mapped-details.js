@@ -1,7 +1,7 @@
 import * as T from 'three';
 // Only the locations and tagged dimensions in this module come from OSM.
 // Shapes without enough height/roof information are never represented as surveyed.
-export function addMappedDetails({scene,cityMap,mat,shapeMesh,ribbon,clearPoint,roadPaths,nearPath,architecture}){
+export function addMappedDetails({scene,cityMap,mat,shapeMesh,ribbon,clearPoint,roadPaths,nearPath,architecture,groundAt=()=>0}){
  const report={parts:0,parents:0,taggedTrees:0,surfaces:0,barriers:0,completeParts:0};
  const m=new Map(),parents=new Map(cityMap.buildings.map(b=>[b.id,b]));
  const palette={brick:0xa36c55,stone:0xc3baaa,wood:0x877358,concrete:0xa4a39e,plaster:0xd0c1a5,glass:0x67828c};
@@ -39,7 +39,7 @@ export function addMappedDetails({scene,cityMap,mat,shapeMesh,ribbon,clearPoint,
  // Real tagged tree locations are retained. Height is taken from OSM where available.
  const trunkG=new T.CylinderGeometry(.16,.24,1,8),crownG=new T.IcosahedronGeometry(1,2),trunk=material(0x6b5a44),crown=material(0x536e3e),dummy=new T.Object3D();
  const trees=(cityMap.mappedTrees||[]).filter(t=>clearPoint(...t.position,.3));const tr=new T.InstancedMesh(trunkG,trunk,trees.length),le=new T.InstancedMesh(crownG,crown,trees.length);
- for(let i=0;i<trees.length;i++){const t=trees[i],[x,z]=t.position,h=Math.min(19,Math.max(3,t.height||7));dummy.position.set(x,h*.28,z);dummy.scale.set(1,h*.56,1);dummy.updateMatrix();tr.setMatrixAt(i,dummy.matrix);dummy.position.set(x,h*.76,z);dummy.scale.set(h*.30,h*.33,h*.30);dummy.updateMatrix();le.setMatrixAt(i,dummy.matrix)}
+ for(let i=0;i<trees.length;i++){const t=trees[i],[x,z]=t.position,h=Math.min(19,Math.max(3,t.height||7));const y=groundAt(x,z);dummy.position.set(x,y+h*.28,z);dummy.scale.set(1,h*.56,1);dummy.updateMatrix();tr.setMatrixAt(i,dummy.matrix);dummy.position.set(x,y+h*.76,z);dummy.scale.set(h*.30,h*.33,h*.30);dummy.updateMatrix();le.setMatrixAt(i,dummy.matrix)}
  for(const o of [tr,le]){o.instanceMatrix.needsUpdate=true;o.computeBoundingSphere();o.castShadow=true;o.receiveShadow=true;scene.add(o)}report.taggedTrees=trees.length;
  // Fences/walls along the precise mapped lines, not across the courtyard entrance.
  const wallG=new T.BoxGeometry(1,1,1),wallMat=material(0x8b8175),iron=material(0x343b3c,.65),hedge=material(0x53643b);const instances=new Map();

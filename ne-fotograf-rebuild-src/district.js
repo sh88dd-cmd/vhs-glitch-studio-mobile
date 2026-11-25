@@ -1,7 +1,8 @@
 import * as T from 'three';
+import {buildZaryadyeHall} from './park-topography.js';
 // Street environment and geometric approximations of documented park landmarks.
 // Every road, park boundary and bridge centerline used here is from the baked OSM map.
-export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,nearPath,atPath,clearPoint,offRoad,addObstacle,box,staticMeshes}){
+export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,nearPath,atPath,clearPoint,offRoad,addObstacle,box,staticMeshes,parkTerrain,addBuildingCollider}){
  const report={streets:[],parkTrees:0,streetLamps:0,bridge:false,hall:false,terraceTables:0,parkPaths:0};
  const [south,west,north,east]=cityMap.bbox,[sw,se,,nw]=cityMap.bounds;
  const geo=(lat,lon)=>{const u=(lon-west)/(east-west),v=(lat-south)/(north-south);return new T.Vector3(sw[0]+(se[0]-sw[0])*u+(nw[0]-sw[0])*v,0,sw[1]+(se[1]-sw[1])*u+(nw[1]-sw[1])*v)};
@@ -17,7 +18,7 @@ export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,ne
   dummy.position.set(x,y,z);dummy.scale.set(sx,sy,sz);dummy.rotation.set(0,rot,0);dummy.updateMatrix();p.list.push(dummy.matrix.clone())}
  const cube=new T.BoxGeometry(1,1,1),trunkG=new T.CylinderGeometry(.13,.20,1,7),crownG=new T.IcosahedronGeometry(1,1),poleG=new T.CylinderGeometry(.045,.08,1,8),lampG=new T.SphereGeometry(1,8,5);
  function repeat(key,g,m,x,y,z,sx,sy,sz,rot=0){let p=parts.get(key);if(!p){p={g,m,list:[]};parts.set(key,p)}dummy.position.set(x,y,z);dummy.scale.set(sx,sy,sz);dummy.rotation.set(0,rot,0);dummy.updateMatrix();p.list.push(dummy.matrix.clone())}
- function tree(x,z,h=5){repeat('trunk',trunkG,treeTrunk,x,h*.32,z,1,h*.64,1);repeat('foliageA',crownG,leaf,x,h*.73,z,h*.31,h*.39,h*.29,rand()*6.28);repeat('foliageB',crownG,leaf2,x+.43,h*.87,z-.22,h*.24,h*.26,h*.23,rand()*6.28)}
+ function tree(x,z,h=5){const y=parkTerrain.heightAt(x,z);repeat('trunk',trunkG,treeTrunk,x,y+h*.32,z,1,h*.64,1);repeat('foliageA',crownG,leaf,x,y+h*.73,z,h*.31,h*.39,h*.29,rand()*6.28);repeat('foliageB',crownG,leaf2,x+.43,y+h*.87,z-.22,h*.24,h*.26,h*.23,rand()*6.28)}
  const lampSites=[];
  for(const {r,path} of roads){if(!report.streets.includes(r.name))report.streets.push(r.name);
    const w=r.width;
@@ -64,13 +65,8 @@ export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,ne
    const lines=[];for(let j=0;j<=nz;j++)for(let i=0;i<=nx;i++){if(i<nx)lines.push(...grid[j][i].toArray(),...grid[j][i+1].toArray());if(j<nz)lines.push(...grid[j][i].toArray(),...grid[j+1][i].toArray());if(i<nx&&j<nz)lines.push(...grid[j][i].toArray(),...grid[j+1][i+1].toArray())}
    const lg=new T.BufferGeometry();lg.setAttribute('position',new T.Float32BufferAttribute(lines,3));scene.add(new T.LineSegments(lg,new T.LineBasicMaterial({color:0x586d76,transparent:true,opacity:.9})));
  }
- // Actual venue centroid, approximate exterior dimensions based on park aerial photos.
- const hall=geo(55.751210,37.631326),parkDirection=geo(55.751210,37.6302).sub(hall).normalize(),angle=Math.atan2(parkDirection.z,parkDirection.x);
- const hallPoints=[[-35,-40],[35,-40],[43,24],[28,38],[-35,30]].map(([x,z])=>[hall.x+x*Math.cos(angle)-z*Math.sin(angle),hall.z+x*Math.sin(angle)+z*Math.cos(angle)]);
- const h=shapeMesh(hallPoints,[cream,glassDark],8.0);
- // This is exterior scenery, no invented walkable interior or bridge physics.
- roofGrid(hall,48,39,8.2,11.3,angle,glass);
- report.hall=true;
+ const concert=buildZaryadyeHall({scene,terrain:parkTerrain,mat,shapeMesh,addBuildingCollider});
+ Object.assign(report,concert,{hall:true});
  // Media center already has an OSM footprint. Give it a curved, triangulated canopy.
  const media=cityMap.buildings.find(b=>b.id===-756769200);
  if(media){const cx=media.points.reduce((s,p)=>s+p[0],0)/media.points.length,cz=media.points.reduce((s,p)=>s+p[1],0)/media.points.length;roofGrid(new T.Vector3(cx,0,cz),17,12,media.height+.05,2.6,0,glass);}
