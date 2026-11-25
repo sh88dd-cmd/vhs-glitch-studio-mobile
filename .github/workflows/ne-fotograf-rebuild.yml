@@ -82,6 +82,7 @@ jobs:
             let state=await page.evaluate(()=>NF_NEW.ready?NF_NEW.inspect():NF_NEW);
             console.log('Before',state);
             if(state.hero!=='Andr 3-rigged'||state.heroVertices!==122663||state.heroSkinned<1||state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.relationBuildings<1||state.buildings<150||state.roads<150||state.locations.length<7||!state.actions.includes('jumpStart')||!state.actions.includes('jumpLoop')||!state.actions.includes('run'))throw Error(JSON.stringify(state));
+            if(!state.district?.hall||!state.district?.bridge||state.district.parkTrees<12||state.district.streetLamps<8||state.district.streets.length<3)throw Error('District environment missing '+JSON.stringify(state.district));
             if(state.baseFacades!==state.buildings||state.addressProfiles<55||state.profileTypes.length<20)throw Error('District coverage '+JSON.stringify(state));
             if(!state.piggyAddressMatched||!state.landmarks.includes('piggy'))throw Error('Piggy facade missing '+JSON.stringify(state.piggyInfo));
             if(state.cars.length!==4||!state.cars.every(c=>c.clear&&c.dir*c.lane<0)||state.pedestrians.length!==4||!state.pedestrians.every(p=>p.clear&&p.path>2))throw Error('Traffic or sidewalk init '+JSON.stringify(state));
