@@ -1,6 +1,7 @@
 import * as T from 'three';
 import {createArchitecture} from './architecture.js';
 import {loadPhotoFacades} from './photo-facades.js';
+import {addMappedDetails} from './mapped-details.js';
 import {installDistrict} from './district.js';
 import {createNavigation} from './navigation.js';
 import RAPIER from '@dimforge/rapier3d-compat';
@@ -48,6 +49,8 @@ if(mapDet>0){
  for(const b of [...cityMap.buildings,...(cityMap.parks||[]),...(cityMap.water||[])]){b.points.forEach(flip);for(const h of b.holes||[])h.forEach(flip)}
  for(const r of cityMap.roads)r.points.forEach(flip);
  for(const p of cityMap.places){flip(p.position);p.yaw=-(p.yaw||0)}
+ for(const p of [...(cityMap.buildingParts||[]),...(cityMap.mappedSurfaces||[]),...(cityMap.mappedBarriers||[])])p.points.forEach(flip);
+ for(const t of [...(cityMap.mappedTrees||[]),...(cityMap.mappedEntrances||[])])flip(t.position);
  cityMap.bounds.forEach(flip);if(cityMap.spawn.position)flip(cityMap.spawn.position);
 }
 const [sw1,se1,,nw1]=cityMap.bounds;
@@ -95,11 +98,13 @@ const facadeQueue=[],facades=new Set(),landmarksBuilt=new Set();
 const photoFacades=await loadPhotoFacades(base,tex);
 const architecture=createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths,nearPath,photoFacades});
 const profile=architecture.profile;
-function solidBuilding(b,i){const pts=b.points,h=b.height,m=architecture.material(b);const o=shapeMesh(pts,[roofMat,architecture.facadeMaterial(b)],h,b.holes||[]);const g=o.geometry;architecture.mapWalls(b,g);const p=g.attributes.position;const indices=g.index?Array.from(g.index.array):Array.from({length:p.count},(_,i)=>i);world.createCollider(RAPIER.ColliderDesc.trimesh(new Float32Array(p.array),new Uint32Array(indices)));
-architecture.roof(b);
+for(const b of cityMap.buildings)if(photoFacades.has(b.id)||b.id===52404043||profile(b)==='piggy')b.replaceWithParts=false;
+function solidBuilding(b,i){const pts=b.points,h=b.height,m=architecture.material(b);const o=shapeMesh(pts,[roofMat,architecture.facadeMaterial(b)],h,b.holes||[]);const g=o.geometry;architecture.mapWalls(b,g);if(b.replaceWithParts)o.visible=false;const p=g.attributes.position;const indices=g.index?Array.from(g.index.array):Array.from({length:p.count},(_,i)=>i);world.createCollider(RAPIER.ColliderDesc.trimesh(new Float32Array(p.array),new Uint32Array(indices)));
+if(!b.replaceWithParts)architecture.roof(b);
 const cx=pts.reduce((s,p)=>s+p[0],0)/pts.length,cz=pts.reduce((s,p)=>s+p[1],0)/pts.length;facadeQueue.push({b,i,cx,cz});if(Math.hypot(cx,cz+14)<55||profile(b)==='piggy'||photoFacades.has(Number(b.id)))detailBuilding(b,i,cx,cz);}
-function detailBuilding(b,i,cx,cz){if(facades.has(b.id))return;facades.add(b.id);architecture.detail(b);if(profile(b))landmarksBuilt.add(profile(b));}
+function detailBuilding(b,i,cx,cz){if(facades.has(b.id))return;facades.add(b.id);if(!b.replaceWithParts)architecture.detail(b);if(profile(b))landmarksBuilt.add(profile(b));}
 cityMap.buildings.forEach(solidBuilding);
+const mapped=addMappedDetails({scene,cityMap,mat,shapeMesh,ribbon,clearPoint,roadPaths,nearPath,architecture});
 const district=installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,nearPath,atPath,clearPoint,offRoad,addObstacle,box,staticMeshes});
 // Extra curb ribbons only on the known main road; all placement is approximate scenery.
 for(const side of [-1,1])ribbon(streetRoad.points,.14,side*(spawnWidth/2+.08),.075,curbMat);
@@ -259,7 +264,17 @@ window.NF_NEW={ready:true,...(new URLSearchParams(location.search).has('test')?{
    const b=cityMap.buildings.find(b=>b.id===subjects[name]),v=b&&architecture.frontView(b);
    const [x,z]=p.position;
    if(v){
-     const d=Math.max(16,Math.min(52,v.width*.72+v.height*.8));pos.set(v.x+v.nx*d,0,v.z+v.nz*d);detailNearby(1,true);camera.position.set(pos.x,2.4,pos.z);camera.lookAt(v.x,Math.min(v.height*.43,10),v.z);
+     
+     const d=Math.max(10,Math.min(44,v.width*.58+v.height*.6));let candidate=null;
+     for(const f of [1,.75,.55,.40])for(const side of [0,-.25,.25,-.5,.5]){
+       const x=v.x+v.nx*d*f-v.nz*v.width*side,z=v.z+v.nz*d*f+v.nx*v.width*side;
+       if(!clearPoint(x,z,.25))continue;
+       const ray=new T.Vector3(v.x-x,Math.min(v.height*.43,10)-2.4,v.z-z),length=ray.length();
+       const hit=world.castRay(new RAPIER.Ray({x,y:2.4,z},ray.normalize()),length,true);
+       if(!hit||hit.timeOfImpact>length-.65){candidate={x,z};break}
+     }
+     const q=candidate||{x:v.x+v.nx*d*.45,z:v.z+v.nz*d*.45};
+     pos.set(q.x,0,q.z);for(let i=0;i<3;i++)detailNearby(1,true);camera.position.set(q.x,2.4,q.z);camera.lookAt(v.x,Math.min(v.height*.43,10),v.z);
    }else if(name==='Высотка на Котельнической'){
      const river=cityMap.places.find(p=>p.name==='Котельническая набережная'),dx=river.position[0]-x,dz=river.position[1]-z,len=Math.hypot(dx,dz)||1;
      camera.position.set(x+dx/len*155,2.8,z+dz/len*155);camera.lookAt(x,62,z);
@@ -272,6 +287,6 @@ window.NF_NEW={ready:true,...(new URLSearchParams(location.search).has('test')?{
    }else{camera.position.set(x,2.4,z);const dir=new T.Vector3(Math.sin(p.yaw||0),0,Math.cos(p.yaw||0));camera.lookAt(camera.position.clone().addScaledVector(dir,20))}
    camera.updateMatrixWorld(true);render();return cv.toDataURL('image/png');
  }finally{pos.copy(saved);camera.position.copy(old);camera.quaternion.copy(q);hero.root.visible=vis;camera.fov=oldFov;camera.updateProjectionMatrix();camera.updateMatrixWorld(true)}
-},capturePiggy:()=>{const p=architecture.piggyView;if(!p)throw Error('Piggy front not found');const old=camera.position.clone(),q=camera.quaternion.clone(),vis=hero.root.visible;try{hero.root.visible=false;const dist=Math.max(12,Math.min(28,p.width*.85));camera.position.set(p.x+p.nx*dist,2.0,p.z+p.nz*dist);camera.lookAt(p.x,2.7,p.z);camera.updateMatrixWorld(true);render();return cv.toDataURL('image/png')}finally{camera.position.copy(old);camera.quaternion.copy(q);hero.root.visible=vis;camera.updateMatrixWorld(true)}},route:()=>{const p=cityMap.places.find(p=>p.name==='Маросейка');return navigation.setTarget(...p.position)},nearCar:id=>{const c=cars.find(c=>c.id===id);if(!c)return false;for(const d of [1.55,1.9,2.3,2.7])for(const side of [1,-1]){const x=c.root.position.x+Math.cos(c.heading)*side*d,z=c.root.position.z-Math.sin(c.heading)*side*d;if(clearPoint(x,z,.4)&&!cars.some(o=>o!==c&&overlapsCar(x,z,o,.4))){syncHero(x,z);if(nearbyCar()===c){updateInteraction();return true}}}return false},jump:()=>{jumpQueued=true}}}:{}),capture:()=>{render();return cv.toDataURL('image/png')},inspect:()=>({people:people.length,view,started,hero:hero.id,heroVertices:hero.vertices,heroSkinned:hero.skinned,heroState:hero.state,position:pos.toArray(),quality,actions:Object.keys(hero.actions),physics:true,renderScale,drawCalls,staticBefore,staticAfter,fps,mapSource:cityMap.source,relationBuildings:cityMap.relationBuildings||0,landmarks:[...landmarksBuilt],architecture:'street-facades-v6',photoFacades:architecture.photoCount(),photoAvailable:architecture.photoAvailable(),surveyedFacades:architecture.surveyCount(),mapHandedness:correctedMapDet,waterPolygons:(cityMap.water||[]).length,district,baseFacades:architecture.atlasCount(),addressProfiles:cityMap.buildings.filter(b=>architecture.profile(b)).length,profileTypes:[...new Set(cityMap.buildings.map(b=>architecture.profile(b)).filter(Boolean))],piggyAddressMatched:architecture.mainPig,piggyInfo:architecture.piggyInfo,navigation:navigation.inspect(),buildings:cityMap.buildings.length,roads:cityMap.roads.length,street:cityMap.spawn.street,simSteps,bodyY:body.translation().y,cameraY:camera.position.y,groundY:ground.position.y,jumpPeak,jumpH,impacts,ejections,locations:(cityMap.places||[]).map(p=>p.name),facades:facades.size,driving:driving?.id||null,driveSpeed:driving?.speed||0,decor:decor.length,cars:cars.map(c=>({id:c.id,position:c.root.position.toArray(),travel:c.travel,speed:c.speed,clear:carClear({x:c.root.position.x,z:c.root.position.z,yaw:c.heading},c.length),lane:c.lane,dir:c.dir,parked:c.parked,driver:!!c.driver})),pedestrians:people.filter(a=>!a.hero).map(a=>({id:a.id,position:a.root.position.toArray(),path:a.route?.length||0,clear:clearPoint(a.x,a.z),down:!!a.downUntil}))})};
+},capturePiggy:()=>{const p=architecture.piggyView;if(!p)throw Error('Piggy front not found');const old=camera.position.clone(),q=camera.quaternion.clone(),vis=hero.root.visible;try{hero.root.visible=false;const dist=Math.max(12,Math.min(28,p.width*.85));camera.position.set(p.x+p.nx*dist,2.0,p.z+p.nz*dist);camera.lookAt(p.x,2.7,p.z);camera.updateMatrixWorld(true);render();return cv.toDataURL('image/png')}finally{camera.position.copy(old);camera.quaternion.copy(q);hero.root.visible=vis;camera.updateMatrixWorld(true)}},route:()=>{const p=cityMap.places.find(p=>p.name==='Маросейка');return navigation.setTarget(...p.position)},nearCar:id=>{const c=cars.find(c=>c.id===id);if(!c)return false;for(const d of [1.55,1.9,2.3,2.7])for(const side of [1,-1]){const x=c.root.position.x+Math.cos(c.heading)*side*d,z=c.root.position.z-Math.sin(c.heading)*side*d;if(clearPoint(x,z,.4)&&!cars.some(o=>o!==c&&overlapsCar(x,z,o,.4))){syncHero(x,z);if(nearbyCar()===c){updateInteraction();return true}}}return false},jump:()=>{jumpQueued=true}}}:{}),capture:()=>{render();return cv.toDataURL('image/png')},inspect:()=>({people:people.length,view,started,hero:hero.id,heroVertices:hero.vertices,heroSkinned:hero.skinned,heroState:hero.state,position:pos.toArray(),quality,actions:Object.keys(hero.actions),physics:true,renderScale,drawCalls,staticBefore,staticAfter,fps,mapSource:cityMap.source,relationBuildings:cityMap.relationBuildings||0,landmarks:[...landmarksBuilt],architecture:'street-facades-v7',mapped,photoFacades:architecture.photoCount(),photoAvailable:architecture.photoAvailable(),surveyedFacades:architecture.surveyCount(),mapHandedness:correctedMapDet,waterPolygons:(cityMap.water||[]).length,district,baseFacades:architecture.atlasCount(),addressProfiles:cityMap.buildings.filter(b=>architecture.profile(b)).length,profileTypes:[...new Set(cityMap.buildings.map(b=>architecture.profile(b)).filter(Boolean))],piggyAddressMatched:architecture.mainPig,piggyInfo:architecture.piggyInfo,navigation:navigation.inspect(),buildings:cityMap.buildings.length,roads:cityMap.roads.length,street:cityMap.spawn.street,simSteps,bodyY:body.translation().y,cameraY:camera.position.y,groundY:ground.position.y,jumpPeak,jumpH,impacts,ejections,locations:(cityMap.places||[]).map(p=>p.name),facades:facades.size,driving:driving?.id||null,driveSpeed:driving?.speed||0,decor:decor.length,cars:cars.map(c=>({id:c.id,position:c.root.position.toArray(),travel:c.travel,speed:c.speed,clear:carClear({x:c.root.position.x,z:c.root.position.z,yaw:c.heading},c.length),lane:c.lane,dir:c.dir,parked:c.parked,driver:!!c.driver})),pedestrians:people.filter(a=>!a.hero).map(a=>({id:a.id,position:a.root.position.toArray(),path:a.route?.length||0,clear:clearPoint(a.x,a.z),down:!!a.downUntil}))})};
 }catch(e){console.error(e);$('status').textContent='Ошибка: '+e.message;window.NF_NEW={ready:false,error:e.message};}
 cv.addEventListener('webglcontextlost',e=>{e.preventDefault();started=false;$('menu').style.display='flex';$('status').textContent='Графический контекст потерян. Перезагрузите страницу.'});

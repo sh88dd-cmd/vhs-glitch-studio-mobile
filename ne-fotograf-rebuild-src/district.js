@@ -36,7 +36,7 @@ export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,ne
  }
  function inside(x,z,ring){let v=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])v=!v}return v}
  const parks=(cityMap.parks||[]).filter(p=>/зарядье|ильинский сквер/i.test(p.name||''));
- const treeSites=[];
+ const treeSites=(cityMap.mappedTrees||[]).map(t=>t.position);
  for(const p of parks){let localTrees=0;const limit=/ильинский/i.test(p.name||'')?85:110;
    const xs=p.points.map(q=>q[0]),zs=p.points.map(q=>q[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minZ=Math.min(...zs),maxZ=Math.max(...zs);
    for(let x=minX+4;x<maxX-3;x+=9)for(let z=minZ+4;z<maxZ-3;z+=9){
@@ -109,14 +109,45 @@ export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,ne
  function cyl(p,rt,rb,h,y,m,n=24){return mesh(new T.CylinderGeometry(rt,rb,h,n),m,p.x,y,p.z)}
  function cross(p,y,h,m){stoneBox(p,.10,h,.10,y+h/2,m);stoneBox(p,h*.55,.11,.10,y+h*.72,m)}
  const plevna=geo(55.756674,37.631184);
- cyl(plevna,2.65,2.95,.32,.16,redGranite,8);cyl(plevna,2.15,2.5,.58,.61,granite,8);
- cyl(plevna,1.85,2.05,2.4,2.0,castIron,8);cyl(plevna,.94,1.65,3.0,4.70,castIron,8);
- for(let i=0;i<8;i++){const t=i*Math.PI/4,rad=1.85,q=new T.Vector3(plevna.x+Math.sin(t)*rad,0,plevna.z+Math.cos(t)*rad);
-   const col=cyl(q,.12,.17,2.0,1.98,gilt,8);const panel=stoneBox(q,.64,1.2,.08,2.03,gilt,t);panel.position.x+=Math.sin(t)*.10;panel.position.z+=Math.cos(t)*.10;
-   const tor=mesh(new T.TorusGeometry(.30,.045,6,16),gilt,q.x,1.02,q.z);tor.rotation.y=t;
+
+ cyl(plevna,2.75,2.95,.25,.125,redGranite,8);cyl(plevna,2.50,2.75,.27,.385,granite,8);
+ cyl(plevna,2.20,2.50,.27,.655,granite,8);cyl(plevna,1.86,2.21,.85,1.21,castIron,8);
+ cyl(plevna,1.95,1.95,2.28,2.77,castIron,8);cyl(plevna,1.72,1.95,.33,4.07,castIron,8);
+ cyl(plevna,.95,1.62,2.78,5.61,castIron,8);cyl(plevna,1.23,.94,.34,7.14,oldBronze,8);
+ const relief=mat(0xa7793e,.48,.56),darkInset=mat(0x2b2927,.97),brass=mat(0xb79b60,.45,.64);
+ function radial(theta,u,y,off,w,h,d,m){
+   const n=new T.Vector3(Math.sin(theta),0,Math.cos(theta)),r=new T.Vector3(Math.cos(theta),0,-Math.sin(theta));
+   const p=plevna.clone().addScaledVector(n,off).addScaledVector(r,u);
+   return stoneBox(p,w,h,d,y,m,theta)
  }
- cyl(plevna,1.1,1.05,.24,6.34,gilt,16);cyl(plevna,.68,1.06,.7,6.8,gilt,16);
- const top=mesh(new T.SphereGeometry(.68,16,10),gilt,plevna.x,7.33,plevna.z);top.scale.y=1.18;cross(plevna,8.05,1.05,gilt);addObstacle(plevna.x,plevna.z,2.7,4);
+ function archBand(theta,y,rad,w,off,m){
+   for(let i=0;i<18;i++){const a=Math.PI*i/18,b=Math.PI*(i+1)/18,mid=(a+b)/2;
+     const o=radial(theta,Math.cos(mid)*rad,y+Math.sin(mid)*rad,off,rad*(b-a)+.014,w,.15,m);
+     o.rotateZ(mid+Math.PI/2)
+   }
+ }
+ for(let i=0;i<8;i++){
+   const theta=Math.PI/8+i*Math.PI/4,off=1.82,door=i===0||i===4;
+   radial(theta,0,2.78,off,1.30,2.12,.08,darkInset);
+   for(const side of [-1,1]){
+      radial(theta,side*.78,2.65,off+.11,.23,1.80,.34,castIron);
+      radial(theta,side*.78,3.54,off+.14,.32,.14,.37,brass);
+      radial(theta,side*.78,1.76,off+.14,.35,.18,.38,relief);
+      radial(theta,side*.78,1.25,off+.20,.31,.31,.32,castIron);
+   }
+   archBand(theta,3.43,.76,.18,off+.10,castIron);archBand(theta,3.43,.66,.085,off+.20,brass);
+   archBand(theta,3.43,.85,.11,off+.04,relief);
+   const wreath=new T.Mesh(new T.TorusGeometry(.33,.055,7,22),relief);wreath.position.set(plevna.x+Math.sin(theta)*2.12,1.26,plevna.z+Math.cos(theta)*2.12);wreath.rotation.y=theta;scene.add(wreath);
+   for(let k=0;k<14;k++){const a=k*Math.PI*2/14;const o=radial(theta,.33*Math.cos(a),1.26+.33*Math.sin(a),2.15,.11,.18,.07,brass);o.rotateZ(a)}
+   if(door){radial(theta,0,2.28,off+.07,.82,1.80,.07,oldBronze);radial(theta,0,2.35,off+.13,.075,1.30,.07,relief);radial(theta,0,2.58,off+.13,.56,.075,.07,relief);}
+   else if(i%2){for(const u of [-.21,.22]){radial(theta,u,2.53,off+.12,.24,1.09,.16,relief);const head=mesh(new T.SphereGeometry(.13,10,8),relief,plevna.x+Math.sin(theta)*(off+.17)+Math.cos(theta)*u,3.14,plevna.z+Math.cos(theta)*(off+.17)-Math.sin(theta)*u);head.scale.y=1.24;}}
+   else for(let row=0;row<5;row++)radial(theta,0,2.08+row*.24,off+.15,.64,.035,.05,brass);
+   radial(theta,0,5.45,1.28,.69,1.98,.06,granite);
+   for(let row=0;row<6;row++)radial(theta,0,4.85+row*.20,1.36,.46,.035,.035,brass);
+ }
+ cyl(plevna,1.31,1.07,.26,7.37,relief,8);cyl(plevna,.78,1.25,.42,7.72,oldBronze,8);
+ const crown=mesh(new T.LatheGeometry([[0,0],[.66,0],[.86,.18],[.85,.48],[.65,.83],[.29,1.10],[.09,1.32],[0,1.4]].map(([r,y])=>new T.Vector2(r,y)),24),gilt,plevna.x,7.93,plevna.z);
+ cross(plevna,9.28,1.3,gilt);addObstacle(plevna.x,plevna.z,2.8,4);
  report.plevna=true;
  const km=geo(55.75464,37.63399);stoneBox(km,5.2,.22,3.5,.11,redGranite);stoneBox(km,4.7,.18,3.0,.31,redGranite);stoneBox(km,3.30,2.0,2.2,1.40,granite);stoneBox(km,3.55,.21,2.45,2.48,granite);
  for(const side of [-1,1]){

@@ -79,6 +79,7 @@ const addressStyles={
  museum:house(0xd7c8ad,0xf0e6d3,'ornate',1.8),
  english:house(0xe6e2d7,0xf0ece0,'classical',2.1,{roof:0x547064}),
  romanov:house(0xd0b390,0xf3e7d1,'ornate',2.1,{roof:0x50725a}),
+ churchKulishki:house(0xa42e29,0xf3efe0,'church',0,{roof:0xc6a03b,frame:0x5c4436}),
  churchRed:house(0xc87959,0xf1e7d6,'church',0,{roof:0x41634c}),
  churchWhite:house(0xe1ddd0,0xf1ece2,'church',0,{roof:0x626b64}),
  churchGreen:house(0xb2c4b5,0xeee8d6,'church',0,{roof:0x535b60}),
@@ -96,7 +97,7 @@ function extraProfile(b){
  if(id===513659941)return 'foodhall';
  if(name.includes('английский двор'))return 'english';
  if(name.includes('палаты бояр романов'))return 'romanov';
- if(name.includes('всех святых на кулишках'))return 'churchRed';
+ if(name.includes('всех святых на кулишках'))return 'churchKulishki';
  if(name.includes('церковь космы'))return 'churchGreen';
  if(name.includes('николая чудотворца в кленниках')||name.includes('знамение'))return 'churchRed';
  if(name.includes('храм')||name.includes('церковь')||name.includes('собор')){
@@ -225,7 +226,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     });t.wrapS=T.RepeatWrapping;t.wrapT=T.ClampToEdgeWrapping;
     const m=new T.MeshStandardMaterial({map:t,roughness:.87});facadeMats.set(key,m);return m;
   }
-  function mapWalls(b,g){
+  function mapWalls(b,g,record=true){
     const uv=g.attributes.uv,p=g.attributes.position,d=config(b);let mapped=0;
     // ExtrudeGeometry side walls are non-indexed quads (two triangles).
     for(const group of g.groups){if(group.materialIndex!==1)continue;
@@ -236,7 +237,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
         const dx=(bx-ax)/dist,dz=(bz-az)/dist,bays=Math.max(1,Math.round(dist/(d.style==='modern'?2.15:2.85)));
         for(let j=i;j<i+6;j++){const u=((p.getX(j)-ax)*dx+(p.getZ(j)-az)*dz)/dist*bays;uv.setXY(j,u,Math.max(0,Math.min(1,p.getY(j)/b.height)))}
       }
-    }uv.needsUpdate=true;if(mapped>0)atlasIds.add(b.id);
+    }uv.needsUpdate=true;if(mapped>0&&record)atlasIds.add(b.id);
   }
 
   function texture(w,h,paint){const c=document.createElement('canvas');c.width=w;c.height=h;paint(c.getContext('2d'),w,h);const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;t.anisotropy=2;return t}
@@ -409,7 +410,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
       if(profile(b)==='sol6'){k.line(base,l/2,1.0,l,1.45,.18);k.line(trim,l/2,1.78,l,.20,.30);for(let j=0;j<=count;j++){const u=j*bay;k.panel(trim,u,5.95,.23,7.75,.24,.12);k.panel(trim,u,9.45,.40,.27,.31,.16)}}
       for(let row=0;row<floors;row++){
         if(photo&&(row+.35)/floors>=photo.range[0])continue;
-        const ground=row===0,shop=ground&&isFront&&historic&&profile(b)!=='sol6',wy=profile(b)==='sol6'?(ground?1.0:row===1?3.85:7.55):ground?Math.min(fh*.56,1.85):fh*(row+.50);
+        const ground=row===0,shop=ground&&isFront&&historic&&d.style!=='church'&&profile(b)!=='sol6',wy=profile(b)==='sol6'?(ground?1.0:row===1?3.85:7.55):ground?Math.min(fh*.56,1.85):fh*(row+.50);
         const wh=profile(b)==='sol6'?(ground?.95:2.55):Math.min(fh*.72,ground&&shop?2.35:historic?2.03:2.20);
         for(let j=0;j<count;j++){
           const u=(j+.5)*bay,w=d.wideGlass?bay*.80:Math.min(bay*.62,shop?2.10:historic?1.30:1.45);
@@ -418,7 +419,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
             k.panel(trim,u,wy,Math.min(bay*.84,1.65),wh+.16,.11,.06);
             k.face(windowMaterial(frame,(j+row)%3),u,wy,w,wh,.16);
           }else{
-            if(d.arches&&(ground||d.rosettes||d.style==='church'))archWindow(k,u,wy,w,wh,trim,frame,shop);else window(k,u,wy,w,wh,trim,frame,(j+row+hash(b))%3,ornate||row===1,shop);
+            if(d.style==='church'||(d.arches&&(ground||d.rosettes)))archWindow(k,u,wy,w,wh,trim,frame,shop);else window(k,u,wy,w,wh,trim,frame,(j+row+hash(b))%3,ornate||row===1,shop);
             if(ornate&&isFront&&row===1)gable(k,u,wy+wh/2+.12,Math.min(bay*.80,w+.42),.20,trim);
           }
         }
@@ -471,7 +472,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     }
   }
   function roof(b){
-    const d=config(b);if(d.style==='church'){churchRoof(b,d);return;}if(!d.pitch||b.holes?.length||b.points.length>14)return;
+    const d=config(b);if(d.style==='church'){if(!(cityMap.buildingParts||[]).some(p=>p.parent===b.id&&p.height>b.height+.5))churchRoof(b,d);return;}if(!d.pitch||b.holes?.length||b.points.length>14)return;
     const pts=b.points.filter((p,i,a)=>Math.hypot(p[0]-a[(i+1)%a.length][0],p[1]-a[(i+1)%a.length][1])>.12);if(pts.length<3)return;
     let winding=0;for(let i=0;i<pts.length;i++){const a=pts[i],q=pts[(i+1)%pts.length],r=pts[(i+2)%pts.length],cross=(q[0]-a[0])*(r[1]-q[1])-(q[1]-a[1])*(r[0]-q[0]);if(Math.abs(cross)<.02)continue;if(winding&&Math.sign(cross)!==winding)return;winding=Math.sign(cross)}
     const cx=pts.reduce((s,p)=>s+p[0],0)/pts.length,cz=pts.reduce((s,p)=>s+p[1],0)/pts.length,h=b.height,top=h+d.pitch;

@@ -5,6 +5,11 @@ on:
       - 'ne-fotograf-rebuild-src/**'
       - '.github/workflows/ne-fotograf-rebuild.yml'
   workflow_dispatch:
+    inputs:
+      release_verified:
+        description: 'Release only after visual reference review of candidate'
+        type: boolean
+        default: false
 concurrency:
   group: ne-fotograf-rebuild-publication
   cancel-in-progress: true
@@ -57,6 +62,11 @@ jobs:
           cp ../ne-fotograf/models/city/real-{sedan,suv,hatchback}.glb public/assets/cars/
           cp ../ne-fotograf/models/city/plane-tree.glb public/assets/props/plane-tree.glb
           cp ../ne-fotograf/icon-192.png public/icon-192.png
+      - name: Read real building parts and mapped street details
+        working-directory: ne-fotograf-rebuild-src
+        run: |
+          python -m pip install --quiet shapely
+          if ! python -c "import json; assert json.load(open('public/assets/kitay-gorod.json')).get('detailDataVersion')==1"; then python tools/enrich-osm.py; fi
       - name: Prepare licensed rectified facade photo assets
         working-directory: ne-fotograf-rebuild-src
         run: |
@@ -90,6 +100,7 @@ jobs:
             if(state.mapHandedness>=0||state.waterPolygons<1||!state.locations.includes('Высотка на Котельнической'))throw Error('Geographic correction/extent '+JSON.stringify(state));
             if(!state.district?.kotelnicheskaya||!state.district?.plevna||!state.district?.cyrilMethodius||!state.district?.hall||!state.district?.bridge||state.district.parkTrees<12||state.district.streetLamps<8||state.district.streets.length<3)throw Error('District environment missing '+JSON.stringify(state.district));
             if(state.surveyedFacades<9)throw Error('Missing municipal elevations '+JSON.stringify(state));
+            if(state.mapped.parts<20||state.mapped.taggedTrees<10||state.mapped.surfaces<10)throw Error('Missing actual mapped detail '+JSON.stringify(state.mapped));
             if(state.photoFacades<7||state.photoAvailable<7||state.district.ilyinskyTrees<10)throw Error('Photo/park coverage '+JSON.stringify(state));
             if(state.baseFacades!==state.buildings||state.addressProfiles<55||state.profileTypes.length<20)throw Error('District coverage '+JSON.stringify(state));
             if(!state.piggyAddressMatched||!state.landmarks.includes('piggy'))throw Error('Piggy facade missing '+JSON.stringify(state.piggyInfo));
@@ -193,6 +204,7 @@ jobs:
             /tmp/nf-kotelnicheskaya.png
             /tmp/nf-architecture-audit.json
       - name: Publish new scene separately
+        if: github.event_name == 'workflow_dispatch' && inputs.release_verified == true
         run: |
           set -e
           mkdir -p "$RUNNER_TEMP/tested-dist"
