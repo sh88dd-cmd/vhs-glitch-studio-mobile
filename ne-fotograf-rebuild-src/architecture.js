@@ -147,6 +147,21 @@ const survey={
  '-1736197700':{wall:0xe2c6ae,trim:0xf0e5d6,base:0x9d8c7e,style:'classical',floors:3,pitch:1.3,rusticated:true,reference:'Solyanka 12–14, heritage examination 2024'}
 };
 
+
+// Lower-storey layouts transcribed from official orthogonal elevations,
+// Lubyansky Proezd, sheets 19–26 (2018). These counts refer only to the
+// elevations actually shown, not invented measurements of cropped upper floors.
+const lubElevations={
+ '-846940600':{page:20,wall:0xead9b5,ground:0xca9056,trim:0xf0e8d6,base:0x44413e,bays:14,columns:true,arches:true,doors:[1],groundHeight:3.85},
+ '53156456':{page:21,wall:0xb9b0ab,ground:0xc4b9a4,trim:0xd7cab0,base:0xb9aa8c,bays:10,columns:true,passages:[1,2],doors:[3,4,8],groundHeight:5.0},
+ '45107167':{page:22,wall:0xe1ddc9,ground:0xe1ddc9,trim:0xeae7dc,base:0x8a8985,bays:8,floors:2,passages:[0],doors:[1,5],rusticated:true,groundHeight:3.6},
+ '53156454':{page:23,wall:0xe3dbbd,ground:0xe3dbbd,trim:0xece1c7,base:0xa3a5a1,bays:3,floors:2,doors:[2],steps:[2],groundHeight:3.0},
+ '536771197':{page:24,wall:0xd6bbb0,ground:0xd2b59e,trim:0xe3ded4,base:0x686e74,bays:3,groundHeight:2.9,rusticated:true},
+ '53156453':{page:25,wall:0xd5bcaf,ground:0xd4bca6,trim:0xece2d8,base:0x656e78,bays:22,doors:[1,11],passages:[9],rusticated:true,groundHeight:3.3},
+ '45107168':{page:26,wall:0xdce0e3,ground:0xdce0e3,trim:0xe9ebea,base:0x777d85,bays:15,floors:2,doors:[0,14],arches:true,groundHeight:3.0},
+ '239653875':{page:27,wall:0xa4c3b5,ground:0xa4c3b5,trim:0xe5e8df,base:0x878a84,bays:16,floors:3,doors:[3,4,8,13],passages:[15],columns:true,groundHeight:3.2}
+};
+
 const generic=[
  {wall:0xcdbb9c,trim:0xe5dcca,base:0x968b7d,frame:0x57473a,roof:0x5a5b58,style:'classical',pitch:1.1},
  {wall:0xc1c4b7,trim:0xe1e0d2,base:0x919287,frame:0x5b5a50,roof:0x606967,style:'classical',pitch:1.4},
@@ -188,7 +203,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     candidates.filter(x=>x.area>35&&x.area<1800&&x.b.height<16).sort((a,b)=>(a.inside?-20:a.d)+(a.b.heightSource==='estimate'?0:Math.abs(a.b.height-5.4)*.65)-(b.inside?-20:b.d)-(b.b.heightSource==='estimate'?0:Math.abs(b.b.height-5.4)*.65))[0]?.b;
   if(!mainPig)throw Error('Piggy footprint not located');
   const profile=b=>b.id===mainPig.id?'piggy':architectureProfile(b)||extraProfile(b);
-  const config=b=>{const d=definitions[profile(b)]||generic[hash(b)%generic.length],s=survey[b.id];return s?{...d,...s}:d};
+  const config=b=>{const d=definitions[profile(b)]||generic[hash(b)%generic.length],s=survey[b.id],l=lubElevations[b.id];return l?{...d,...s,...l,style:'classical',pitch:d.pitch||1.1}:s?{...d,...s}:d};
   // Keep surveyed OSM heights. Correct documented storeys where height was only guessed.
   for(const b of cityMap.buildings){
     const k=profile(b),d=config(b);
@@ -447,11 +462,63 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     }
     photoBuilt.add(b.id);
   }
+
+  const elevationBuilt=new Set();
+  function lubDetail(b,e,k,d,photo){
+    const l=e.l,h=b.height,trim=M(d.trim),ground=M(d.ground),base=M(d.base),wall=M(d.wall),frame=0x514940,gh=Math.min(d.groundHeight,h*.53),n=d.bays,bay=l/n;
+    const x=i=>k.fromLeft((i+.5)/n),isDoor=i=>(d.doors||[]).includes(i),isPass=i=>(d.passages||[]).includes(i);
+    // A separate ground storey with documented window and entrance arrangement.
+    k.panel(ground,l/2,gh/2,l,gh,.02,.045);k.line(base,l/2,.30,l,.60,.17);
+    k.line(trim,l/2,gh-.08,l,.16,.26);k.line(trim,l/2,gh+.05,l,.09,.24);
+    if(d.rusticated)for(let y=.70;y<gh-.22;y+=.32)k.line(M(d.base),l/2,y,l,.025,.06);
+    for(let i=0;i<n;i++){
+      const u=x(i),ww=Math.min(bay*.64,2.1),wh=Math.min(gh*.62,2.50);
+      if(isPass(i)){
+        // Recessed opening appearance only; collision and actual through-passage
+        // remain unverified until covered passage geometry is reconstructed.
+        const pw=Math.min(bay*.86,3.6);
+        k.panel(M(0x37332e),u,gh*.40,pw,gh*.80,.05,.105);
+        k.panel(trim,u-pw*.5,gh*.41,.17,gh*.81,.30,.11);
+        k.panel(trim,u+pw*.5,gh*.41,.17,gh*.81,.30,.11);
+        if(b.id===53156456&&i===1)archWindow(k,u,gh*.52,pw,gh*.93,trim,frame);
+      }else if(isDoor(i)){
+        door(k,u,gh*.40,ww,gh*.76,trim,frame);
+        if(d.steps?.includes(i)||b.id===45107167&&i===5)for(let j=0;j<5;j++)k.panel(base,u,.06+j*.105,ww+.6,.12,.25,.90-j*.15);
+      }else if(d.arches){archWindow(k,u,gh*.53,ww,wh,trim,frame,false);}
+      else window(k,u,gh*.53,ww,wh,trim,frame,i%3,false,false);
+      if(d.columns&&i<n-1){
+        const p=k.fromLeft((i+1)/n),ph=b.id===53156456?h*.88:gh*.90;
+        k.panel(trim,p,ph/2+.35,.23,ph,.22,.11);k.panel(base,p,.30,.36,.60,.31,.14);
+        k.panel(trim,p,ph+.36,.35,.15,.28,.13);
+        if(b.id===53156456)for(let j=-2;j<=2;j++)k.panel(M(0xb4a991),p+j*.045,ph/2+.35,.012,ph-.3,.035,.24);
+      }
+    }
+    // The licensed upper photograph, where present, retains the real window
+    // sequence; otherwise a modeled upper tier with documented bay rhythm.
+    if(photo)photoPanel(b,e,k,photo,trim,base);
+    else{
+      const floors=Math.max(1,(d.floors||floorCount(b,d))-1),fh=(h-gh)/floors;
+      for(let row=0;row<floors;row++){
+        const y=gh+(row+.55)*fh;k.line(trim,l/2,gh+row*fh+.08,l,.10,.14);
+        for(let i=0;i<n;i++){
+          const u=x(i),w=Math.min(1.28,bay*.54),wh=Math.min(2.15,fh*.61);
+          window(k,u,y,w,wh,trim,frame,(i+row)%3,Boolean(d.rusticated),false);
+          if(b.id===53156453||b.id===536771197){
+            k.panel(trim,u,y-wh/2-.26,w+.18,.12,.16,.13);
+            for(const side of [-1,1])k.panel(trim,u+side*w*.31,y-wh/2-.18,.09,.14,.12,.14);
+          }
+        }
+      }
+    }
+    cornice(k,e,h,trim);elevationBuilt.add(b.id);
+  }
+
   function detail(b){
     const es=edges(b),front=frontEdge(b,es),d=config(b),h=b.height,trim=M(d.trim),base=M(d.base),roof=M(d.roof),frame=d.frame;
     for(const e of es){if(e.l<2.5||e.l>140)continue;const k=kit(e),l=e.l,isFront=e===front;
       if(heritageIds.has(Number(b.id))){heritageDetail(b,e,k);continue;}
       const photo=isFront?photoFacades.get(Number(b.id)):null;
+      if(isFront&&lubElevations[b.id]){k.panel(M(d.wall),l/2,h/2,l,h,.018,.026);lubDetail(b,e,k,d,photo);continue;}
       if(d.style==='piggy'){if(photo){photoPanel(b,e,k,photo,trim,base);continue}piggy(e,k,b,isFront,trim,base);continue}
       if(isFront)k.panel(M(d.wall,.92),l/2,h/2,l,h,.018,.026);
       if(photo)photoPanel(b,e,k,photo,trim,base);
@@ -562,5 +629,5 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   }
   const pigFront=frontEdge(mainPig,edges(mainPig));
   const piggyView=pigFront?{x:(pigFront.p[0]+pigFront.q[0])/2,z:(pigFront.p[1]+pigFront.q[1])/2,nx:pigFront.nx,nz:pigFront.nz,width:pigFront.l}:null;
-  return {profile,material,facadeMaterial,mapWalls,heritageCount:()=>heritageBuilt.size,heritageIds,photoCount:()=>photoBuilt.size,photoAvailable:()=>photoFacades.size,frontView:b=>{const e=frontEdge(b,edges(b));return e?{x:(e.p[0]+e.q[0])/2,z:(e.p[1]+e.q[1])/2,nx:e.nx,nz:e.nz,width:e.l,height:b.height}:null},surveyCount:()=>cityMap.buildings.filter(b=>survey[b.id]).length,atlasCount:()=>atlasIds.size,detail,roof,piggyView,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
+  return {profile,material,facadeMaterial,mapWalls,heritageCount:()=>heritageBuilt.size,heritageIds,elevationCount:()=>elevationBuilt.size,elevationIds:new Set(Object.keys(lubElevations).map(Number)),photoCount:()=>photoBuilt.size,photoAvailable:()=>photoFacades.size,frontView:b=>{const e=frontEdge(b,edges(b));return e?{x:(e.p[0]+e.q[0])/2,z:(e.p[1]+e.q[1])/2,nx:e.nx,nz:e.nz,width:e.l,height:b.height}:null},surveyCount:()=>cityMap.buildings.filter(b=>survey[b.id]).length,atlasCount:()=>atlasIds.size,detail,roof,piggyView,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
 }

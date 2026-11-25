@@ -100,6 +100,7 @@ jobs:
             if(state.mapHandedness>=0||state.waterPolygons<1||!state.locations.includes('Высотка на Котельнической'))throw Error('Geographic correction/extent '+JSON.stringify(state));
             if(!state.district?.kotelnicheskaya||!state.district?.plevna||!state.district?.cyrilMethodius||!state.district?.hall||!state.district?.bridge||state.district.parkTrees<12||state.district.streetLamps<8||state.district.streets.length<3)throw Error('District environment missing '+JSON.stringify(state.district));
             if(state.surveyedFacades<9)throw Error('Missing municipal elevations '+JSON.stringify(state));
+            if(state.lubyanskyElevations!==8)throw Error('Missing Lubyansky measured lower elevations '+state.lubyanskyElevations);
             if(state.heritageFacades!==3)throw Error('Missing individually modeled heritage buildings');
             if(state.mapped.parts<20||state.mapped.taggedTrees<10||state.mapped.surfaces<10)throw Error('Missing actual mapped detail '+JSON.stringify(state.mapped));
             if(state.photoFacades<7||state.photoAvailable<7||state.district.ilyinskyTrees<10)throw Error('Photo/park coverage '+JSON.stringify(state));
