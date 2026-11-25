@@ -1,5 +1,5 @@
 {
-  "revision": "district-9-candidate",
+  "revision": "district-11-candidate",
   "source": "OpenStreetMap baked extent 5",
   "description": "Street-front candidates based on measured footprint adjacency and outward-facing normals; this is an initial audit, not a claim of exact frontage or finished architecture. Review boundary and include missing buildings/secondary streets before acceptance.",
   "criteria": {
@@ -1211,8 +1211,10 @@
           37.6326936
         ]
       },
-      "stage": "needs-individual-reference",
-      "visualApproved": false
+      "stage": "lower-elevation-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://www.mos.ru/upload/content/files/lubyansky_pr.pdf#page=21",
+      "observedFeatures": "Orange ground tier with arched openings, cream upper tier."
     },
     {
       "osmId": 53156456,
@@ -1231,8 +1233,10 @@
           37.6331405
         ]
       },
-      "stage": "photo-crop-unapproved",
-      "visualApproved": false
+      "stage": "lower-elevation-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://www.mos.ru/upload/content/files/lubyansky_pr.pdf#page=22",
+      "observedFeatures": "Tall fluted piers, arched carriageway, four glazed shop bays."
     },
     {
       "osmId": 45107167,
@@ -1251,8 +1255,10 @@
           37.6334658
         ]
       },
-      "stage": "needs-individual-reference",
-      "visualApproved": false
+      "stage": "lower-elevation-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://www.mos.ru/upload/content/files/lubyansky_pr.pdf#page=23",
+      "observedFeatures": "Eight upper bays, rustication, left carriageway and raised central entrance."
     },
     {
       "osmId": 53156454,
@@ -1271,8 +1277,10 @@
           37.6336179
         ]
       },
-      "stage": "needs-individual-reference",
-      "visualApproved": false
+      "stage": "lower-elevation-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://www.mos.ru/upload/content/files/lubyansky_pr.pdf#page=24",
+      "observedFeatures": "Three upper bays, raised right-hand entrance with steps."
     },
     {
       "osmId": 536771197,
@@ -1291,8 +1299,10 @@
           37.6337658
         ]
       },
-      "stage": "needs-individual-reference",
-      "visualApproved": false
+      "stage": "lower-elevation-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://www.mos.ru/upload/content/files/lubyansky_pr.pdf#page=25",
+      "observedFeatures": "Three bays in a pink facade, ornament beneath windows, rusticated base."
     },
     {
       "osmId": 53156453,
@@ -1311,8 +1321,10 @@
           37.6339425
         ]
       },
-      "stage": "needs-individual-reference",
-      "visualApproved": false
+      "stage": "lower-elevation-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://www.mos.ru/upload/content/files/lubyansky_pr.pdf#page=26",
+      "observedFeatures": "Long composite pink elevation, central lighter section and wide gate, ornamental surrounds."
     },
     {
       "osmId": 45107168,
@@ -1331,8 +1343,10 @@
           37.6344315
         ]
       },
-      "stage": "needs-individual-reference",
-      "visualApproved": false
+      "stage": "lower-elevation-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://www.mos.ru/upload/content/files/lubyansky_pr.pdf#page=27",
+      "observedFeatures": "Pale two-storey elevation, central arched surrounds and grey plinth."
     },
     {
       "osmId": 239653875,
@@ -1351,8 +1365,10 @@
           37.6346758
         ]
       },
-      "stage": "needs-individual-reference",
-      "visualApproved": false
+      "stage": "lower-elevation-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://www.mos.ru/upload/content/files/lubyansky_pr.pdf#page=28",
+      "observedFeatures": "Mint-green three-storey facade, white piers, sixteen upper bays."
     },
     {
       "osmId": 52387365,
@@ -2831,8 +2847,10 @@
           37.6267979
         ]
       },
-      "stage": "needs-individual-reference",
-      "visualApproved": false
+      "stage": "individual-medieval-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://redeveloper.ru/redeveloperskie-proekty/realise_actual/staryy-angliyskiy-dvor-moskva-rossiya/",
+      "observedFeatures": "White masonry, small irregular arched windows, pitched roofs."
     },
     {
       "osmId": 52495092,
@@ -2931,8 +2949,10 @@
           37.629176
         ]
       },
-      "stage": "needs-individual-reference",
-      "visualApproved": false
+      "stage": "individual-medieval-model-unreviewed",
+      "visualApproved": false,
+      "reference": "https://www.gw2ru.com/history/1370-10-oldest-houses-in-moscow",
+      "observedFeatures": "Triangular polychrome lower wall, pale upper wall, framed windows."
     },
     {
       "osmId": -759623500,
@@ -4892,6 +4912,15 @@
         ]
       },
       "stage": "needs-individual-reference",
+      "visualApproved": false
+    }
+  ],
+  "additionalIndividualSources": [
+    {
+      "osmId": -985494900,
+      "url": "https://pravoslavie.ru/35495.html",
+      "stage": "individual-church-model-unreviewed",
+      "observed": "Red white-trimmed arched facade, gilded domes, bell tower.",
       "visualApproved": false
     }
   ]
