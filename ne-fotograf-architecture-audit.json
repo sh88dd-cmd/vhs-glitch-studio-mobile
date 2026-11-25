@@ -1,0 +1,4898 @@
+{
+  "revision": "district-9-candidate",
+  "source": "OpenStreetMap baked extent 5",
+  "description": "Street-front candidates based on measured footprint adjacency and outward-facing normals; this is an initial audit, not a claim of exact frontage or finished architecture. Review boundary and include missing buildings/secondary streets before acceptance.",
+  "criteria": {
+    "individualFrontageReference": true,
+    "actualFootprintAndHeight": true,
+    "geometryAndDetailsMatch": true,
+    "streetFurnitureAndParkReference": true,
+    "compareRenderedScreenshotWithReference": true,
+    "mechanicalTestsPass": true
+  },
+  "totalMapBuildings": 1343,
+  "streetFrontCandidates": 244,
+  "visualApproved": 0,
+  "entries": [
+    {
+      "osmId": 310127266,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 6.23,
+        "width": 8.12,
+        "geo": [
+          55.7563277,
+          37.6351287
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45768167,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "3 с1",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 10,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 6.13,
+        "width": 26.61,
+        "geo": [
+          55.7567555,
+          37.6348066
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -749972000,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "3 с5",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 5,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 8.26,
+        "width": 20.2,
+        "geo": [
+          55.7564664,
+          37.6350611
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1955883100,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "4",
+      "name": "Российский федеральный центр судебной экспертизы",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 10,
+        "street": "Малый Спасоглинищевский переулок",
+        "distance": 4.52,
+        "width": 29.76,
+        "geo": [
+          55.7566249,
+          37.6344084
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45768175,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "6/1",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 13,
+        "street": "Малый Спасоглинищевский переулок",
+        "distance": 3.69,
+        "width": 15.58,
+        "geo": [
+          55.7565515,
+          37.6344398
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45768164,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "8",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 12,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 5.56,
+        "width": 8.97,
+        "geo": [
+          55.7559439,
+          37.6351725
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 114639560,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "9/1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 6.94,
+        "width": 29.12,
+        "geo": [
+          55.7546668,
+          37.6364798
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52392180,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "9/1 с14",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "улица Забелина",
+        "distance": 11.81,
+        "width": 26.84,
+        "geo": [
+          55.7546307,
+          37.6377907
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45106519,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "9/1 с16",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 8,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 6.36,
+        "width": 36.78,
+        "geo": [
+          55.7544289,
+          37.6367928
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 514292655,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "9/1 с16А",
+      "name": "Городская усадьба И. А. Алабова",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "улица Забелина",
+        "distance": 11.11,
+        "width": 26.94,
+        "geo": [
+          55.7544884,
+          37.6374438
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45768173,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "10 с1",
+      "name": "Московская хоральная синагога",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 6.29,
+        "width": 6.7,
+        "geo": [
+          55.7554488,
+          37.6354409
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 239653873,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "10 с3",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 6.07,
+        "width": 22.61,
+        "geo": [
+          55.7557041,
+          37.6352998
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45768172,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "12 с5",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 5.73,
+        "width": 33.42,
+        "geo": [
+          55.7549181,
+          37.6358558
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 825783495,
+      "street": "Большой Спасоглинищевский переулок",
+      "number": "12 с7",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 6.38,
+        "width": 47.74,
+        "geo": [
+          55.7545746,
+          37.6363376
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 529572361,
+      "street": "Большой Трёхсвятительский переулок",
+      "number": "2/1 с7",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Хитровский переулок",
+        "distance": 9.91,
+        "width": 6.02,
+        "geo": [
+          55.7545243,
+          37.6455059
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52404052,
+      "street": "Большой Трёхсвятительский переулок",
+      "number": "4 с3",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Хитровский переулок",
+        "distance": 18.21,
+        "width": 7.75,
+        "geo": [
+          55.7545643,
+          37.6456177
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 37771172,
+      "street": "Верхняя Радищевская улица",
+      "number": "1/2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Яузская улица",
+        "distance": 14.49,
+        "width": 12.4,
+        "geo": [
+          55.7457088,
+          37.6486609
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 1076096704,
+      "street": "Верхняя Радищевская улица",
+      "number": "2/1 с1",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Яузская улица",
+        "distance": 14.44,
+        "width": 6.36,
+        "geo": [
+          55.7456715,
+          37.6482648
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52979052,
+      "street": "Ветошный переулок",
+      "number": "17",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "улица Ильинка",
+        "distance": 10.3,
+        "width": 7.09,
+        "geo": [
+          55.7543009,
+          37.6238178
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 84653693,
+      "street": "Ипатьевский переулок",
+      "number": "",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Ипатьевский переулок",
+        "distance": 2.61,
+        "width": 5.42,
+        "geo": [
+          55.7551357,
+          37.6295477
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -45174500,
+      "street": "Ипатьевский переулок",
+      "number": "3",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Ипатьевский переулок",
+        "distance": 4.56,
+        "width": 21.58,
+        "geo": [
+          55.7552653,
+          37.6294497
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52467176,
+      "street": "Ипатьевский переулок",
+      "number": "4-10",
+      "name": "",
+      "height": 48.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 20,
+        "street": "Ипатьевский переулок",
+        "distance": 9.14,
+        "width": 10.87,
+        "geo": [
+          55.7551776,
+          37.6292854
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52467171,
+      "street": "Ипатьевский переулок",
+      "number": "9 с1",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 12,
+        "street": "Ипатьевский переулок",
+        "distance": 1.77,
+        "width": 18.96,
+        "geo": [
+          55.7541369,
+          37.6303514
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52467180,
+      "street": "Ипатьевский переулок",
+      "number": "12 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Ипатьевский переулок",
+        "distance": 4.43,
+        "width": 17.25,
+        "geo": [
+          55.7537354,
+          37.6304694
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52467179,
+      "street": "Ипатьевский переулок",
+      "number": "12 с2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Ипатьевский переулок",
+        "distance": 5.23,
+        "width": 12.31,
+        "geo": [
+          55.753571,
+          37.6305415
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52467178,
+      "street": "Ипатьевский переулок",
+      "number": "14",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Ипатьевский переулок",
+        "distance": 5.21,
+        "width": 10.04,
+        "geo": [
+          55.7534729,
+          37.6305791
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -784290000,
+      "street": "Китайгородский проезд",
+      "number": "2",
+      "name": "Китайгородская стена",
+      "height": 10,
+      "heightSource": "height",
+      "front": {
+        "edge": 2,
+        "street": "Китайгородский проезд",
+        "distance": 20.17,
+        "width": 165.67,
+        "geo": [
+          55.7513385,
+          37.6325419
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1736200800,
+      "street": "Китайгородский проезд",
+      "number": "7 с1",
+      "name": "",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 9,
+        "street": "Китайгородский проезд",
+        "distance": 8.87,
+        "width": 57.18,
+        "geo": [
+          55.7518374,
+          37.6331923
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1736198600,
+      "street": "Китайгородский проезд",
+      "number": "9 с2",
+      "name": "",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 4,
+        "street": "Китайгородский проезд",
+        "distance": 21.67,
+        "width": 18.71,
+        "geo": [
+          55.7504234,
+          37.6329179
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 98007209,
+      "street": "Колпачный переулок",
+      "number": "",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Колпачный переулок",
+        "distance": 9.79,
+        "width": 6.1,
+        "geo": [
+          55.75689,
+          37.6415978
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53088932,
+      "street": "Колпачный переулок",
+      "number": "3 с2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Колпачный переулок",
+        "distance": 14.79,
+        "width": 7.63,
+        "geo": [
+          55.7583616,
+          37.6433687
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -762146900,
+      "street": "Колпачный переулок",
+      "number": "3 с3",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Колпачный переулок",
+        "distance": 12.91,
+        "width": 6.08,
+        "geo": [
+          55.75858,
+          37.6434057
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 529283530,
+      "street": "Колпачный переулок",
+      "number": "3 с4",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Колпачный переулок",
+        "distance": 5.38,
+        "width": 6.41,
+        "geo": [
+          55.7586688,
+          37.6432836
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52889912,
+      "street": "Колпачный переулок",
+      "number": "4 с3",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Колпачный переулок",
+        "distance": 6.8,
+        "width": 9.97,
+        "geo": [
+          55.7581555,
+          37.6428205
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 46096553,
+      "street": "Колпачный переулок",
+      "number": "4 с4",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Колпачный переулок",
+        "distance": 6.8,
+        "width": 18.55,
+        "geo": [
+          55.7583202,
+          37.6429735
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 529283531,
+      "street": "Колпачный переулок",
+      "number": "5 с1",
+      "name": "",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 3,
+        "street": "Колпачный переулок",
+        "distance": 6.98,
+        "width": 5.87,
+        "geo": [
+          55.7581531,
+          37.6430693
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 46096549,
+      "street": "Колпачный переулок",
+      "number": "5 с2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Колпачный переулок",
+        "distance": 20.15,
+        "width": 31.4,
+        "geo": [
+          55.757852,
+          37.6430145
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53088957,
+      "street": "Колпачный переулок",
+      "number": "5 с6",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Колпачный переулок",
+        "distance": 6.87,
+        "width": 19.35,
+        "geo": [
+          55.7576205,
+          37.6425455
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 46096550,
+      "street": "Колпачный переулок",
+      "number": "6",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 28,
+        "street": "Колпачный переулок",
+        "distance": 5.96,
+        "width": 9.12,
+        "geo": [
+          55.7574959,
+          37.6421894
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -756541300,
+      "street": "Колпачный переулок",
+      "number": "8",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "Колпачный переулок",
+        "distance": 17.76,
+        "width": 4.43,
+        "geo": [
+          55.7572971,
+          37.6417799
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -877086100,
+      "street": "Колпачный переулок",
+      "number": "8 с2",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "Колпачный переулок",
+        "distance": 15.76,
+        "width": 6.48,
+        "geo": [
+          55.7573781,
+          37.6418955
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53088943,
+      "street": "Колпачный переулок",
+      "number": "9 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Колпачный переулок",
+        "distance": 8.98,
+        "width": 7.55,
+        "geo": [
+          55.7565752,
+          37.6419647
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -903725000,
+      "street": "Колпачный переулок",
+      "number": "10/7 с3",
+      "name": "Палаты Мазепы",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Колпачный переулок",
+        "distance": 5.85,
+        "width": 25.33,
+        "geo": [
+          55.7563489,
+          37.6417764
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -903725200,
+      "street": "Колпачный переулок",
+      "number": "10/7 с3",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 10,
+        "street": "Колпачный переулок",
+        "distance": 8.31,
+        "width": 23.9,
+        "geo": [
+          55.7565668,
+          37.6416883
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -903725100,
+      "street": "Колпачный переулок",
+      "number": "10/7 с4",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Колпачный переулок",
+        "distance": 18.8,
+        "width": 14.85,
+        "geo": [
+          55.7563966,
+          37.6415574
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -903724100,
+      "street": "Колпачный переулок",
+      "number": "10/7 с8",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Старосадский переулок",
+        "distance": 6.06,
+        "width": 14.8,
+        "geo": [
+          55.7570013,
+          37.6396683
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53088935,
+      "street": "Колпачный переулок",
+      "number": "11",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Колпачный переулок",
+        "distance": 6.93,
+        "width": 24.11,
+        "geo": [
+          55.7562157,
+          37.6420127
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45779027,
+      "street": "Колпачный переулок",
+      "number": "12",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 9,
+        "street": "Колпачный переулок",
+        "distance": 10.47,
+        "width": 13.02,
+        "geo": [
+          55.756103,
+          37.6417618
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53088927,
+      "street": "Колпачный переулок",
+      "number": "13",
+      "name": "Тяговая подстанция Арбатско-Покровской линии",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 5,
+        "street": "Колпачный переулок",
+        "distance": 17.12,
+        "width": 31.42,
+        "geo": [
+          55.755834,
+          37.6422786
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45779024,
+      "street": "Колпачный переулок",
+      "number": "14/5",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Колпачный переулок",
+        "distance": 7.45,
+        "width": 43.81,
+        "geo": [
+          55.7556323,
+          37.6419356
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -45203100,
+      "street": "Красная площадь",
+      "number": "5",
+      "name": "Средние торговые ряды",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 103,
+        "street": "улица Ильинка",
+        "distance": 8.72,
+        "width": 4.19,
+        "geo": [
+          55.7541212,
+          37.6238883
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 658513590,
+      "street": "Лубянский проезд",
+      "number": "",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Лубянский проезд",
+        "distance": 18.37,
+        "width": 6.38,
+        "geo": [
+          55.7590811,
+          37.6282247
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 321959547,
+      "street": "Лубянский проезд",
+      "number": "3",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Лубянский проезд",
+        "distance": 11.53,
+        "width": 68.12,
+        "geo": [
+          55.759081,
+          37.6287422
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -53294400,
+      "street": "Лубянский проезд",
+      "number": "5 с1",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 12,
+        "street": "Лубянский проезд",
+        "distance": 10.08,
+        "width": 40.13,
+        "geo": [
+          55.7586489,
+          37.6293249
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -864254300,
+      "street": "Лубянский проезд",
+      "number": "7 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Лубянский проезд",
+        "distance": 9.4,
+        "width": 25.53,
+        "geo": [
+          55.7583759,
+          37.629688
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1048556500,
+      "street": "Лубянский проезд",
+      "number": "9",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Лубянский проезд",
+        "distance": 7.8,
+        "width": 26.82,
+        "geo": [
+          55.7579008,
+          37.6303464
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1048556600,
+      "street": "Лубянский проезд",
+      "number": "9 с2",
+      "name": "Храм великомученика Георгия Победоносца в Старых Лучниках",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Лубянский проезд",
+        "distance": 8.27,
+        "width": 7.71,
+        "geo": [
+          55.7581146,
+          37.6300269
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1048556400,
+      "street": "Лубянский проезд",
+      "number": "9 с4",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Лубянский проезд",
+        "distance": 12.33,
+        "width": 7.7,
+        "geo": [
+          55.7580425,
+          37.6302155
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1048556300,
+      "street": "Лубянский проезд",
+      "number": "11/1",
+      "name": "",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Лубянский проезд",
+        "distance": 8.03,
+        "width": 13.32,
+        "geo": [
+          55.7577712,
+          37.630569
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -846940600,
+      "street": "Лубянский проезд",
+      "number": "15 с2",
+      "name": "Деловой центр «Лубянский»",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 41,
+        "street": "Лубянский проезд",
+        "distance": 8.64,
+        "width": 37.98,
+        "geo": [
+          55.7563195,
+          37.6326936
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53156456,
+      "street": "Лубянский проезд",
+      "number": "17",
+      "name": "",
+      "height": 26,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Лубянский проезд",
+        "distance": 7.58,
+        "width": 32.41,
+        "geo": [
+          55.7559668,
+          37.6331405
+        ]
+      },
+      "stage": "photo-crop-unapproved",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45107167,
+      "street": "Лубянский проезд",
+      "number": "19 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 8,
+        "street": "Лубянский проезд",
+        "distance": 7.48,
+        "width": 23.46,
+        "geo": [
+          55.7557082,
+          37.6334658
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53156454,
+      "street": "Лубянский проезд",
+      "number": "21 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Лубянский проезд",
+        "distance": 7.53,
+        "width": 10.04,
+        "geo": [
+          55.7555844,
+          37.6336179
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 536771197,
+      "street": "Лубянский проезд",
+      "number": "21 с2",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Лубянский проезд",
+        "distance": 7.7,
+        "width": 8.28,
+        "geo": [
+          55.7554661,
+          37.6337658
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53156453,
+      "street": "Лубянский проезд",
+      "number": "23 с1",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Лубянский проезд",
+        "distance": 7.48,
+        "width": 31.4,
+        "geo": [
+          55.7553182,
+          37.6339425
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45107168,
+      "street": "Лубянский проезд",
+      "number": "25 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Лубянский проезд",
+        "distance": 8.74,
+        "width": 35.72,
+        "geo": [
+          55.7548756,
+          37.6344315
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 239653875,
+      "street": "Лубянский проезд",
+      "number": "25 с2",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 9,
+        "street": "Лубянский проезд",
+        "distance": 12.27,
+        "width": 32.62,
+        "geo": [
+          55.7546015,
+          37.6346758
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387365,
+      "street": "Малый Ивановский переулок",
+      "number": "2/4 с1",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "улица Забелина",
+        "distance": 7.71,
+        "width": 39.36,
+        "geo": [
+          55.754957,
+          37.6393266
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 771948462,
+      "street": "Малый Ивановский переулок",
+      "number": "2/4 с7",
+      "name": "",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 2,
+        "street": "улица Забелина",
+        "distance": 4.09,
+        "width": 13.74,
+        "geo": [
+          55.7548539,
+          37.6388004
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387422,
+      "street": "Малый Ивановский переулок",
+      "number": "2A c2",
+      "name": "Часовня св. Иоанна Предтечи",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 3,
+        "street": "улица Забелина",
+        "distance": 15.41,
+        "width": 11.75,
+        "geo": [
+          55.7550759,
+          37.640108
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387416,
+      "street": "Малый Ивановский переулок",
+      "number": "6/5 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "Подколокольный переулок",
+        "distance": 6.6,
+        "width": 24.23,
+        "geo": [
+          55.7530832,
+          37.6401673
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 310127262,
+      "street": "Малый Спасоглинищевский переулок",
+      "number": "",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Малый Спасоглинищевский переулок",
+        "distance": 6.02,
+        "width": 4.49,
+        "geo": [
+          55.7563593,
+          37.6334353
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1955882900,
+      "street": "Малый Спасоглинищевский переулок",
+      "number": "2",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 16,
+        "street": "Малый Спасоглинищевский переулок",
+        "distance": 4.82,
+        "width": 34.85,
+        "geo": [
+          55.756501,
+          37.6339422
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45768169,
+      "street": "Малый Спасоглинищевский переулок",
+      "number": "3",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 24,
+        "street": "Малый Спасоглинищевский переулок",
+        "distance": 3.76,
+        "width": 15.74,
+        "geo": [
+          55.7564736,
+          37.6341566
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45778888,
+      "street": "Малый Трёхсвятительский переулок",
+      "number": "8/2 с7",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Хитровский переулок",
+        "distance": 10.16,
+        "width": 41.03,
+        "geo": [
+          55.7542383,
+          37.6453294
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 549159066,
+      "street": "Москворецкая набережная",
+      "number": "",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Москворецкая набережная",
+        "distance": 17.75,
+        "width": 5.51,
+        "geo": [
+          55.750068,
+          37.6273459
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 543294419,
+      "street": "Москворецкая набережная",
+      "number": "",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Москворецкая набережная",
+        "distance": 17.75,
+        "width": 14.22,
+        "geo": [
+          55.749823,
+          37.6315554
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1736197400,
+      "street": "Москворецкая набережная",
+      "number": "",
+      "name": "",
+      "height": 3,
+      "heightSource": "height",
+      "front": {
+        "edge": 4,
+        "street": "Москворецкая набережная",
+        "distance": 23.93,
+        "width": 9.09,
+        "geo": [
+          55.7478589,
+          37.6400025
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1736198000,
+      "street": "Москворецкая набережная",
+      "number": "7",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Москворецкая набережная",
+        "distance": 13.07,
+        "width": 45.25,
+        "geo": [
+          55.7483603,
+          37.6379634
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1736199400,
+      "street": "Москворецкая набережная",
+      "number": "7 с2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Москворецкая набережная",
+        "distance": 20.82,
+        "width": 38.14,
+        "geo": [
+          55.7486211,
+          37.6372729
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1736198100,
+      "street": "Москворецкая набережная",
+      "number": "9 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Москворецкая набережная",
+        "distance": 15.9,
+        "width": 51.38,
+        "geo": [
+          55.7481555,
+          37.6388345
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 321959550,
+      "street": "Мясницкая улица",
+      "number": "6/3 с1",
+      "name": "",
+      "height": 26,
+      "heightSource": "levels",
+      "front": {
+        "edge": 11,
+        "street": "Лубянский проезд",
+        "distance": 20.85,
+        "width": 64.72,
+        "geo": [
+          55.7591448,
+          37.6288412
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -759623400,
+      "street": "Никитников переулок",
+      "number": "2/9/11 с1",
+      "name": "",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Ипатьевский переулок",
+        "distance": 6.35,
+        "width": 47.67,
+        "geo": [
+          55.7532133,
+          37.6308668
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888887500,
+      "street": "Новая площадь",
+      "number": "3/4",
+      "name": "Политехнический музей",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 19,
+        "street": "Лубянский проезд",
+        "distance": 15.74,
+        "width": 78.16,
+        "geo": [
+          55.7583454,
+          37.6292226
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 321793491,
+      "street": "Певческий переулок",
+      "number": "1 с4",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Певческий переулок",
+        "distance": 9.2,
+        "width": 5.87,
+        "geo": [
+          55.7522167,
+          37.6423577
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 49009576,
+      "street": "Певческий переулок",
+      "number": "1/2 с1",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Певческий переулок",
+        "distance": 6.41,
+        "width": 15.44,
+        "geo": [
+          55.7517326,
+          37.6420079
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -672256600,
+      "street": "Певческий переулок",
+      "number": "1/2 с2",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 20,
+        "street": "Певческий переулок",
+        "distance": 6.39,
+        "width": 13.79,
+        "geo": [
+          55.7524857,
+          37.6426999
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -733401200,
+      "street": "Певческий переулок",
+      "number": "1/2 с2Б",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Певческий переулок",
+        "distance": 5.81,
+        "width": 28.05,
+        "geo": [
+          55.752351,
+          37.6424675
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1431047400,
+      "street": "Певческий переулок",
+      "number": "4 с1",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Певческий переулок",
+        "distance": 7.57,
+        "width": 39.93,
+        "geo": [
+          55.752096,
+          37.6419947
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 896000448,
+      "street": "Певческий переулок",
+      "number": "4 с2",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Подколокольный переулок",
+        "distance": 18.48,
+        "width": 13.39,
+        "geo": [
+          55.7526436,
+          37.6418905
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1431047300,
+      "street": "Певческий переулок",
+      "number": "4 с5",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Певческий переулок",
+        "distance": 18.36,
+        "width": 27,
+        "geo": [
+          55.7521117,
+          37.6418221
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -448325500,
+      "street": "Певческий переулок",
+      "number": "6",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Певческий переулок",
+        "distance": 8,
+        "width": 24.95,
+        "geo": [
+          55.7517801,
+          37.6417937
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52504835,
+      "street": "Петроверигский переулок",
+      "number": "2",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Петроверигский переулок",
+        "distance": 7.03,
+        "width": 14.68,
+        "geo": [
+          55.7573713,
+          37.6367201
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52504839,
+      "street": "Петроверигский переулок",
+      "number": "3",
+      "name": "",
+      "height": 22.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Петроверигский переулок",
+        "distance": 15.62,
+        "width": 17.44,
+        "geo": [
+          55.7569503,
+          37.6382459
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52977920,
+      "street": "Петроверигский переулок",
+      "number": "4",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Петроверигский переулок",
+        "distance": 7.21,
+        "width": 24.66,
+        "geo": [
+          55.7570045,
+          37.6368319
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888890600,
+      "street": "Петроверигский переулок",
+      "number": "6-8-10 с2",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 27,
+        "street": "Петроверигский переулок",
+        "distance": 7.86,
+        "width": 26.73,
+        "geo": [
+          55.7567848,
+          37.6376283
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888884000,
+      "street": "Петроверигский переулок",
+      "number": "6-8-10 с4",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 11,
+        "street": "Петроверигский переулок",
+        "distance": 6.27,
+        "width": 9.65,
+        "geo": [
+          55.7567082,
+          37.638829
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888890500,
+      "street": "Петроверигский переулок",
+      "number": "10 с3",
+      "name": "Национальный медицинский исследовательский центр профилактической медицины",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 27,
+        "street": "Петроверигский переулок",
+        "distance": 6.22,
+        "width": 16.38,
+        "geo": [
+          55.7567707,
+          37.6380081
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387373,
+      "street": "Подколокольный переулок",
+      "number": "4 с4",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "Подколокольный переулок",
+        "distance": 5.9,
+        "width": 18.12,
+        "geo": [
+          55.7529014,
+          37.6408232
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387372,
+      "street": "Подколокольный переулок",
+      "number": "6 с3",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Подколокольный переулок",
+        "distance": 5.49,
+        "width": 14,
+        "geo": [
+          55.7528779,
+          37.6410758
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387379,
+      "street": "Подколокольный переулок",
+      "number": "8 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Подколокольный переулок",
+        "distance": 5.53,
+        "width": 14.54,
+        "geo": [
+          55.7527529,
+          37.6419633
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 203703008,
+      "street": "Подколокольный переулок",
+      "number": "8 с2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Подколокольный переулок",
+        "distance": 5.64,
+        "width": 15.69,
+        "geo": [
+          55.7528236,
+          37.6415043
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 896000451,
+      "street": "Подколокольный переулок",
+      "number": "8 с6",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Подколокольный переулок",
+        "distance": 19.89,
+        "width": 11.03,
+        "geo": [
+          55.7527035,
+          37.6414217
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -448325800,
+      "street": "Подколокольный переулок",
+      "number": "10А/2",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Подколокольный переулок",
+        "distance": 5.65,
+        "width": 26.61,
+        "geo": [
+          55.752686,
+          37.6423811
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1031925600,
+      "street": "Подколокольный переулок",
+      "number": "11",
+      "name": "Дом Ярошенко",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 11,
+        "street": "Подколокольный переулок",
+        "distance": 7.12,
+        "width": 18.35,
+        "geo": [
+          55.7528351,
+          37.6421908
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1427790700,
+      "street": "Подколокольный переулок",
+      "number": "12 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Подколокольный переулок",
+        "distance": 14.04,
+        "width": 18.04,
+        "geo": [
+          55.7526551,
+          37.6443567
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1427789600,
+      "street": "Подколокольный переулок",
+      "number": "12/1 с2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Подколокольный переулок",
+        "distance": 14.09,
+        "width": 12.27,
+        "geo": [
+          55.7526209,
+          37.6439867
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1427790500,
+      "street": "Подколокольный переулок",
+      "number": "12/1 с2",
+      "name": "Дом Румянцева",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Подколокольный переулок",
+        "distance": 13.85,
+        "width": 41.45,
+        "geo": [
+          55.7525678,
+          37.6434176
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 429288416,
+      "street": "Подколокольный переулок",
+      "number": "13 с1",
+      "name": "",
+      "height": 22.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 12,
+        "street": "Хитровский переулок",
+        "distance": 11.87,
+        "width": 20.59,
+        "geo": [
+          55.7531363,
+          37.6445134
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1551578300,
+      "street": "Подколокольный переулок",
+      "number": "16/2 с1",
+      "name": "",
+      "height": 26,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Подколокольный переулок",
+        "distance": 6.9,
+        "width": 89.8,
+        "geo": [
+          55.7527903,
+          37.6453541
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -762995700,
+      "street": "Подкопаевский переулок",
+      "number": "2/6 с2",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "Колпачный переулок",
+        "distance": 8.27,
+        "width": 7.73,
+        "geo": [
+          55.7553224,
+          37.6422386
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387414,
+      "street": "Подкопаевский переулок",
+      "number": "8/13/5",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Подколокольный переулок",
+        "distance": 6.27,
+        "width": 25.41,
+        "geo": [
+          55.7530035,
+          37.6409089
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1031926000,
+      "street": "Подкопаевский переулок",
+      "number": "11 с5",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Подколокольный переулок",
+        "distance": 21.45,
+        "width": 5.02,
+        "geo": [
+          55.7529755,
+          37.642148
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1031925200,
+      "street": "Подкопаевский переулок",
+      "number": "15/9 с5",
+      "name": "Церковь Николая Чудотворца",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 17,
+        "street": "Подколокольный переулок",
+        "distance": 6.98,
+        "width": 9.78,
+        "geo": [
+          55.7529527,
+          37.6414118
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1031925700,
+      "street": "Подкопаевский переулок",
+      "number": "15/9 с6",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Подколокольный переулок",
+        "distance": 6.79,
+        "width": 17.33,
+        "geo": [
+          55.7528754,
+          37.6419153
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1031925800,
+      "street": "Подкопаевский переулок",
+      "number": "15/9 c3",
+      "name": "Часовня Николая Чудотворца",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 0,
+        "street": "Подколокольный переулок",
+        "distance": 6.7,
+        "width": 6.63,
+        "geo": [
+          55.7529034,
+          37.6417306
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45778885,
+      "street": "Покровский бульвар",
+      "number": "18/15 с2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Подколокольный переулок",
+        "distance": 15,
+        "width": 23.94,
+        "geo": [
+          55.7530848,
+          37.6465511
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1744382300,
+      "street": "Серебрянический переулок",
+      "number": "1А с11",
+      "name": "Колокольня Троицы в Серебряниках",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Яузская улица",
+        "distance": 19.63,
+        "width": 8.01,
+        "geo": [
+          55.7499144,
+          37.644388
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1956506200,
+      "street": "Славянская площадь",
+      "number": "2/5/4",
+      "name": "Дом металлургов",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 42,
+        "street": "Китайгородский проезд",
+        "distance": 10.19,
+        "width": 61.63,
+        "geo": [
+          55.753059,
+          37.6336145
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 37757246,
+      "street": "Солянский проезд",
+      "number": "1/27 с1",
+      "name": "Деловой центр «Китай Город»",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 16,
+        "street": "Славянская площадь",
+        "distance": 13.49,
+        "width": 54.41,
+        "geo": [
+          55.7541886,
+          37.6350043
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45107360,
+      "street": "Солянский проезд",
+      "number": "3",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 6.27,
+        "width": 17.48,
+        "geo": [
+          55.7543429,
+          37.6366561
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -45174300,
+      "street": "Старая площадь",
+      "number": "2/14",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Ипатьевский переулок",
+        "distance": 4.05,
+        "width": 26.81,
+        "geo": [
+          55.7555245,
+          37.6292047
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -45174400,
+      "street": "Старая площадь",
+      "number": "4",
+      "name": "Администрация Президента Российской Федерации",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 9,
+        "street": "Ипатьевский переулок",
+        "distance": 5.63,
+        "width": 12.8,
+        "geo": [
+          55.7550946,
+          37.6296472
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52467187,
+      "street": "Старая площадь",
+      "number": "7",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Ипатьевский переулок",
+        "distance": 8.05,
+        "width": 21.99,
+        "geo": [
+          55.7548713,
+          37.6299277
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 489126638,
+      "street": "Старосадский переулок",
+      "number": "3 с2",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Старосадский переулок",
+        "distance": 6.73,
+        "width": 8.34,
+        "geo": [
+          55.7574169,
+          37.6395488
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45779276,
+      "street": "Старосадский переулок",
+      "number": "4/5 с1",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 8,
+        "street": "Петроверигский переулок",
+        "distance": 4.78,
+        "width": 42.4,
+        "geo": [
+          55.7567888,
+          37.6390906
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 529216626,
+      "street": "Старосадский переулок",
+      "number": "4/5 с5",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Петроверигский переулок",
+        "distance": 15.26,
+        "width": 4.86,
+        "geo": [
+          55.7569101,
+          37.6387395
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 529216628,
+      "street": "Старосадский переулок",
+      "number": "4/5 с6",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Петроверигский переулок",
+        "distance": 15.39,
+        "width": 4.96,
+        "geo": [
+          55.7569222,
+          37.6385929
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 46096557,
+      "street": "Старосадский переулок",
+      "number": "5/8 с4",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Старосадский переулок",
+        "distance": 6.5,
+        "width": 9.27,
+        "geo": [
+          55.7573478,
+          37.6396172
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888883900,
+      "street": "Старосадский переулок",
+      "number": "6/12",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Петроверигский переулок",
+        "distance": 6.34,
+        "width": 25.57,
+        "geo": [
+          55.7566798,
+          37.6392006
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -903724200,
+      "street": "Старосадский переулок",
+      "number": "7/10 с7",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Старосадский переулок",
+        "distance": 5.69,
+        "width": 4.35,
+        "geo": [
+          55.7566454,
+          37.6395991
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 129749076,
+      "street": "Старосадский переулок",
+      "number": "7/10 с12",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Старосадский переулок",
+        "distance": 19.22,
+        "width": 5.15,
+        "geo": [
+          55.7566323,
+          37.6398142
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888884800,
+      "street": "Старосадский переулок",
+      "number": "8 с1",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 10,
+        "street": "Старосадский переулок",
+        "distance": 6.76,
+        "width": 8.75,
+        "geo": [
+          55.7561711,
+          37.6393701
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888884900,
+      "street": "Старосадский переулок",
+      "number": "8А",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Старосадский переулок",
+        "distance": 6.27,
+        "width": 30.12,
+        "geo": [
+          55.7558238,
+          37.6393944
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888887000,
+      "street": "Старосадский переулок",
+      "number": "9 с1",
+      "name": "",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 14,
+        "street": "Старосадский переулок",
+        "distance": 5.93,
+        "width": 21.77,
+        "geo": [
+          55.7564876,
+          37.6395924
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 529238937,
+      "street": "Старосадский переулок",
+      "number": "9 с9",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Старосадский переулок",
+        "distance": 11.87,
+        "width": 11.69,
+        "geo": [
+          55.7558825,
+          37.6396779
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888885100,
+      "street": "Старосадский переулок",
+      "number": "10",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Старосадский переулок",
+        "distance": 6.8,
+        "width": 9.93,
+        "geo": [
+          55.7556449,
+          37.6394271
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 519597238,
+      "street": "Старосадский переулок",
+      "number": "10 с2",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Старосадский переулок",
+        "distance": 7.95,
+        "width": 4.83,
+        "geo": [
+          55.755461,
+          37.6394748
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 529238932,
+      "street": "Старосадский переулок",
+      "number": "11/1 с1",
+      "name": "",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 3,
+        "street": "Старосадский переулок",
+        "distance": 15.11,
+        "width": 18.67,
+        "geo": [
+          55.7555262,
+          37.6398269
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1908361300,
+      "street": "улица Варварка",
+      "number": "4",
+      "name": "Храм Максима Блаженного на Варварке",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 174,
+        "street": "улица Варварка",
+        "distance": 18.04,
+        "width": 7.94,
+        "geo": [
+          55.7524702,
+          37.6270572
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1907567000,
+      "street": "улица Варварка",
+      "number": "4А",
+      "name": "Старый Английский Двор",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 38,
+        "street": "улица Варварка",
+        "distance": 18.83,
+        "width": 13.27,
+        "geo": [
+          55.7524249,
+          37.6267979
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52495092,
+      "street": "улица Варварка",
+      "number": "5/10 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 11,
+        "street": "улица Варварка",
+        "distance": 7.4,
+        "width": 49,
+        "geo": [
+          55.7529184,
+          37.6290034
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52467183,
+      "street": "улица Варварка",
+      "number": "7",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 15,
+        "street": "Ипатьевский переулок",
+        "distance": 5.06,
+        "width": 25.47,
+        "geo": [
+          55.7532947,
+          37.6306495
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 161280374,
+      "street": "улица Варварка",
+      "number": "8",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Варварка",
+        "distance": 12.09,
+        "width": 11.6,
+        "geo": [
+          55.7526268,
+          37.6277544
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1908617600,
+      "street": "улица Варварка",
+      "number": "8Б",
+      "name": "Братский корпус Знаменского монастыря",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 153,
+        "street": "улица Варварка",
+        "distance": 14.08,
+        "width": 12.95,
+        "geo": [
+          55.7527163,
+          37.6286884
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1907785200,
+      "street": "улица Варварка",
+      "number": "10",
+      "name": "Палаты бояр Романовых",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 21,
+        "street": "улица Варварка",
+        "distance": 6.3,
+        "width": 16.95,
+        "geo": [
+          55.752796,
+          37.629176
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -759623500,
+      "street": "улица Варварка",
+      "number": "11 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "улица Варварка",
+        "distance": 11.38,
+        "width": 30.84,
+        "geo": [
+          55.7530007,
+          37.6317977
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -126506500,
+      "street": "улица Варварка",
+      "number": "14",
+      "name": "",
+      "height": 40.4,
+      "heightSource": "height",
+      "front": {
+        "edge": 5,
+        "street": "улица Варварка",
+        "distance": 9.98,
+        "width": 36.97,
+        "geo": [
+          55.7528115,
+          37.6318663
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 270296736,
+      "street": "улица Забелина",
+      "number": "",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Забелина",
+        "distance": 9.85,
+        "width": 18.33,
+        "geo": [
+          55.7550405,
+          37.6397909
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 321657112,
+      "street": "улица Забелина",
+      "number": "",
+      "name": "",
+      "height": 20,
+      "heightSource": "height",
+      "front": {
+        "edge": 0,
+        "street": "улица Забелина",
+        "distance": 5.17,
+        "width": 4.71,
+        "geo": [
+          55.7550524,
+          37.6396424
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 321657113,
+      "street": "улица Забелина",
+      "number": "",
+      "name": "",
+      "height": 20,
+      "heightSource": "height",
+      "front": {
+        "edge": 2,
+        "street": "улица Забелина",
+        "distance": 6.63,
+        "width": 6.52,
+        "geo": [
+          55.7551135,
+          37.6399599
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 326009176,
+      "street": "улица Забелина",
+      "number": "",
+      "name": "Монастырская трапеза",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "улица Забелина",
+        "distance": 14.17,
+        "width": 12.06,
+        "geo": [
+          55.7550974,
+          37.640123
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52392181,
+      "street": "улица Забелина",
+      "number": "3 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "улица Забелина",
+        "distance": 12.08,
+        "width": 30.32,
+        "geo": [
+          55.7547787,
+          37.6381634
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52977870,
+      "street": "улица Забелина",
+      "number": "3 с7",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "улица Забелина",
+        "distance": 20.16,
+        "width": 4.76,
+        "geo": [
+          55.7550577,
+          37.6386471
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52977871,
+      "street": "улица Забелина",
+      "number": "3 с8",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Забелина",
+        "distance": 12.57,
+        "width": 8.65,
+        "geo": [
+          55.7550327,
+          37.6388123
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 46265945,
+      "street": "улица Ильинка",
+      "number": "3/8 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "улица Ильинка",
+        "distance": 16.67,
+        "width": 9.31,
+        "geo": [
+          55.7543793,
+          37.6238692
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 84632785,
+      "street": "улица Ильинка",
+      "number": "3/8 с2",
+      "name": "Церковь Ильи Пророка на Новгородском подворье",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Ильинка",
+        "distance": 7.83,
+        "width": 5.79,
+        "geo": [
+          55.7543851,
+          37.6240954
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52977861,
+      "street": "улица Ильинка",
+      "number": "3/8 с5",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Ильинка",
+        "distance": 8.7,
+        "width": 41.7,
+        "geo": [
+          55.7545711,
+          37.6246301
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52495096,
+      "street": "улица Ильинка",
+      "number": "4",
+      "name": "Гостиный двор",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 32,
+        "street": "улица Варварка",
+        "distance": 12.22,
+        "width": 95.56,
+        "geo": [
+          55.7527031,
+          37.6267298
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -126506800,
+      "street": "улица Ильинка",
+      "number": "5/2",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 16,
+        "street": "улица Ильинка",
+        "distance": 7.79,
+        "width": 15.39,
+        "geo": [
+          55.7547691,
+          37.6252111
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 50885565,
+      "street": "улица Ильинка",
+      "number": "6/1 с1",
+      "name": "Торгово-промышленная палата РФ",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 13,
+        "street": "улица Ильинка",
+        "distance": 7.44,
+        "width": 4.79,
+        "geo": [
+          55.754872,
+          37.6258391
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 84675586,
+      "street": "улица Ильинка",
+      "number": "7",
+      "name": "Федеральное казначейство",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 9,
+        "street": "улица Ильинка",
+        "distance": 11.28,
+        "width": 11.39,
+        "geo": [
+          55.7551133,
+          37.625933
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52495104,
+      "street": "улица Ильинка",
+      "number": "8 с2",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "улица Ильинка",
+        "distance": 7.63,
+        "width": 58.07,
+        "geo": [
+          55.7551439,
+          37.626618
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -930752200,
+      "street": "улица Ильинка",
+      "number": "9 с1",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 36,
+        "street": "улица Ильинка",
+        "distance": 11.29,
+        "width": 50.04,
+        "geo": [
+          55.755273,
+          37.6264118
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52495103,
+      "street": "улица Ильинка",
+      "number": "10/2",
+      "name": "Федеральное казначейство",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "улица Ильинка",
+        "distance": 7.18,
+        "width": 55.88,
+        "geo": [
+          55.7554022,
+          37.6274032
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 84675555,
+      "street": "улица Ильинка",
+      "number": "11/10 с1",
+      "name": "",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "улица Ильинка",
+        "distance": 11.69,
+        "width": 21.77,
+        "geo": [
+          55.7555685,
+          37.6273156
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 84653673,
+      "street": "улица Ильинка",
+      "number": "12/2",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 11,
+        "street": "Ипатьевский переулок",
+        "distance": 4.34,
+        "width": 44.59,
+        "geo": [
+          55.7556023,
+          37.6289956
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 84653602,
+      "street": "улица Ильинка",
+      "number": "12/2/1 с1",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 12,
+        "street": "улица Ильинка",
+        "distance": 8.16,
+        "width": 33.82,
+        "geo": [
+          55.7557022,
+          37.6283293
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 247051417,
+      "street": "улица Ильинка",
+      "number": "13",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Ильинка",
+        "distance": 10.42,
+        "width": 28.64,
+        "geo": [
+          55.7557909,
+          37.6280378
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52507994,
+      "street": "улица Ильинка",
+      "number": "21",
+      "name": "",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "улица Ильинка",
+        "distance": 9.52,
+        "width": 10.27,
+        "geo": [
+          55.7562364,
+          37.6291903
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 49436491,
+      "street": "улица Ильинка",
+      "number": "23 с1",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "улица Ильинка",
+        "distance": 15.27,
+        "width": 4.21,
+        "geo": [
+          55.7564526,
+          37.6295154
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -456779400,
+      "street": "улица Маросейка",
+      "number": "2/15 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 16,
+        "street": "Лубянский проезд",
+        "distance": 7.32,
+        "width": 11.57,
+        "geo": [
+          55.7569146,
+          37.6319477
+        ]
+      },
+      "stage": "photo-crop-unapproved",
+      "visualApproved": false
+    },
+    {
+      "osmId": -725982200,
+      "street": "улица Маросейка",
+      "number": "3/13 с1",
+      "name": "Российский союз молодежи",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 5,
+        "street": "Лубянский проезд",
+        "distance": 7.48,
+        "width": 53.17,
+        "geo": [
+          55.7574878,
+          37.6311026
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1955883400,
+      "street": "улица Маросейка",
+      "number": "4/2 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 5.73,
+        "width": 9.76,
+        "geo": [
+          55.7573658,
+          37.6341607
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1955883000,
+      "street": "улица Маросейка",
+      "number": "4/2 с3",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 6.08,
+        "width": 5.33,
+        "geo": [
+          55.7572648,
+          37.6342174
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -725982100,
+      "street": "улица Маросейка",
+      "number": "5 с2",
+      "name": "Храм святителя Николая Чудотворца в Кленниках",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 5,
+        "street": "улица Маросейка",
+        "distance": 11.04,
+        "width": 6.34,
+        "geo": [
+          55.7574414,
+          37.6322373
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -762779300,
+      "street": "улица Маросейка",
+      "number": "6-8 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 5.55,
+        "width": 31.97,
+        "geo": [
+          55.7572665,
+          37.6344163
+        ]
+      },
+      "stage": "photo-crop-unapproved",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52977917,
+      "street": "улица Маросейка",
+      "number": "6-8 с4",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Большой Спасоглинищевский переулок",
+        "distance": 15.77,
+        "width": 9.03,
+        "geo": [
+          55.7569875,
+          37.634801
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -53294600,
+      "street": "улица Маросейка",
+      "number": "7/8 с1",
+      "name": "",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 14,
+        "street": "улица Маросейка",
+        "distance": 8.38,
+        "width": 6.44,
+        "geo": [
+          55.7575351,
+          37.6329553
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -762779400,
+      "street": "улица Маросейка",
+      "number": "8",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Маросейка",
+        "distance": 7.84,
+        "width": 52.7,
+        "geo": [
+          55.7575885,
+          37.6355891
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -725980400,
+      "street": "улица Маросейка",
+      "number": "9 с1",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Маросейка",
+        "distance": 9.2,
+        "width": 30.51,
+        "geo": [
+          55.7576699,
+          37.6342025
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -725980300,
+      "street": "улица Маросейка",
+      "number": "9 с8",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "улица Маросейка",
+        "distance": 9.73,
+        "width": 10.08,
+        "geo": [
+          55.7577094,
+          37.6349254
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -725980600,
+      "street": "улица Маросейка",
+      "number": "9/2 с1",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "улица Маросейка",
+        "distance": 9.15,
+        "width": 10.76,
+        "geo": [
+          55.7576514,
+          37.6338748
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45107169,
+      "street": "улица Маросейка",
+      "number": "10/1 с1",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Петроверигский переулок",
+        "distance": 5.27,
+        "width": 37.07,
+        "geo": [
+          55.7575281,
+          37.6368723
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52504838,
+      "street": "улица Маросейка",
+      "number": "10/1 с3",
+      "name": "",
+      "height": 16.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 28,
+        "street": "Петроверигский переулок",
+        "distance": 5.83,
+        "width": 27.44,
+        "geo": [
+          55.7572066,
+          37.6369777
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -725980100,
+      "street": "улица Маросейка",
+      "number": "11/4 с1",
+      "name": "Малороссийское подворье",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 13,
+        "street": "улица Маросейка",
+        "distance": 7.42,
+        "width": 40.65,
+        "geo": [
+          55.7577208,
+          37.6355052
+        ]
+      },
+      "stage": "photo-crop-unapproved",
+      "visualApproved": false
+    },
+    {
+      "osmId": -781210600,
+      "street": "улица Маросейка",
+      "number": "12",
+      "name": "",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 11,
+        "street": "улица Маросейка",
+        "distance": 10.05,
+        "width": 4.89,
+        "geo": [
+          55.75787,
+          37.637694
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -781210500,
+      "street": "улица Маросейка",
+      "number": "12 с2",
+      "name": "",
+      "height": 48.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Старосадский переулок",
+        "distance": 7.68,
+        "width": 17.76,
+        "geo": [
+          55.757615,
+          37.6390729
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52504840,
+      "street": "улица Маросейка",
+      "number": "14/2 с3",
+      "name": "Церковь Космы и Дамиана на Маросейке",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 32,
+        "street": "улица Маросейка",
+        "distance": 20.61,
+        "width": 7.33,
+        "geo": [
+          55.7579092,
+          37.6383385
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -725980000,
+      "street": "улица Маросейка",
+      "number": "15",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Маросейка",
+        "distance": 7.23,
+        "width": 6.78,
+        "geo": [
+          55.7577865,
+          37.6363528
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -725979100,
+      "street": "улица Маросейка",
+      "number": "17/6 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "улица Маросейка",
+        "distance": 10.82,
+        "width": 19.91,
+        "geo": [
+          55.7581952,
+          37.638258
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -725979700,
+      "street": "улица Маросейка",
+      "number": "17/6 с4",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "улица Маросейка",
+        "distance": 10.87,
+        "width": 23.75,
+        "geo": [
+          55.7580057,
+          37.6373978
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -888886400,
+      "street": "улица Покровка",
+      "number": "1/13 с1",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 9,
+        "street": "улица Маросейка",
+        "distance": 14.24,
+        "width": 7.67,
+        "geo": [
+          55.7583001,
+          37.6387236
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52889910,
+      "street": "улица Покровка",
+      "number": "2/1 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 18,
+        "street": "Старосадский переулок",
+        "distance": 6.55,
+        "width": 50.61,
+        "geo": [
+          55.7578789,
+          37.6390563
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 46096556,
+      "street": "улица Покровка",
+      "number": "8",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Колпачный переулок",
+        "distance": 6.3,
+        "width": 20.31,
+        "geo": [
+          55.7588429,
+          37.6430841
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45256542,
+      "street": "улица Покровка",
+      "number": "9 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Колпачный переулок",
+        "distance": 10.61,
+        "width": 6.37,
+        "geo": [
+          55.7591159,
+          37.6430647
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53088961,
+      "street": "улица Покровка",
+      "number": "10 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Колпачный переулок",
+        "distance": 5.58,
+        "width": 28.18,
+        "geo": [
+          55.7588241,
+          37.643276
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 53088958,
+      "street": "улица Покровка",
+      "number": "10 с3",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Колпачный переулок",
+        "distance": 13.63,
+        "width": 6.95,
+        "geo": [
+          55.7587097,
+          37.6434137
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45256541,
+      "street": "улица Покровка",
+      "number": "11",
+      "name": "",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "Колпачный переулок",
+        "distance": 10.92,
+        "width": 5.33,
+        "geo": [
+          55.7591348,
+          37.643208
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -45082200,
+      "street": "улица Солянка",
+      "number": "1/2 с1",
+      "name": "",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Солянка",
+        "distance": 6.98,
+        "width": 26.37,
+        "geo": [
+          55.7539744,
+          37.6374645
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -45079600,
+      "street": "улица Солянка",
+      "number": "1/2 с2",
+      "name": "",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 74,
+        "street": "улица Солянка",
+        "distance": 7.11,
+        "width": 51.68,
+        "geo": [
+          55.7534532,
+          37.6384879
+        ]
+      },
+      "stage": "photo-crop-unapproved",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52392182,
+      "street": "улица Солянка",
+      "number": "2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "улица Солянка",
+        "distance": 15.03,
+        "width": 14.23,
+        "geo": [
+          55.7540251,
+          37.6369628
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387419,
+      "street": "улица Солянка",
+      "number": "3 с1",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Подколокольный переулок",
+        "distance": 6.29,
+        "width": 11.54,
+        "geo": [
+          55.7531256,
+          37.6398362
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387366,
+      "street": "улица Солянка",
+      "number": "3 с2",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 11,
+        "street": "Подколокольный переулок",
+        "distance": 7.36,
+        "width": 31.57,
+        "geo": [
+          55.7532359,
+          37.639247
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52404043,
+      "street": "улица Солянка",
+      "number": "4 с1",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "улица Солянка",
+        "distance": 15.97,
+        "width": 19.5,
+        "geo": [
+          55.7537509,
+          37.6373029
+        ]
+      },
+      "stage": "photo-crop-unapproved",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52392183,
+      "street": "улица Солянка",
+      "number": "4 с1-1А",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 9,
+        "street": "улица Солянка",
+        "distance": 15.5,
+        "width": 15.13,
+        "geo": [
+          55.7539163,
+          37.6370951
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1219883000,
+      "street": "улица Солянка",
+      "number": "5/2",
+      "name": "Церковь Рождества Богоматери",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 7,
+        "street": "Подколокольный переулок",
+        "distance": 7.24,
+        "width": 15.3,
+        "geo": [
+          55.7530103,
+          37.639767
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1219882700,
+      "street": "улица Солянка",
+      "number": "5/2 с1",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Подколокольный переулок",
+        "distance": 7.07,
+        "width": 5.36,
+        "geo": [
+          55.752946,
+          37.6402691
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 579657166,
+      "street": "улица Солянка",
+      "number": "5/2 с3",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "улица Солянка",
+        "distance": 15.32,
+        "width": 5.56,
+        "geo": [
+          55.7526739,
+          37.6399522
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52404042,
+      "street": "улица Солянка",
+      "number": "6",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "улица Солянка",
+        "distance": 15.85,
+        "width": 20.39,
+        "geo": [
+          55.7536079,
+          37.6374947
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1219882900,
+      "street": "улица Солянка",
+      "number": "7 с1",
+      "name": "Дом с атлантами",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Солянка",
+        "distance": 12.04,
+        "width": 65.42,
+        "geo": [
+          55.7523975,
+          37.6402389
+        ]
+      },
+      "stage": "photo-crop-unapproved",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1219882800,
+      "street": "улица Солянка",
+      "number": "7 с2",
+      "name": "",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 5,
+        "street": "Подколокольный переулок",
+        "distance": 20.52,
+        "width": 10.03,
+        "geo": [
+          55.7528184,
+          37.6403223
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 49009835,
+      "street": "улица Солянка",
+      "number": "9 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "улица Солянка",
+        "distance": 11.64,
+        "width": 27.08,
+        "geo": [
+          55.7520184,
+          37.6407148
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 579657172,
+      "street": "улица Солянка",
+      "number": "9А с2",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "улица Солянка",
+        "distance": 12.56,
+        "width": 7.37,
+        "geo": [
+          55.7518533,
+          37.6409447
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387387,
+      "street": "улица Солянка",
+      "number": "9А с3",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "улица Солянка",
+        "distance": 12.65,
+        "width": 11.25,
+        "geo": [
+          55.7517805,
+          37.6410397
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387381,
+      "street": "улица Солянка",
+      "number": "11/6 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 7,
+        "street": "Певческий переулок",
+        "distance": 6.62,
+        "width": 16.09,
+        "geo": [
+          55.7514998,
+          37.64161
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1736197700,
+      "street": "улица Солянка",
+      "number": "12-14",
+      "name": "Опекунский совет",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "улица Солянка",
+        "distance": 14.48,
+        "width": 39.63,
+        "geo": [
+          55.7518664,
+          37.6403957
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387382,
+      "street": "улица Солянка",
+      "number": "13 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 5,
+        "street": "Певческий переулок",
+        "distance": 7.29,
+        "width": 22.8,
+        "geo": [
+          55.7514024,
+          37.6417606
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -36580800,
+      "street": "улица Солянка",
+      "number": "14/2",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "улица Солянка",
+        "distance": 9.19,
+        "width": 39.89,
+        "geo": [
+          55.7513169,
+          37.641204
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52387397,
+      "street": "улица Солянка",
+      "number": "15",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 19,
+        "street": "улица Солянка",
+        "distance": 11.87,
+        "width": 46.53,
+        "geo": [
+          55.7508226,
+          37.642267
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1736197800,
+      "street": "улица Солянка",
+      "number": "16",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "улица Солянка",
+        "distance": 10.43,
+        "width": 31.77,
+        "geo": [
+          55.7507465,
+          37.6419243
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45778891,
+      "street": "Хитровский переулок",
+      "number": "2/8 с5",
+      "name": "Корпус «П» АУК «Покровка» НИУ ВШЭ",
+      "height": 19.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Хитровский переулок",
+        "distance": 10.23,
+        "width": 24.1,
+        "geo": [
+          55.7536502,
+          37.6447545
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 46096640,
+      "street": "Хитровский переулок",
+      "number": "3/1 с3",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Хитровский переулок",
+        "distance": 9.13,
+        "width": 9.45,
+        "geo": [
+          55.7534434,
+          37.6442129
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 46096633,
+      "street": "Хитровский переулок",
+      "number": "3А с1",
+      "name": "Поликлиника №2 ФСБ России",
+      "height": 13,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Хитровский переулок",
+        "distance": 10.66,
+        "width": 33.5,
+        "geo": [
+          55.7538235,
+          37.6445437
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 529572320,
+      "street": "Хитровский переулок",
+      "number": "3A с3",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 9,
+        "street": "Хитровский переулок",
+        "distance": 9.74,
+        "width": 6.02,
+        "geo": [
+          55.7536119,
+          37.6443533
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45778890,
+      "street": "Хитровский переулок",
+      "number": "4",
+      "name": "",
+      "height": 22.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Хитровский переулок",
+        "distance": 10.29,
+        "width": 23.39,
+        "geo": [
+          55.7539095,
+          37.6450101
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 45779031,
+      "street": "Хохловский переулок",
+      "number": "2/6 с1",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Колпачный переулок",
+        "distance": 20.34,
+        "width": 14.23,
+        "geo": [
+          55.7553021,
+          37.6424345
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -762995800,
+      "street": "Хохловский переулок",
+      "number": "4 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 6,
+        "street": "Колпачный переулок",
+        "distance": 13.33,
+        "width": 19.68,
+        "geo": [
+          55.7552676,
+          37.6420007
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 133636966,
+      "street": "Яузская улица",
+      "number": "",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Яузская улица",
+        "distance": 15.57,
+        "width": 12.75,
+        "geo": [
+          55.749826,
+          37.6432779
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 1076096705,
+      "street": "Яузская улица",
+      "number": "",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 1,
+        "street": "Яузская улица",
+        "distance": 14.1,
+        "width": 4.51,
+        "geo": [
+          55.7457162,
+          37.6482279
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 40444291,
+      "street": "Яузская улица",
+      "number": "1/15 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Яузская улица",
+        "distance": 15.21,
+        "width": 18.67,
+        "geo": [
+          55.7504632,
+          37.6431785
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52404048,
+      "street": "Яузская улица",
+      "number": "1/15 с2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Яузская улица",
+        "distance": 16.62,
+        "width": 30,
+        "geo": [
+          55.7503244,
+          37.6434897
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 52404044,
+      "street": "Яузская улица",
+      "number": "1/15 с3",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 9,
+        "street": "Яузская улица",
+        "distance": 16.89,
+        "width": 28.35,
+        "geo": [
+          55.7501338,
+          37.643881
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -1744382400,
+      "street": "Яузская улица",
+      "number": "1/15 с5",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 4,
+        "street": "Яузская улица",
+        "distance": 16.98,
+        "width": 14.2,
+        "geo": [
+          55.7499965,
+          37.6441647
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -183941900,
+      "street": "Яузская улица",
+      "number": "5",
+      "name": "Бизнес-центр \"Яузская, 5\"",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 13,
+        "street": "Яузская улица",
+        "distance": 16.1,
+        "width": 39.96,
+        "geo": [
+          55.7495932,
+          37.6447876
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 116966528,
+      "street": "Яузская улица",
+      "number": "6",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Яузская улица",
+        "distance": 10.77,
+        "width": 30.5,
+        "geo": [
+          55.7475736,
+          37.6464404
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 174492064,
+      "street": "Яузская улица",
+      "number": "6 с4",
+      "name": "",
+      "height": 3.25,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Яузская улица",
+        "distance": 16.14,
+        "width": 15.92,
+        "geo": [
+          55.7473353,
+          37.6465873
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 42446212,
+      "street": "Яузская улица",
+      "number": "8 с1",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 3,
+        "street": "Яузская улица",
+        "distance": 8.43,
+        "width": 31.72,
+        "geo": [
+          55.7467276,
+          37.6473614
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 116966537,
+      "street": "Яузская улица",
+      "number": "8 с2",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Яузская улица",
+        "distance": 8.65,
+        "width": 39.9,
+        "geo": [
+          55.7470778,
+          37.6469932
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 37769548,
+      "street": "Яузская улица",
+      "number": "10/2 с5",
+      "name": "",
+      "height": 6.5,
+      "heightSource": "levels",
+      "front": {
+        "edge": 0,
+        "street": "Яузская улица",
+        "distance": 9.34,
+        "width": 13.61,
+        "geo": [
+          55.7464866,
+          37.6475949
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -394993700,
+      "street": "Яузская улица",
+      "number": "11/6 с3",
+      "name": "",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 3,
+        "street": "Яузская улица",
+        "distance": 11.79,
+        "width": 13.98,
+        "geo": [
+          55.7459891,
+          37.6484729
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -394993500,
+      "street": "Яузская улица",
+      "number": "11/6 с10",
+      "name": "",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 5,
+        "street": "Яузская улица",
+        "distance": 7.6,
+        "width": 8.33,
+        "geo": [
+          55.746771,
+          37.6476126
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": -394992900,
+      "street": "Яузская улица",
+      "number": "11/6 с11",
+      "name": "",
+      "height": 12,
+      "heightSource": "estimate",
+      "front": {
+        "edge": 0,
+        "street": "Яузская улица",
+        "distance": 8.41,
+        "width": 30.27,
+        "geo": [
+          55.7470887,
+          37.6472976
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    },
+    {
+      "osmId": 151077478,
+      "street": "Яузская улица",
+      "number": "12",
+      "name": "",
+      "height": 9.75,
+      "heightSource": "levels",
+      "front": {
+        "edge": 2,
+        "street": "Яузская улица",
+        "distance": 9.23,
+        "width": 29.43,
+        "geo": [
+          55.7461991,
+          37.6478937
+        ]
+      },
+      "stage": "needs-individual-reference",
+      "visualApproved": false
+    }
+  ]
+}
