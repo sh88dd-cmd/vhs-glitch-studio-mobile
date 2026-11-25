@@ -37,13 +37,13 @@ export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,ne
  function inside(x,z,ring){let v=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])v=!v}return v}
  const parks=(cityMap.parks||[]).filter(p=>/зарядье|ильинский сквер/i.test(p.name||''));
  const treeSites=[];
- for(const p of parks){
+ for(const p of parks){let localTrees=0;const limit=/ильинский/i.test(p.name||'')?85:110;
    const xs=p.points.map(q=>q[0]),zs=p.points.map(q=>q[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minZ=Math.min(...zs),maxZ=Math.max(...zs);
    for(let x=minX+4;x<maxX-3;x+=9)for(let z=minZ+4;z<maxZ-3;z+=9){
-     const xx=x+(rand()-.5)*5,zz=z+(rand()-.5)*5;if(report.parkTrees>=165||rand()<.47||!inside(xx,zz,p.points)||(p.holes||[]).some(r=>inside(xx,zz,r))||!clearPoint(xx,zz,2)||!offRoad(xx,zz,2)||treeSites.some(q=>Math.hypot(q[0]-xx,q[1]-zz)<5.5))continue;
+     const xx=x+(rand()-.5)*5,zz=z+(rand()-.5)*5;if(localTrees>=limit||rand()<.47||!inside(xx,zz,p.points)||(p.holes||[]).some(r=>inside(xx,zz,r))||!clearPoint(xx,zz,2)||!offRoad(xx,zz,2)||treeSites.some(q=>Math.hypot(q[0]-xx,q[1]-zz)<5.5))continue;
      // Preserve the open lawn and the concert hall envelope.
-     const hall=geo(55.75121,37.631326);if(Math.hypot(hall.x-xx,hall.z-zz)<58)continue;
-     treeSites.push([xx,zz]);tree(xx,zz,4.2+rand()*3.6);report.parkTrees++;
+     const hall=geo(55.75121,37.631326);if(/зарядье/i.test(p.name||'')&&Math.hypot(hall.x-xx,hall.z-zz)<58)continue;
+     treeSites.push([xx,zz]);tree(xx,zz,4.2+rand()*3.6);report.parkTrees++;localTrees++;if(/ильинский/i.test(p.name||''))report.ilyinskyTrees=(report.ilyinskyTrees||0)+1;
      if(rand()<.22){repeat('shrub',crownG,grassDark,xx+2,.48,zz+1,1.15,.60,.9,rand()*6.28)}
    }
  }
