@@ -48,7 +48,7 @@ jobs:
       - name: Bake actual OpenStreetMap data
         working-directory: ne-fotograf-rebuild-src
         run: |
-          if python -c "import json; assert json.load(open('../ne-fotograf-next/assets/kitay-gorod.json')).get('relationsIncluded')" 2>/dev/null; then
+          if python -c "import json; assert json.load(open('../ne-fotograf-next/assets/kitay-gorod.json')).get('districtExtent')==5" 2>/dev/null; then
             cp ../ne-fotograf-next/assets/kitay-gorod.json public/assets/kitay-gorod.json
           else
             python tools/expand-osm.py
@@ -82,7 +82,8 @@ jobs:
             let state=await page.evaluate(()=>NF_NEW.ready?NF_NEW.inspect():NF_NEW);
             console.log('Before',state);
             if(state.hero!=='Andr 3-rigged'||state.heroVertices!==122663||state.heroSkinned<1||state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.relationBuildings<1||state.buildings<150||state.roads<150||state.locations.length<7||!state.actions.includes('jumpStart')||!state.actions.includes('jumpLoop')||!state.actions.includes('run'))throw Error(JSON.stringify(state));
-            if(!state.district?.hall||!state.district?.bridge||state.district.parkTrees<12||state.district.streetLamps<8||state.district.streets.length<3)throw Error('District environment missing '+JSON.stringify(state.district));
+            if(state.mapHandedness>=0||state.waterPolygons<1||!state.locations.includes('Высотка на Котельнической'))throw Error('Geographic correction/extent '+JSON.stringify(state));
+            if(!state.district?.kotelnicheskaya||!state.district?.plevna||!state.district?.cyrilMethodius||!state.district?.hall||!state.district?.bridge||state.district.parkTrees<12||state.district.streetLamps<8||state.district.streets.length<3)throw Error('District environment missing '+JSON.stringify(state.district));
             if(state.baseFacades!==state.buildings||state.addressProfiles<55||state.profileTypes.length<20)throw Error('District coverage '+JSON.stringify(state));
             if(!state.piggyAddressMatched||!state.landmarks.includes('piggy'))throw Error('Piggy facade missing '+JSON.stringify(state.piggyInfo));
             if(state.cars.length!==4||!state.cars.every(c=>c.clear&&c.dir*c.lane<0)||state.pedestrians.length!==4||!state.pedestrians.every(p=>p.clear&&p.path>2))throw Error('Traffic or sidewalk init '+JSON.stringify(state));
@@ -145,7 +146,7 @@ jobs:
             const visited=await page.evaluate(()=>NF_NEW.inspect());if(visited.driving||Math.hypot(visited.position[0],visited.position[2]+14)<40||errors.length)throw Error('Location '+JSON.stringify(visited));
             const frame=await page.evaluate(()=>NF_NEW.capture());
             writeFileSync('/tmp/nf-piggy.png',Buffer.from((await page.evaluate(()=>NF_NEW.test.capturePiggy())).split(',')[1],'base64'));
-            for(const [name,file] of [['Солянка','solyanka'],['Маросейка','maroseyka'],['Лубянский проезд','lubyansky'],['Зарядье','zaryadye']]){
+            for(const [name,file] of [['Солянка','solyanka'],['Маросейка','maroseyka'],['Лубянский проезд','lubyansky'],['Зарядье','zaryadye'],['Славянская площадь','slavyanskaya'],['Ильинский сквер','ilyinsky'],['Высотка на Котельнической','kotelnicheskaya']]){
               const image=await page.evaluate(name=>NF_NEW.test.captureStreet(name),name);
               writeFileSync('/tmp/nf-'+file+'.png',Buffer.from(image.split(',')[1],'base64'));
             }
@@ -164,7 +165,7 @@ jobs:
           print('Render mean:',st.mean,'std:',st.stddev)
           assert max(st.mean)>30 and max(st.stddev)>18, 'Empty or uniform WebGL render'
           assert len(im.resize((96,96)).getcolors(10000))>150, 'Missing visual detail'
-          for name in ('piggy','solyanka','maroseyka','lubyansky','zaryadye'):
+          for name in ('piggy','solyanka','maroseyka','lubyansky','zaryadye','slavyanskaya','ilyinsky','kotelnicheskaya'):
               img=Image.open('/tmp/nf-'+name+'.png').convert('RGB')
               assert max(ImageStat.Stat(img).stddev)>12, 'Blank district screenshot '+name
           PY
@@ -180,6 +181,9 @@ jobs:
             /tmp/nf-maroseyka.png
             /tmp/nf-lubyansky.png
             /tmp/nf-zaryadye.png
+            /tmp/nf-slavyanskaya.png
+            /tmp/nf-ilyinsky.png
+            /tmp/nf-kotelnicheskaya.png
             /tmp/nf-architecture-audit.json
       - name: Publish new scene separately
         run: |

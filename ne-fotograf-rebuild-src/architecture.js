@@ -70,6 +70,11 @@ const addressStyles={
  lub21:house(0xd8c9b1,0xe7dfd0,'classical',1.2),
  lub25:house(0xd3c0a4,0xe8ddcb,'classical',1.2),
  lub27:house(0xd0b994,0xe8ddcb,'ornate',1.2),
+ slavModern:house(0xaaa8a2,0xe5e3da,'modern',0),
+ slavMetall:house(0xc5b8a5,0xe2dbcd,'ornate',1.25,{roof:0x535d5d}),
+ slavBusiness:house(0xcac0ab,0xe9e2d3,'ornate',1.2),
+ koteln:house(0xd6cbb4,0xeee5d5,'ornate',0),
+ yauza:house(0xc8b9a0,0xe6ddce,'classical',1.2),
  var:house(0xd4c6ae,0xe8dfcf,'classical',1.2),
  museum:house(0xd7c8ad,0xf0e6d3,'ornate',1.8),
  english:house(0xe6e2d7,0xf0ece0,'classical',2.1,{roof:0x547064}),
@@ -91,6 +96,7 @@ function extraProfile(b){
  if(id===513659941)return 'foodhall';
  if(name.includes('английский двор'))return 'english';
  if(name.includes('палаты бояр романов'))return 'romanov';
+ if(name.includes('всех святых на кулишках'))return 'churchRed';
  if(name.includes('церковь космы'))return 'churchGreen';
  if(name.includes('николая чудотворца в кленниках')||name.includes('знамение'))return 'churchRed';
  if(name.includes('храм')||name.includes('церковь')||name.includes('собор')){
@@ -101,6 +107,9 @@ function extraProfile(b){
  if(s.includes('маросейка')&&Number.isFinite(num))return addressStyles['mar'+num]?'mar'+num:null;
  if(s.includes('лубянский')&&Number.isFinite(num))return addressStyles['lub'+num]?'lub'+num:null;
  if(s.includes('варварка'))return 'var';
+ if(s.includes('славянская'))return name.includes('lumin')?'slavModern':name.includes('металлург')?'slavMetall':'slavBusiness';
+ if(s.includes('котельническая'))return 'koteln';
+ if(s.includes('яузская'))return 'yauza';
  return null;
 }
 
@@ -142,7 +151,8 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   // Keep surveyed OSM heights. Correct documented storeys where height was only guessed.
   for(const b of cityMap.buildings){
     const k=profile(b),d=config(b);
-    if(k==='piggy')b.height=5.35; // estimated from supplied street-level photographs
+    if(k==='piggy')b.height=5.65;
+    else if(Number(b.id)===52404042)b.height=10.6; // estimated from supplied street-level photographs
     else if(d.floors&&(!b.heightSource||b.heightSource==='estimate'||Math.abs(b.height/3.25-d.floors)>1))b.height=d.floors*3.55+.5;
   }
   
@@ -209,10 +219,11 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   }
   function frontEdge(b,es){
     let best=null,score=Infinity;const target=profile(b)==='piggy'?'солянка':street(b),preferred=roadPaths.filter(o=>target&&String(o.r.name||'').toLowerCase().includes(target));
-    const roads=preferred.length?preferred:roadPaths.filter(o=>!['path','footway','steps','service','cycleway'].includes(o.r.type));
+    const major=preferred.filter(o=>!['path','footway','steps','service','cycleway'].includes(o.r.type));
+    const roads=major.length?major:preferred.length?preferred:roadPaths.filter(o=>!['path','footway','steps','service','cycleway'].includes(o.r.type));
     for(const e of es){if(e.l<5)continue;const x=(e.p[0]+e.q[0])/2+e.nx,z=(e.p[1]+e.q[1])/2+e.nz;let d=Infinity;
       for(const {r,path} of roads){const n=nearPath(path,x,z).distance;d=Math.min(d,n-(r.width||0)*.35)}
-      const v=d-e.l*.11;if(v<score){score=v;best=e}}
+      const v=d-e.l*.20;if(v<score){score=v;best=e}}
     return best||es.slice().sort((a,b)=>b.l-a.l)[0];
   }
   function kit(e){
@@ -242,25 +253,36 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     }
   }
   function piggy(e,k,b,front,trim,base){
-    const l=e.l,h=b.height,frame=0x5d5044;
+    const l=e.l,h=b.height,frame=0x534840;
     k.line(base,l/2,.44,l,.88,.19);cornice(k,e,h,trim);k.line(trim,l/2,3.18,l,.16,.24);k.line(trim,l/2,3.38,l,.12,.29);
     if(!front){const count=Math.max(1,Math.floor(l/3.7));for(let j=0;j<count;j++)window(k,(j+.5)*l/count,1.91,Math.min(1.65,l/count*.60),2.08,trim,frame,j%3,false,true);return}
-    const from=k.fromLeft,sections=[{f:.20,title:'БРАТЬЯ КАРАВАЕВЫ'},{f:.60,title:'ПИГГИ · PIGGY'}];
+    const from=k.fromLeft,sections=[{f:.27,title:'БРАТЬЯ КАРАВАЕВЫ'},{f:.68,title:'ПИГГИ · PIGGY'}];
+    const gray=M(0x6f706d),plinth=M(0x77756d),flower=M(0x4d633a),red=M(0x9e4140);
+    k.line(plinth,l/2,.43,l,.86,.13);k.line(trim,l/2,3.25,l,.22,.33);k.line(trim,l/2,3.52,l,.14,.42);
     for(const {f,title} of sections){
-      const u=from(f),span=Math.min(l*.24,5.0),w=Math.min(1.35,span*.35);
-      door(k,u,1.52,w,2.55,trim,frame);
-      for(const side of [-1,1])window(k,u+side*span*.33,1.92,Math.min(1.12,span*.26),1.85,trim,frame,side===1?1:2,false,true);
-      k.face(signMaterial(title,'#c9bca1','#53483a'),u,2.98,span,.43,.20);
-      // Stone entrance stairs and dark handrails, without altering road colliders.
-      if(f===.60||f===.20){for(let i=0;i<3;i++)k.panel(base,u,.055+i*.09,w+.60,.11,.26,.58-i*.18);k.panel(iron,u-w*.59,.55,.065,.9,.08,.46);k.panel(iron,u+w*.59,.55,.065,.9,.08,.46)}
+      const u=from(f),span=l*.33,w=Math.min(1.45,span*.23);
+      door(k,u,1.51,w,2.51,trim,frame);
+      for(const side of [-1,1]){
+        const x=u+side*span*.31;window(k,x,1.89,Math.min(1.42,span*.24),2.02,trim,frame,side===1?1:2,false,true);
+        k.panel(gray,x,.81,1.04,.26,.38,.31);k.panel(flower,x,1.05,.94,.30,.33,.32);
+        for(let j=-2;j<=2;j++)k.panel(red,x+j*.15,1.24,.08,.085,.10,.43);
+      }
+      k.face(signMaterial(title,'#c8bfaa','#48433c'),u,2.98,span,.40,.25);
+      for(let i=0;i<4;i++)k.panel(gray,u,.055+i*.09,w+.70,.11,.27,.85-i*.18);
+      for(const s of [-1,1]){for(const y of [.32,.76])k.panel(iron,u+s*(w*.5+.22),y,.05,.67,.05,.63);k.panel(iron,u+s*(w*.5+.22),.81,.065,.07,.84,.65)}
+      for(const s of [-1,1]){k.panel(iron,u+s*span*.24,3.18,.05,.05,.46,.32);k.panel(iron,u+s*span*.24,3.08,.18,.16,.17,.52)}
+      gable(k,u,3.65,span*.93,.73,trim);
+      const semi=texture(128,64,(c,w,h)=>{c.clearRect(0,0,w,h);c.fillStyle='#ded9cd';c.beginPath();c.arc(w/2,h,w*.42,Math.PI,Math.PI*2);c.lineTo(w/2+w*.42,h);c.fill()});
+      const sm=new T.MeshStandardMaterial({map:semi,transparent:true,alphaTest:.05,roughness:.9});k.face(sm,u,3.95,span*.40,.55,.22);
     }
-    for(const f of [.23,.66]){const u=from(f);gable(k,u,3.53,Math.min(4.0,l*.24),.72,trim);k.panel(trim,u,3.56,Math.min(1.65,l*.12),.42,.13,.13)}
-    for(const f of [.09,.45,.89]){const u=from(f),w=Math.min(2.6,l*.16);k.panel(trim,u,4.56,w+.18,.87,.13,.075);k.panel(gold,u,4.56,w,.70,.08,.16)}
-    for(const f of [.04,.95])k.panel(trim,from(f),h/2,.28,h-.16,.24,.13);
-    
-    k.panel(metal,from(.91),h/2,.10,h,.10,.30);
+    for(const f of [.06,.47,.92]){const u=from(f),w=Math.min(2.65,l*.15);k.panel(trim,u,4.70,w+.18,.84,.13,.075);k.panel(gold,u,4.70,w,.69,.08,.16)}
+    for(const f of [.025,.975])k.panel(trim,from(f),h/2,.20,h-.18,.20,.12);
+    // The right corner is a real side entrance, not a fictitious third main door.
+    k.face(signMaterial('КУЛЬТУРА','#a44e45','#f1e5d2'),from(.90),2.77,l*.12,.28,.25);
+    window(k,from(.90),1.85,Math.min(1.2,l*.06),1.83,trim,frame,1,false,true);
+    k.panel(metal,from(.88),h/2,.10,h,.10,.27);
     // The gold pig sign visible above the right-hand cornice in the CC0 photo.
-    const u=from(.90),v=new T.Vector3(e.p[0]+e.tx*u+e.nx*.40,3.96,e.p[1]+e.tz*u+e.nz*.40),g=new T.Group(),m=M(0xc49544,.4,.58);
+    const u=from(.92),v=new T.Vector3(e.p[0]+e.tx*u+e.nx*.24,4.23,e.p[1]+e.tz*u+e.nz*.40),g=new T.Group(),m=M(0xc49544,.4,.58);
     function ell(x,y,z,sx,sy,sz){const o=new T.Mesh(new T.SphereGeometry(1,12,8),m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);g.add(o);}
     ell(0,.25,0,.42,.28,.22);ell(-.36,.30,0,.23,.22,.18);ell(-.55,.27,0,.14,.09,.12);
     for(const x of [-.23,.24])for(const z of [-.13,.13])ell(x,.03,z,.06,.14,.065);
@@ -274,7 +296,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
       if(isFront)k.panel(M(d.wall,.92),l/2,h/2,l,h,.018,.026);
       if(!isFront){cornice(k,e,h,trim);continue} // other faces retain complete lightweight atlas
       const historic=d.style!=='modern',ornate=d.style==='ornate',floors=floorCount(b,d),fh=h/floors;
-      const count=Math.max(1,Math.min(42,Math.round(l/(historic?2.85:2.15)))),bay=l/count;
+      const count=isFront&&d.bays?d.bays:Math.max(1,Math.min(42,Math.round(l/(historic?2.85:2.15)))),bay=l/count;
       k.line(base,l/2,.39,l,.78,.18);cornice(k,e,h,trim);
       if(historic&&isFront){
         k.line(trim,l/2,fh-.15,l,.16,.24);
@@ -292,12 +314,13 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
 
       }
       if(historic&&floors>2)k.line(trim,l/2,h-fh-.10,l,.14,.18);
+      if(profile(b)==='sol6'){k.line(base,l/2,1.0,l,1.45,.18);k.line(trim,l/2,1.78,l,.20,.30);for(let j=0;j<=count;j++){const u=j*bay;k.panel(trim,u,5.95,.23,7.75,.24,.12);k.panel(trim,u,9.45,.40,.27,.31,.16)}}
       for(let row=0;row<floors;row++){
-        const ground=row===0,shop=ground&&isFront&&historic,wy=ground?Math.min(fh*.56,1.85):fh*(row+.50);
-        const wh=Math.min(fh*.72,ground&&shop?2.35:historic?2.03:2.20);
+        const ground=row===0,shop=ground&&isFront&&historic&&profile(b)!=='sol6',wy=profile(b)==='sol6'?(ground?1.0:row===1?3.85:7.55):ground?Math.min(fh*.56,1.85):fh*(row+.50);
+        const wh=profile(b)==='sol6'?(ground?.95:2.55):Math.min(fh*.72,ground&&shop?2.35:historic?2.03:2.20);
         for(let j=0;j<count;j++){
           const u=(j+.5)*bay,w=Math.min(bay*.62,shop?2.10:historic?1.30:1.45);
-          if(isFront&&ground&&j===Math.floor(count/2)&&historic){door(k,u,fh*.39,Math.min(1.65,bay*.70),Math.min(2.70,fh*.78),trim,frame);continue}
+          if(isFront&&ground&&j===Math.floor(count/2)&&historic&&profile(b)!=='sol6'){door(k,u,fh*.39,Math.min(1.65,bay*.70),Math.min(2.70,fh*.78),trim,frame);continue}
           if(d.style==='modern'){
             k.panel(trim,u,wy,Math.min(bay*.84,1.65),wh+.16,.11,.06);
             k.face(windowMaterial(frame,(j+row)%3),u,wy,w,wh,.16);

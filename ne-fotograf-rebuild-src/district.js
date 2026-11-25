@@ -5,7 +5,7 @@ export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,ne
  const report={streets:[],parkTrees:0,streetLamps:0,bridge:false,hall:false,terraceTables:0,parkPaths:0};
  const [south,west,north,east]=cityMap.bbox,[sw,se,,nw]=cityMap.bounds;
  const geo=(lat,lon)=>{const u=(lon-west)/(east-west),v=(lat-south)/(north-south);return new T.Vector3(sw[0]+(se[0]-sw[0])*u+(nw[0]-sw[0])*v,0,sw[1]+(se[1]-sw[1])*u+(nw[1]-sw[1])*v)};
- const names=['Солянка','Маросейка','Лубянский проезд','Варварка','Китайгородский проезд'];
+ const names=['Солянка','Маросейка','Лубянский проезд','Варварка','Китайгородский проезд','Славянская площадь','Яузские Ворота','Котельническая набережная','Москворецкая набережная','Яузская улица'];
  const isStreet=r=>names.some(s=>String(r.name||'').toLowerCase().includes(s.toLowerCase()));
  const roads=roadPaths.filter(({r})=>isStreet(r)&&!['footway','steps','path','cycleway'].includes(r.type));
  const curb=mat(0xa49d91),paint=mat(0xd6d3c8,.9),iron=mat(0x3a3b38,.6,.4),bronze=mat(0x8c7750,.65,.35),lamp=mat(0xe9dfbb,.45),stone=mat(0xd0c7b8,.9);
@@ -102,6 +102,58 @@ export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,ne
      }
    }
  }
+
+ // Landmark sculptures based on reference photos. Modeled geometry, not photo scans.
+ const granite=mat(0x605e5f,.75),redGranite=mat(0x976d59,.7),oldBronze=mat(0x444743,.54,.58),gilt=mat(0xb5994a,.37,.65),castIron=mat(0x534c45,.61,.45);
+ function stoneBox(p,w,h,d,y,m=granite,rot=0){const o=mesh(new T.BoxGeometry(w,h,d),m,p.x,y,p.z);o.rotation.y=rot;return o}
+ function cyl(p,rt,rb,h,y,m,n=24){return mesh(new T.CylinderGeometry(rt,rb,h,n),m,p.x,y,p.z)}
+ function cross(p,y,h,m){stoneBox(p,.10,h,.10,y+h/2,m);stoneBox(p,h*.55,.11,.10,y+h*.72,m)}
+ const plevna=geo(55.756674,37.631184);
+ cyl(plevna,2.65,2.95,.32,.16,redGranite,8);cyl(plevna,2.15,2.5,.58,.61,granite,8);
+ cyl(plevna,1.85,2.05,2.4,2.0,castIron,8);cyl(plevna,.94,1.65,3.0,4.70,castIron,8);
+ for(let i=0;i<8;i++){const t=i*Math.PI/4,rad=1.85,q=new T.Vector3(plevna.x+Math.sin(t)*rad,0,plevna.z+Math.cos(t)*rad);
+   const col=cyl(q,.12,.17,2.0,1.98,gilt,8);const panel=stoneBox(q,.64,1.2,.08,2.03,gilt,t);panel.position.x+=Math.sin(t)*.10;panel.position.z+=Math.cos(t)*.10;
+   const tor=mesh(new T.TorusGeometry(.30,.045,6,16),gilt,q.x,1.02,q.z);tor.rotation.y=t;
+ }
+ cyl(plevna,1.1,1.05,.24,6.34,gilt,16);cyl(plevna,.68,1.06,.7,6.8,gilt,16);
+ const top=mesh(new T.SphereGeometry(.68,16,10),gilt,plevna.x,7.33,plevna.z);top.scale.y=1.18;cross(plevna,8.05,1.05,gilt);addObstacle(plevna.x,plevna.z,2.7,4);
+ report.plevna=true;
+ const km=geo(55.75464,37.63399);stoneBox(km,5.2,.22,3.5,.11,redGranite);stoneBox(km,4.7,.18,3.0,.31,redGranite);stoneBox(km,3.30,2.0,2.2,1.40,granite);stoneBox(km,3.55,.21,2.45,2.48,granite);
+ for(const side of [-1,1]){
+   const q=new T.Vector3(km.x+side*.73,0,km.z);
+   const robe=mesh(new T.LatheGeometry([[0,0],[.43,0],[.39,.42],[.30,1.1],[.35,1.65],[.22,1.98],[0,1.98]].map(([x,y])=>new T.Vector2(x,y)),18),oldBronze,q.x,2.6,q.z);
+   const head=mesh(new T.SphereGeometry(.19,14,10),oldBronze,q.x,4.74,q.z);head.scale.set(.88,1.20,.92);
+   const beard=mesh(new T.ConeGeometry(.14,.28,9),oldBronze,q.x,4.55,q.z+.10);beard.rotation.z=Math.PI;
+   for(const dx of [-.23,.23]){const arm=mesh(new T.CylinderGeometry(.10,.13,.76,9),oldBronze,q.x+dx,4.09,q.z+.17);arm.rotation.z=dx*1.4}
+   const book=stoneBox(new T.Vector3(q.x,0,q.z+.32),.40,.63,.08,3.88,oldBronze,.16);book.rotation.x=.18;
+ }
+ cross(km,2.62,3.15,oldBronze);addObstacle(km.x,km.z,2.1,3);report.cyrilMethodius=true;
+ // Bench rows and low stone edging inside Ilyinsky Square, preserve mapped paths.
+ const sq=parks.find(p=>/ильинский/i.test(p.name||''));
+ if(sq){const xs=sq.points.map(p=>p[0]),zs=sq.points.map(p=>p[1]);let benches=0;
+   for(let x=Math.min(...xs)+7;x<Math.max(...xs)-6;x+=8)for(let z=Math.min(...zs)+7;z<Math.max(...zs)-6;z+=10){
+     if(benches>=22||!inside(x,z,sq.points)||!offRoad(x,z,.65)||!clearPoint(x,z,1.2)||Math.hypot(x-plevna.x,z-plevna.z)<8||Math.hypot(x-km.x,z-km.z)<8)continue;
+     const nearby=roadPaths.filter(o=>['path','footway'].includes(o.r.type)).map(o=>({o,n:nearPath(o.path,x,z)})).sort((a,b)=>a.n.distance-b.n.distance)[0];if(!nearby||nearby.n.distance>4.7)continue;
+     const p=atPath(nearby.o.path,nearby.n.along),r=p.yaw-Math.PI/2;
+     repeat('benchSeat',cube,treeTrunk,x,.46,z,1.85,.11,.48,r);repeat('benchBack',cube,treeTrunk,x+Math.sin(r)*.20,.87,z+Math.cos(r)*.20,1.85,.49,.08,r);
+     for(const dx of [-.69,.69])repeat('benchLeg',cube,iron,x+Math.cos(r)*dx,.23,z-Math.sin(r)*dx,.08,.45,.36,r);
+     benches++;
+   }report.squareBenches=benches;
+ }
+ // Kotelnicheskaya high-rise: mapped geolocation; 176 m full silhouette, stepped
+ // empire composition and the long lower wings. Lower wing footprints from OSM.
+ const tower=geo(55.747062,37.642805),towerM=mat(0xd4c7ad,.83),orn=mat(0xe9dfc8,.85),roofM=mat(0x587368,.65,.18);
+ const towardRiver=geo(55.747062,37.6418).sub(tower).normalize(),rot=Math.atan2(towardRiver.x,towardRiver.z);
+ const tc=document.createElement('canvas');tc.width=256;tc.height=256;const cx=tc.getContext('2d');cx.fillStyle='#cbbb9c';cx.fillRect(0,0,256,256);
+ for(let i=0;i<4;i++)for(let j=0;j<4;j++){const x=i*64+16,y=j*64+10;cx.fillStyle='#e1d4b8';cx.fillRect(x-4,y-4,39,47);cx.fillStyle='#4f5b5e';cx.fillRect(x,y,31,39);cx.fillStyle='#b9af99';cx.fillRect(x+14,y,3,39);cx.fillStyle='#d1c3a8';cx.fillRect(i*64,j*64+59,64,4)}
+ const tx=new T.CanvasTexture(tc);tx.colorSpace=T.SRGBColorSpace;tx.wrapS=tx.wrapT=T.RepeatWrapping;
+ function towerBlock(w,d,h,y,xx=0,zz=0){const p=new T.Vector3(tower.x+xx*Math.cos(rot)+zz*Math.sin(rot),0,tower.z-xx*Math.sin(rot)+zz*Math.cos(rot));const g=new T.BoxGeometry(w,h,d),uv=g.attributes.uv;for(let i=0;i<uv.count;i++){const f=Math.floor(i/4);uv.setXY(i,uv.getX(i)*(f<2?d:w)/12,uv.getY(i)*h/13)}const m=new T.MeshStandardMaterial({map:tx,roughness:.84}),o=mesh(g,[m,m,towerM,towerM,m,m],p.x,y+h/2,p.z);o.rotation.y=rot;stoneBox(p,w+.7,.5,d+.7,y+h,orn,rot);return p}
+ // Main tower and symmetrical shoulders; exact sculptural details remain approximated.
+ towerBlock(47,39,79,0);towerBlock(32,28,30,79);towerBlock(19,19,28,109);towerBlock(11,11,13,137);
+ for(const s of [-1,1]){towerBlock(18,25,62,0,s*29,0);towerBlock(10,13,15,62,s*29,0);for(const a of [-1,1]){const p=new T.Vector3(tower.x+s*29*Math.cos(rot)+a*4*Math.sin(rot),0,tower.z-s*29*Math.sin(rot)+a*4*Math.cos(rot));cyl(p,.09,.55,6,80,orn,8)}}
+ cyl(tower,1.1,4.3,7,153.5,roofM,8);cyl(tower,.05,1.1,15,164.5,roofM,8);
+ mesh(new T.OctahedronGeometry(1.0),gilt,tower.x,173,tower.z);cyl(tower,.06,.08,2,175,gilt,8);
+ report.kotelnicheskaya=true;
  for(const [key,p] of parts){const o=new T.InstancedMesh(p.g,p.m,p.list.length);for(let i=0;i<p.list.length;i++)o.setMatrixAt(i,p.list[i]);o.instanceMatrix.needsUpdate=true;o.computeBoundingSphere();o.receiveShadow=true;o.castShadow=['trunk','foliageA','foliageB','pole'].includes(key);scene.add(o)}
  return report;
 }
