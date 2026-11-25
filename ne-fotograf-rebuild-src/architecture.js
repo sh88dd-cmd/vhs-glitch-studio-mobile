@@ -32,6 +32,78 @@ const definitions={
  mar2:{wall:0xd6c5a7,trim:0xece1cf,base:0x978c7d,frame:0x5d4c3c,roof:0x585c5b,style:'classical',pitch:1.5},
  lub23:{wall:0xc7b0a3,trim:0xe4d9cb,base:0x91847a,frame:0x564b44,roof:0x57595b,style:'ornate',pitch:1.2}
 };
+
+// Address-specific massing and colour palettes; these are modeled approximations,
+// not surveys or photographic textures. Unknown courtyards keep their OSM height.
+const house=(wall,trim,style,pitch,extra={})=>({wall,trim,style,pitch,base:0x948b80,frame:0x554a40,roof:0x555c59,...extra});
+const addressStyles={
+ sol1:house(0xc3b6a2,0xe1d6c3,'ornate',1.1),
+ sol3:house(0xd6c8aa,0xf0e8d7,'classical',1.25),
+ sol4:house(0xd9c6a5,0xe6dac5,'shop',1.1),
+ sol9:house(0xe0c4a1,0xf1e5ce,'classical',1.25),
+ sol11:house(0xcab696,0xe8ddca,'ornate',1.25),
+ sol12:house(0xd1b9a9,0xe5d9c9,'classical',1.2),
+ sol13:house(0xd6c4a5,0xe6dbc8,'classical',1.25),
+ sol14:house(0xe0c2ad,0xefe6d9,'classical',1.1,{roof:0x64635d}),
+ sol15:house(0xd8c7a8,0xece0cb,'classical',1.3),
+ sol16:house(0xa8a7a3,0xd2d1cb,'modern',0),
+ mar3:house(0xd7c5a4,0xe8dec9,'ornate',1.3),
+ mar5:house(0xd9ccad,0xe8dfce,'classical',1.0),
+ mar6:house(0xcbbb9d,0xe7dfce,'shop',1.25),
+ mar7:house(0xc4b5a0,0xe0d7c8,'ornate',1.0),
+ mar9:house(0xd5c7ae,0xe6dfd1,'ornate',1.3),
+ mar10:house(0xc4b5a2,0xdfd7c8,'classical',1.15),
+ mar11:house(0xe0cc9e,0xf0e8d6,'classical',1.35,{roof:0x5a7264}),
+ mar12:house(0xa9a49b,0xd0ccc4,'modern',0),
+ mar13:house(0xc5b3a0,0xe2d4c3,'ornate',1.4),
+ mar15:house(0xd8bfa6,0xf0e3d4,'classical',1.25),
+ mar17:house(0xdac5a6,0xf0e5d1,'classical',1.5,{roof:0x626a5a}),
+ lub3:house(0xcbbbaa,0xe7dfd1,'ornate',1.25),
+ lub5:house(0xd7c9ae,0xe9dfce,'classical',1.2),
+ lub7:house(0xd0b79c,0xe7d9c5,'ornate',1.2),
+ lub9:house(0xc6c0b3,0xdcd9d2,'ornate',1.0),
+ lub11:house(0xb9b2a8,0xe3dace,'modern',0),
+ lub13:house(0xc5c2b9,0xe2e0d7,'modern',0),
+ lub15:house(0xd2c0a7,0xe5dfcf,'classical',1.2),
+ lub17:house(0xc4bfb3,0xdcd5c6,'ornate',.8),
+ lub19:house(0xc5b29a,0xe6d9c8,'ornate',1.2),
+ lub21:house(0xd8c9b1,0xe7dfd0,'classical',1.2),
+ lub25:house(0xd3c0a4,0xe8ddcb,'classical',1.2),
+ lub27:house(0xd0b994,0xe8ddcb,'ornate',1.2),
+ var:house(0xd4c6ae,0xe8dfcf,'classical',1.2),
+ museum:house(0xd7c8ad,0xf0e6d3,'ornate',1.8),
+ english:house(0xe6e2d7,0xf0ece0,'classical',2.1,{roof:0x547064}),
+ romanov:house(0xd0b390,0xf3e7d1,'ornate',2.1,{roof:0x50725a}),
+ churchRed:house(0xc87959,0xf1e7d6,'church',0,{roof:0x41634c}),
+ churchWhite:house(0xe1ddd0,0xf1ece2,'church',0,{roof:0x626b64}),
+ churchGreen:house(0xb2c4b5,0xeee8d6,'church',0,{roof:0x535b60}),
+ churchPink:house(0xcda39a,0xf0e5d9,'church',0,{roof:0x656f65}),
+ media:house(0xe4e2dc,0xf3f1e8,'modern',0),
+ foodhall:house(0xc6c7bf,0xe2e3dc,'modern',0)
+};
+Object.assign(definitions,addressStyles);
+function extraProfile(b){
+ const s=street(b),n=addr(b),num=parseInt(n,10),name=String(b.name||'').toLowerCase(),id=Number(b.id);
+ // Same footprint as Yandex's 4с4 centroid, OSM currently labels it 4с1.
+ if(id===52404043)return 'piggy';
+ if(id===-888887500||name.includes('политехнический музей'))return 'museum';
+ if(id===-756769200||name==='медиацентр')return 'media';
+ if(id===513659941)return 'foodhall';
+ if(name.includes('английский двор'))return 'english';
+ if(name.includes('палаты бояр романов'))return 'romanov';
+ if(name.includes('церковь космы'))return 'churchGreen';
+ if(name.includes('николая чудотворца в кленниках')||name.includes('знамение'))return 'churchRed';
+ if(name.includes('храм')||name.includes('церковь')||name.includes('собор')){
+   if(name.includes('георгия')||name.includes('рождества богоматери'))return 'churchPink';
+   return 'churchWhite';
+ }
+ if(s.includes('солянка')&&Number.isFinite(num))return addressStyles['sol'+num]?'sol'+num:null;
+ if(s.includes('маросейка')&&Number.isFinite(num))return addressStyles['mar'+num]?'mar'+num:null;
+ if(s.includes('лубянский')&&Number.isFinite(num))return addressStyles['lub'+num]?'lub'+num:null;
+ if(s.includes('варварка'))return 'var';
+ return null;
+}
+
 const generic=[
  {wall:0xcdbb9c,trim:0xe5dcca,base:0x968b7d,frame:0x57473a,roof:0x5a5b58,style:'classical',pitch:1.1},
  {wall:0xc1c4b7,trim:0xe1e0d2,base:0x919287,frame:0x5b5a50,roof:0x606967,style:'classical',pitch:1.4},
@@ -42,7 +114,7 @@ const generic=[
 ];
 function hash(b){return [...String(b.id)].reduce((h,c)=>Math.imul(h^c.charCodeAt(0),16777619)>>>0,2166136261);}
 export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths,nearPath}){
-  const palette=new Map(),signs=new Map(),windowMats=new Map();
+  const palette=new Map(),signs=new Map(),windowMats=new Map(),facadeMats=new Map();
   const M=(c,rough=.85,metal=0)=>{const key=c+':'+rough+':'+metal;if(!palette.has(key))palette.set(key,mat(c,rough,metal));return palette.get(key)};
   const dark=M(0x393c38,.8),metal=M(0x494d4b,.5,.4),gold=M(0xbca04c,.65),iron=M(0x34352e,.6,.3);
   // OSM sometimes has the footprint but not an address tag. The baked reference
@@ -62,10 +134,10 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   // of the earlier business pin. Transform geographic displacement using the map's
   // baked local north/east basis, which can be rotated relative to the game axes.
   const candidates=ref?cityMap.buildings.map(b=>({b,d:distance(ref,b.points),inside:contains(ref,b.points)&&!(b.holes||[]).some(r=>contains(ref,r)),area:area(b.points)})).filter(x=>x.d<22||x.inside):[];
-  const mainPig=cityMap.buildings.find(b=>architectureProfile(b)==='piggy')||
+  const mainPig=cityMap.buildings.find(b=>architectureProfile(b)==='piggy'||Number(b.id)===52404043)||
     candidates.filter(x=>x.area>35&&x.area<1800&&x.b.height<16).sort((a,b)=>(a.inside?-20:a.d)+(a.b.heightSource==='estimate'?0:Math.abs(a.b.height-5.4)*.65)-(b.inside?-20:b.d)-(b.b.heightSource==='estimate'?0:Math.abs(b.b.height-5.4)*.65))[0]?.b;
   if(!mainPig)throw Error('Piggy footprint not located');
-  const profile=b=>b.id===mainPig.id?'piggy':architectureProfile(b);
+  const profile=b=>b.id===mainPig.id?'piggy':architectureProfile(b)||extraProfile(b);
   const config=b=>definitions[profile(b)]||generic[hash(b)%generic.length];
   // Keep surveyed OSM heights. Correct documented storeys where height was only guessed.
   for(const b of cityMap.buildings){
@@ -73,7 +145,50 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     if(k==='piggy')b.height=5.35; // estimated from supplied street-level photographs
     else if(d.floors&&(!b.heightSource||b.heightSource==='estimate'||Math.abs(b.height/3.25-d.floors)>1))b.height=d.floors*3.55+.5;
   }
+  
   function material(b){return M(config(b).wall,.92)}
+  const color=c=>'#'+c.toString(16).padStart(6,'0');
+  function floorCount(b,d){return d.floors||Math.max(1,Math.min(18,Math.round(b.height/(d.style==='modern'?3.15:3.5))))}
+  // Every wall receives a façade at initial load. No blank building shell waits for streaming.
+  // One shared repeated bay per palette / floor count, not 915 individual textures.
+  function facadeMaterial(b){
+    const d=config(b),floors=floorCount(b,d),key=[d.wall,d.trim,d.style,floors].join(':');
+    if(facadeMats.has(key))return facadeMats.get(key);
+    const t=texture(128,Math.min(1024,128*floors),(c,w,h)=>{
+      const fh=h/floors,modern=d.style==='modern',church=d.style==='church';
+      c.fillStyle=color(d.wall);c.fillRect(0,0,w,h);
+      // subtle vertical plaster variation and shadowed masonry, not random brick on stucco.
+      for(let x=0;x<w;x+=3){c.fillStyle=x%9?'#ffffff05':'#00000008';c.fillRect(x,0,1,h)}
+      for(let row=0;row<floors;row++){
+        const y=row*fh,ground=row===floors-1,shop=ground&&!church&&!modern;
+        if(ground){c.fillStyle=color(d.base);c.fillRect(0,y+fh*.80,w,fh*.20);}
+        if(!modern){c.fillStyle=color(d.trim);c.fillRect(0,y+2,w,Math.max(3,fh*.035));if(row===0||ground)c.fillRect(0,y+7,w,3)}
+        const ww=shop?82:modern?76:54,wh=fh*(shop?.66:church?.51:.59),xx=(w-ww)/2,yy=y+fh*.14;
+        if(!modern){c.fillStyle=color(d.trim);c.fillRect(xx-7,yy-6,ww+14,wh+12);if(d.style==='ornate'&&!ground){c.beginPath();c.moveTo(xx-10,yy-6);c.lineTo(w/2,yy-15);c.lineTo(xx+ww+10,yy-6);c.closePath();c.fill()}}
+        c.fillStyle='#4b4842';c.fillRect(xx-2,yy-2,ww+4,wh+4);
+        const gr=c.createLinearGradient(xx,yy,xx+ww,yy+wh);gr.addColorStop(0,'#869aa0');gr.addColorStop(.4,'#576970');gr.addColorStop(1,'#303d42');c.fillStyle=gr;c.fillRect(xx,yy,ww,wh);
+        c.fillStyle=color(d.frame);c.fillRect(xx+ww/2-2,yy,4,wh);c.fillRect(xx,yy+wh*.35,ww,3);
+        c.fillStyle='#e4e6d82a';c.fillRect(xx+4,yy+5,ww*.34,wh*.68);
+        if(!modern){c.fillStyle=color(d.trim);c.fillRect(xx-10,yy+wh+5,ww+20,5);c.fillStyle='#00000024';c.fillRect(xx-8,yy+wh+10,ww+16,3)}
+      }
+      c.fillStyle=color(d.trim);c.fillRect(0,0,w,5);
+    });t.wrapS=T.RepeatWrapping;t.wrapT=T.ClampToEdgeWrapping;
+    const m=new T.MeshStandardMaterial({map:t,roughness:.87});facadeMats.set(key,m);return m;
+  }
+  function mapWalls(b,g){
+    const uv=g.attributes.uv,p=g.attributes.position,d=config(b);
+    // ExtrudeGeometry side walls are non-indexed quads (two triangles).
+    for(const group of g.groups){if(group.materialIndex!==1)continue;
+      for(let i=group.start;i+5<group.start+group.count;i+=6){
+        let ax=p.getX(i),az=p.getZ(i),bx=ax,bz=az,dist=0;
+        for(let j=i+1;j<i+6;j++){const x=p.getX(j),z=p.getZ(j),l=Math.hypot(x-ax,z-az);if(l>dist){dist=l;bx=x;bz=z}}
+        if(dist<.001)continue;
+        const dx=(bx-ax)/dist,dz=(bz-az)/dist,bays=Math.max(1,Math.round(dist/(d.style==='modern'?2.15:2.85)));
+        for(let j=i;j<i+6;j++){const u=((p.getX(j)-ax)*dx+(p.getZ(j)-az)*dz)/dist*bays;uv.setXY(j,u,Math.max(0,Math.min(1,p.getY(j)/b.height)))}
+      }
+    }uv.needsUpdate=true;
+  }
+
   function texture(w,h,paint){const c=document.createElement('canvas');c.width=w;c.height=h;paint(c.getContext('2d'),w,h);const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;t.anisotropy=2;return t}
   function windowMaterial(color,variant,shop=false){
     const key=color+':'+variant+':'+shop;if(windowMats.has(key))return windowMats.get(key);
@@ -148,8 +263,9 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     const es=edges(b),front=frontEdge(b,es),d=config(b),h=b.height,trim=M(d.trim),base=M(d.base),roof=M(d.roof),frame=d.frame;
     for(const e of es){if(e.l<2.5||e.l>140)continue;const k=kit(e),l=e.l,isFront=e===front;
       if(d.style==='piggy'){piggy(e,k,b,isFront,trim,base);continue}
-      const historic=d.style!=='modern',ornate=d.style==='ornate',floors=d.floors||Math.max(1,Math.min(15,Math.round(h/(historic?3.5:3.15)))),fh=h/floors;
-      const count=isFront&&d.bays?d.bays:Math.max(1,Math.min(32,Math.round(l/(historic?2.85:2.15)))),bay=l/count;
+      if(!isFront){cornice(k,e,h,trim);continue} // other faces retain complete lightweight atlas
+      const historic=d.style!=='modern',ornate=d.style==='ornate',floors=floorCount(b,d),fh=h/floors;
+      const count=Math.max(1,Math.min(42,Math.round(l/(historic?2.85:2.15)))),bay=l/count;
       k.line(base,l/2,.39,l,.78,.18);cornice(k,e,h,trim);
       if(historic&&isFront){
         k.line(trim,l/2,fh-.15,l,.16,.24);
@@ -180,8 +296,30 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
       if(historic&&l>8)k.panel(metal,l-.32,h/2,.095,h-.12,.10,.26);
     }
   }
+
+  function object(g,m,x,y,z){const o=new T.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);return o}
+  function churchRoof(b,d){
+    const pts=b.points,h=b.height,cx=pts.reduce((a,p)=>a+p[0],0)/pts.length,cz=pts.reduce((a,p)=>a+p[1],0)/pts.length;
+    const span=Math.min(Math.max(...pts.map(p=>p[0]))-Math.min(...pts.map(p=>p[0])),Math.max(...pts.map(p=>p[1]))-Math.min(...pts.map(p=>p[1]))),r=Math.max(1.15,Math.min(4.4,span*.21));
+    const dome=M(d.roof,.42,.24),gilded=M(0xb59a46,.33,.62),wall=M(d.wall),white=M(d.trim);
+    function cupola(x,z,y,rad,tall,material){
+      object(new T.CylinderGeometry(rad*.72,rad*.72,rad*.70,16),wall,x,y+rad*.35,z);
+      object(new T.CylinderGeometry(rad*.86,rad*.82,.18,16),white,x,y+rad*.72,z);
+      const line=[[0,0],[.73,0],[.99,.19],[1,.37],[.87,.61],[.58,.82],[.25,1],[.09,1.17],[0,1.21]].map(([a,b])=>new T.Vector2(a*rad,b*rad*tall));
+      object(new T.LatheGeometry(line,24),material,x,y+rad*.76,z);
+      const top=y+rad*.76+rad*tall*1.21;
+      object(new T.CylinderGeometry(.045,.065,1.05,8),gilded,x,top+.50,z);
+      object(new T.BoxGeometry(.75,.07,.07),gilded,x,top+.76,z);
+    }
+    cupola(cx,cz,h,r,1.05,dome);
+    const name=String(b.name||'').toLowerCase();
+    if(name.includes('знамение')){for(const x of [-1,1])for(const z of [-1,1])cupola(cx+x*r*1.25,cz+z*r*1.25,h,r*.48,1.2,gilded)}
+    else if(name.includes('кленниках')||name.includes('георгия')||name.includes('космы')||name.includes('рождества богоматери')){
+      const e=frontEdge(b,edges(b));if(e){const x=(e.p[0]+e.q[0])/2-e.nx*r,z=(e.p[1]+e.q[1])/2-e.nz*r;object(new T.CylinderGeometry(r*.52,r*.58,3.2,8),wall,x,h+1.6,z);cupola(x,z,h+3.2,r*.52,1.1,gilded)}
+    }
+  }
   function roof(b){
-    const d=config(b);if(!d.pitch||b.holes?.length||b.points.length>14)return;
+    const d=config(b);if(d.style==='church'){churchRoof(b,d);return;}if(!d.pitch||b.holes?.length||b.points.length>14)return;
     const pts=b.points.filter((p,i,a)=>Math.hypot(p[0]-a[(i+1)%a.length][0],p[1]-a[(i+1)%a.length][1])>.12);if(pts.length<3)return;
     let winding=0;for(let i=0;i<pts.length;i++){const a=pts[i],q=pts[(i+1)%pts.length],r=pts[(i+2)%pts.length],cross=(q[0]-a[0])*(r[1]-q[1])-(q[1]-a[1])*(r[0]-q[0]);if(Math.abs(cross)<.02)continue;if(winding&&Math.sign(cross)!==winding)return;winding=Math.sign(cross)}
     const cx=pts.reduce((s,p)=>s+p[0],0)/pts.length,cz=pts.reduce((s,p)=>s+p[1],0)/pts.length,h=b.height,top=h+d.pitch;
@@ -192,5 +330,5 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   }
   const pigFront=frontEdge(mainPig,edges(mainPig));
   const piggyView=pigFront?{x:(pigFront.p[0]+pigFront.q[0])/2,z:(pigFront.p[1]+pigFront.q[1])/2,nx:pigFront.nx,nz:pigFront.nz,width:pigFront.l}:null;
-  return {profile,material,detail,roof,piggyView,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
+  return {profile,material,facadeMaterial,mapWalls,detail,roof,piggyView,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
 }
