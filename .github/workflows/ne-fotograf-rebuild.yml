@@ -1,4 +1,4 @@
-name: NE FOTOGRAF rebuild 061
+name: NE FOTOGRAF rebuild 07
 on:
   push:
     paths:
@@ -48,7 +48,7 @@ jobs:
       - name: Bake actual OpenStreetMap data
         working-directory: ne-fotograf-rebuild-src
         run: |
-          if python -c "import json; assert json.load(open('../ne-fotograf-next/assets/kitay-gorod.json')).get('expanded')" 2>/dev/null; then
+          if python -c "import json; assert json.load(open('../ne-fotograf-next/assets/kitay-gorod.json')).get('relationsIncluded')" 2>/dev/null; then
             cp ../ne-fotograf-next/assets/kitay-gorod.json public/assets/kitay-gorod.json
           else
             python tools/expand-osm.py
@@ -81,7 +81,7 @@ jobs:
             await page.waitForFunction(()=>window.NF_NEW!==undefined,null,{timeout:90000});
             let state=await page.evaluate(()=>NF_NEW.ready?NF_NEW.inspect():NF_NEW);
             console.log('Before',state);
-            if(state.hero!=='Andr 3-rigged'||state.heroVertices!==122663||state.heroSkinned<1||state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.buildings<150||state.roads<150||state.locations.length<7||!state.actions.includes('jumpStart')||!state.actions.includes('jumpLoop')||!state.actions.includes('run'))throw Error(JSON.stringify(state));
+            if(state.hero!=='Andr 3-rigged'||state.heroVertices!==122663||state.heroSkinned<1||state.people!==5||state.view!==3||state.quality!==1||state.mapSource!=='OpenStreetMap'||state.relationBuildings<1||state.buildings<150||state.roads<150||state.locations.length<7||!state.actions.includes('jumpStart')||!state.actions.includes('jumpLoop')||!state.actions.includes('run'))throw Error(JSON.stringify(state));
             if(state.cars.length!==4||!state.cars.every(c=>c.clear&&c.dir*c.lane<0)||state.pedestrians.length!==4||!state.pedestrians.every(p=>p.clear&&p.path>2))throw Error('Traffic or sidewalk init '+JSON.stringify(state));
             await page.locator('#start').click();
             await page.waitForFunction(()=>NF_NEW.inspect().simSteps>=5,null,{timeout:90000,polling:100});
@@ -116,16 +116,16 @@ jobs:
             state=await page.evaluate(()=>NF_NEW.inspect());grounded(state);console.log('After',state);
             if(state.view!==3||state.position[2]<=-13.8||errors.length)throw Error(JSON.stringify({state,errors}));
             if(state.staticBefore>100&&state.staticAfter>=state.staticBefore*.65)throw Error('Static batching insufficient: '+JSON.stringify(state));
-            if(await page.locator('#quality').count()!==0||await page.locator('#update').count()!==1)throw Error('UI');
+            if(await page.locator('#quality').count()!==0||await page.locator('#update').count()!==1||await page.locator('#buttons').evaluate(e=>e.getBoundingClientRect().width)>170)throw Error('UI');
             if(!state.cars.some(c=>c.travel>.2)||!state.cars.every(c=>c.clear)||!state.pedestrians.every(p=>p.clear))throw Error('Traffic movement or blocked sidewalk '+JSON.stringify(state));
             if(!await page.evaluate(()=>NF_NEW.test.nearCar('parked-sedan')))throw Error('No parked vehicle access');
             await page.locator('#carAction').click({timeout:15000});
             const entered=await page.evaluate(()=>NF_NEW.inspect());
             if(entered.driving!=='parked-sedan')throw Error('Enter car '+JSON.stringify(entered));
             const carStart=entered.position;
-            await hold('KeyW',65);
+            await hold('KeyW',95);
             const moving=await page.evaluate(()=>NF_NEW.inspect());
-            if(Math.hypot(moving.position[0]-carStart[0],moving.position[2]-carStart[2])<.3)throw Error('Drive '+JSON.stringify(moving));
+            if(Math.hypot(moving.position[0]-carStart[0],moving.position[2]-carStart[2])<1.0)throw Error('Drive '+JSON.stringify(moving));
             await page.waitForFunction(()=>Math.abs(NF_NEW.inspect().driveSpeed)<.4,null,{timeout:90000,polling:100});
             await page.locator('#carAction').click({timeout:15000});
             const exited=await page.evaluate(()=>NF_NEW.inspect());grounded(exited);
@@ -135,6 +135,9 @@ jobs:
             const stolen=await page.evaluate(()=>NF_NEW.inspect());if(!['real-sedan','real-suv','real-hatchback'].includes(stolen.driving)||stolen.ejections!==1)throw Error('Takeover '+JSON.stringify(stolen));
             await page.locator('#carAction').click({timeout:15000});
             await page.locator('#places').click();
+            if(!await page.locator('#fullMap').isVisible())throw Error('Map UI');
+            if(!await page.evaluate(()=>NF_NEW.test.route()))throw Error('No walking route to Maroseyka');
+            await page.locator('#teleports').click();
             await page.locator('#placeList button').filter({hasText:'Маросейка'}).click();
             const visited=await page.evaluate(()=>NF_NEW.inspect());if(visited.driving||Math.hypot(visited.position[0],visited.position[2]+14)<40||errors.length)throw Error('Location '+JSON.stringify(visited));
             const frame=await page.evaluate(()=>NF_NEW.capture());
