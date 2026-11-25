@@ -45,8 +45,21 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   const palette=new Map(),signs=new Map(),windowMats=new Map();
   const M=(c,rough=.85,metal=0)=>{const key=c+':'+rough+':'+metal;if(!palette.has(key))palette.set(key,mat(c,rough,metal));return palette.get(key)};
   const dark=M(0x393c38,.8),metal=M(0x494d4b,.5,.4),gold=M(0xbca04c,.65),iron=M(0x34352e,.6,.3);
-  const mainPig=cityMap.buildings.find(b=>architectureProfile(b)==='piggy');
-  const profile=architectureProfile;
+  // OSM sometimes has the footprint but not an address tag. The baked reference
+  // position is the business location; choose the containing or nearest footprint.
+  const reference=cityMap.places.find(p=>p.name.includes('Piggy'));
+  const ref=reference?.position;
+  function contains(p,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])inside=!inside}return inside}
+  function distance(p,ring){let best=Infinity;for(let i=0;i<ring.length;i++){const a=ring[i],b=ring[(i+1)%ring.length],dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dz)/(dx*dx+dz*dz||1)));best=Math.min(best,Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dz))}return best}
+  function area(r){return Math.abs(r.reduce((s,p,i)=>{const q=r[(i+1)%r.length];return s+p[0]*q[1]-q[0]*p[1]},0))/2}
+  // Yandex's building centroid 55.753706,37.637219 is ~7.4 m east and 1.6 m south
+  // of the earlier business pin. Transform geographic displacement using the map's
+  // baked local north/east basis, which can be rotated relative to the game axes.
+  const candidates=ref?cityMap.buildings.map(b=>({b,d:distance(ref,b.points),inside:contains(ref,b.points)&&!(b.holes||[]).some(r=>contains(ref,r)),area:area(b.points)})).filter(x=>x.d<22||x.inside):[];
+  const mainPig=cityMap.buildings.find(b=>architectureProfile(b)==='piggy')||
+    candidates.filter(x=>x.area>35&&x.area<1800&&x.b.height<16).sort((a,b)=>(a.inside?-20:a.d)+(a.b.heightSource==='estimate'?0:Math.abs(a.b.height-5.4)*.65)-(b.inside?-20:b.d)-(b.b.heightSource==='estimate'?0:Math.abs(b.b.height-5.4)*.65))[0]?.b;
+  if(!mainPig)throw Error('Piggy footprint not located');
+  const profile=b=>b.id===mainPig.id?'piggy':architectureProfile(b);
   const config=b=>definitions[profile(b)]||generic[hash(b)%generic.length];
   // Keep surveyed OSM heights. Correct documented storeys where height was only guessed.
   for(const b of cityMap.buildings){
@@ -74,7 +87,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     const out=[];for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length],dx=q[0]-p[0],dz=q[1]-p[1],l=Math.hypot(dx,dz);if(l<.2)continue;const tx=dx/l,tz=dz/l,nx=(signed>0?1:-1)*tz,nz=(signed>0?-1:1)*tx;out.push({p,q,l,tx,tz,nx,nz,rot:Math.atan2(-tz,tx),angle:Math.atan2(nx,nz)})}return out;
   }
   function frontEdge(b,es){
-    let best=null,score=Infinity;const target=street(b),preferred=roadPaths.filter(o=>target&&String(o.r.name||'').toLowerCase().includes(target));
+    let best=null,score=Infinity;const target=profile(b)==='piggy'?'солянка':street(b),preferred=roadPaths.filter(o=>target&&String(o.r.name||'').toLowerCase().includes(target));
     const roads=preferred.length?preferred:roadPaths.filter(o=>!['path','footway','steps','service','cycleway'].includes(o.r.type));
     for(const e of es){if(e.l<5)continue;const x=(e.p[0]+e.q[0])/2+e.nx,z=(e.p[1]+e.q[1])/2+e.nz;let d=Infinity;
       for(const {r,path} of roads){const n=nearPath(path,x,z).distance;d=Math.min(d,n-(r.width||0)*.35)}
@@ -171,5 +184,5 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length;tri(pts[i],h,pts[j],h,inner[j],top);tri(pts[i],h,inner[j],top,inner[i],top);tri(inner[i],top,inner[j],top,[cx,cz],top)}
     const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.computeVertexNormals();const m=M(d.roof,.87);m.side=T.DoubleSide;const o=new T.Mesh(g,m);o.castShadow=true;o.receiveShadow=true;scene.add(o);
   }
-  return {profile,material,detail,roof,mainPig:!!mainPig};
+  return {profile,material,detail,roof,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
 }
