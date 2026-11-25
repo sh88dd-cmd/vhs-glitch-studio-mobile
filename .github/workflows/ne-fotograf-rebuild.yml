@@ -100,6 +100,7 @@ jobs:
             if(state.mapHandedness>=0||state.waterPolygons<1||!state.locations.includes('Высотка на Котельнической'))throw Error('Geographic correction/extent '+JSON.stringify(state));
             if(!state.district?.kotelnicheskaya||!state.district?.plevna||!state.district?.cyrilMethodius||!state.district?.hall||!state.district?.bridge||state.district.parkTrees<12||state.district.streetLamps<8||state.district.streets.length<3)throw Error('District environment missing '+JSON.stringify(state.district));
             if(state.surveyedFacades<9)throw Error('Missing municipal elevations '+JSON.stringify(state));
+            if(state.heritageFacades!==3)throw Error('Missing individually modeled heritage buildings');
             if(state.mapped.parts<20||state.mapped.taggedTrees<10||state.mapped.surfaces<10)throw Error('Missing actual mapped detail '+JSON.stringify(state.mapped));
             if(state.photoFacades<7||state.photoAvailable<7||state.district.ilyinskyTrees<10)throw Error('Photo/park coverage '+JSON.stringify(state));
             if(state.baseFacades!==state.buildings||state.addressProfiles<55||state.profileTypes.length<20)throw Error('District coverage '+JSON.stringify(state));
@@ -164,7 +165,7 @@ jobs:
             const visited=await page.evaluate(()=>NF_NEW.inspect());if(visited.driving||Math.hypot(visited.position[0],visited.position[2]+14)<40||errors.length)throw Error('Location '+JSON.stringify(visited));
             const frame=await page.evaluate(()=>NF_NEW.capture());
             writeFileSync('/tmp/nf-piggy.png',Buffer.from((await page.evaluate(()=>NF_NEW.test.capturePiggy())).split(',')[1],'base64'));
-            for(const [name,file] of [['Солянка','solyanka'],['Маросейка','maroseyka'],['Лубянский проезд','lubyansky'],['Зарядье','zaryadye'],['Славянская площадь','slavyanskaya'],['Ильинский сквер','ilyinsky'],['Высотка на Котельнической','kotelnicheskaya']]){
+            for(const [name,file] of [['Солянка','solyanka'],['Маросейка','maroseyka'],['Лубянский проезд','lubyansky'],['Зарядье','zaryadye'],['Славянская площадь','slavyanskaya'],['Ильинский сквер','ilyinsky'],['Высотка на Котельнической','kotelnicheskaya'],['Старый Английский двор','english-court'],['Палаты бояр Романовых','romanov']]){
               const image=await page.evaluate(name=>NF_NEW.test.captureStreet(name),name);
               writeFileSync('/tmp/nf-'+file+'.png',Buffer.from(image.split(',')[1],'base64'));
             }
@@ -183,7 +184,7 @@ jobs:
           print('Render mean:',st.mean,'std:',st.stddev)
           assert max(st.mean)>30 and max(st.stddev)>18, 'Empty or uniform WebGL render'
           assert len(im.resize((96,96)).getcolors(10000))>150, 'Missing visual detail'
-          for name in ('piggy','solyanka','maroseyka','lubyansky','zaryadye','slavyanskaya','ilyinsky','kotelnicheskaya'):
+          for name in ('piggy','solyanka','maroseyka','lubyansky','zaryadye','slavyanskaya','ilyinsky','kotelnicheskaya','english-court','romanov'):
               img=Image.open('/tmp/nf-'+name+'.png').convert('RGB')
               assert max(ImageStat.Stat(img).stddev)>12, 'Blank district screenshot '+name
           PY
@@ -202,6 +203,8 @@ jobs:
             /tmp/nf-slavyanskaya.png
             /tmp/nf-ilyinsky.png
             /tmp/nf-kotelnicheskaya.png
+            /tmp/nf-english-court.png
+            /tmp/nf-romanov.png
             /tmp/nf-architecture-audit.json
       - name: Publish new scene separately
         if: github.event_name == 'workflow_dispatch' && inputs.release_verified == true

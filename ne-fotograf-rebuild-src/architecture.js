@@ -202,7 +202,83 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   function floorCount(b,d){return d.floors||Math.max(1,Math.min(18,Math.round(b.height/(d.style==='modern'?3.15:3.5))))}
   // Every wall receives a façade at initial load. No blank building shell waits for streaming.
   // One shared repeated bay per palette / floor count, not 915 individual textures.
+
+  const heritageIds=new Set([-1907567000,-1907785200,-985494900]);
+  const heritageBuilt=new Set();
+  // The historic chambers' silhouettes and exterior ornament are different from
+  // nineteenth-century apartment houses. Keep their own materials and patterns.
+  const heritageTex=new Map();
+  function heritageWall(b){
+    const id=Number(b.id),h=b.height;
+    if(heritageTex.has(id))return heritageTex.get(id);
+    const roman=id===-1907785200,church=id===-985494900;
+    const t=texture(256,512,(c,w,H)=>{
+      c.fillStyle=church?'#9e3026':roman?'#e4dbbe':'#e5e1d5';c.fillRect(0,0,w,H);
+      let seed=7243;
+      for(let i=0;i<14000;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const x=seed%w;seed=(Math.imul(seed,1664525)+1013904223)>>>0;const y=seed%H;c.fillStyle=i%2?'#00000008':'#ffffff09';c.fillRect(x,y,1+i%2,1)}
+      if(roman){
+        const y0=H*.48,y1=H*.94,d=32;for(let y=y0;y<y1;y+=d)for(let x=0;x<w;x+=d){c.fillStyle='#e7dfc9';c.fillRect(x,y,d,d);c.fillStyle='#b8704f';c.beginPath();c.moveTo(x,y);c.lineTo(x+d,y);c.lineTo(x+d,y+d);c.fill();c.fillStyle='#a9b2b3';c.beginPath();c.moveTo(x,y);c.lineTo(x+d,y+d);c.lineTo(x,y+d);c.fill();}
+      }
+      c.fillStyle=church?'#dcd8c8':'#c5b9a2';c.fillRect(0,H*.94,w,H*.06);
+    });t.wrapS=T.RepeatWrapping;t.wrapT=T.ClampToEdgeWrapping;
+    const m=new T.MeshStandardMaterial({map:t,roughness:.94});heritageTex.set(id,m);return m;
+  }
+  function heritageDetail(b,e,k){
+    const id=Number(b.id),h=b.height,l=e.l,u=l/2,roman=id===-1907785200,church=id===-985494900;
+    const trim=M(church?0xece7d7:0xe4ddcd),base=M(0xb8ab94),frame=0x544a3f;
+    k.line(base,u,.29,l,.58,.14);
+    if(church){
+      // Red walls, white pilasters, framed arched bays and continuous ornamental bands.
+      const n=Math.max(1,Math.round(l/3.3)),bay=l/n;
+      k.line(trim,u,h*.43,l,.15,.23);k.line(trim,u,h*.49,l,.13,.25);
+      k.line(trim,u,h*.85,l,.15,.20);k.line(trim,u,h*.93,l,.12,.23);
+      for(let i=0;i<n;i++){const x=(i+.5)*bay;
+        archWindow(k,x,h*.25,Math.min(1.35,bay*.60),h*.32,trim,frame,false);
+        archWindow(k,x,h*.67,Math.min(1.1,bay*.46),h*.32,trim,frame,false);
+        if(i<n-1){const p=(i+1)*bay;k.panel(trim,p,h*.69,.20,h*.39,.21,.10);k.panel(trim,p,h*.88,.34,.18,.26,.12);k.panel(trim,p,h*.24,.16,h*.35,.17,.10);}
+        for(let y of [h*.48,h*.89])for(let q=0;q<6;q++)k.panel(trim,x-bay*.38+q*bay*.15,y,.075,.09,.12,.15);
+      }
+    }else if(roman){
+      // The patterned lower storey is the building's distinguishing feature.
+      k.line(trim,u,h*.52,l,.20,.27);k.line(trim,u,h*.55,l,.11,.23);
+      const n=Math.max(1,Math.round(l/2.6)),bay=l/n;
+      for(let i=0;i<n;i++){const x=(i+.5)*bay;
+        if(i%2===0||n<3)window(k,x,h*.26,Math.min(.60,bay*.38),Math.min(1.1,h*.20),trim,frame,0,false,false);
+        window(k,x,h*.76,Math.min(1.04,bay*.50),Math.min(1.50,h*.29),trim,frame,1,true,false);
+        gable(k,x,h*.90,Math.min(1.45,bay*.80),.20,trim);
+      }
+      if(l>5){for(const x of [.13,l-.13]){k.panel(trim,x,h*.75,.24,h*.43,.25,.12);k.panel(trim,x,h*.94,.38,.17,.30,.13);}}
+    }else{
+      // White-stone walls, deep-set irregular arched openings; no commercial glazing.
+      k.line(trim,u,h*.55,l,.12,.18);k.line(trim,u,h*.94,l,.14,.22);
+      const n=Math.max(1,Math.round(l/3.4)),bay=l/n;
+      for(let i=0;i<n;i++){const x=(i+.5)*bay;
+        archWindow(k,x,h*.23,Math.min(.85,bay*.40),Math.min(1.45,h*.29),trim,frame);
+        if((i%3)!==1||n===1)archWindow(k,x,h*.73,Math.min(1.12,bay*.50),Math.min(1.65,h*.30),trim,frame);
+      }
+    }
+    cornice(k,e,h,trim);heritageBuilt.add(id);
+  }
+  function heritageRoof(b){
+    const id=Number(b.id);if(id===-985494900)return false;
+    // Roof stays inside the actual OSM polygon, including concave wings. Elevate
+    // triangulated interior samples to form a pitched roof rather than a flat lid.
+    const p=b.points,poly=p.map(q=>new T.Vector2(q[0],q[1])),holes=(b.holes||[]).map(r=>r.map(q=>new T.Vector2(q[0],q[1])));
+    const idx=T.ShapeUtils.triangulateShape(poly,holes),all=[...poly,...holes.flat()],rings=[poly,...holes],pos=[],uv=[];
+    function distance(x,z){let d=Infinity;for(const r of rings)for(let i=0;i<r.length;i++){const a=r[i],q=r[(i+1)%r.length],dx=q.x-a.x,dz=q.y-a.y,s=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.y)*dz)/(dx*dx+dz*dz||1)));d=Math.min(d,Math.hypot(x-a.x-dx*s,z-a.y-dz*s))}return d}
+    const pitch=id===-1907785200?1.1:.70,limit=id===-1907785200?3.4:3.0;
+    function push(v){pos.push(v.x,b.height+Math.min(limit,distance(v.x,v.y)*pitch),v.y);uv.push(v.x*.6,v.y*.6)}
+    for(const tri of idx){const [a,c,d]=tri.map(i=>all[i]);const N=6;
+      function at(i,j){return a.clone().multiplyScalar(1-(i+j)/N).addScaledVector(c,i/N).addScaledVector(d,j/N)}
+      for(let i=0;i<N;i++)for(let j=0;j<N-i;j++){push(at(i,j));push(at(i+1,j));push(at(i,j+1));if(i+j<N-1){push(at(i+1,j));push(at(i+1,j+1));push(at(i,j+1))}}
+    }
+    if(!pos.length)return false;
+    const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.computeVertexNormals();
+    const m=M(id===-1907785200?0x575b50:0x665a47,.95);m.side=T.DoubleSide;const o=new T.Mesh(g,m);o.castShadow=true;o.receiveShadow=true;scene.add(o);return true;
+  }
+
   function facadeMaterial(b){
+    if(heritageIds.has(Number(b.id)))return heritageWall(b);
     const d=config(b),floors=floorCount(b,d),key=[d.wall,d.trim,d.style,floors].join(':');if(d.style==='piggy')return material(b);
     if(facadeMats.has(key))return facadeMats.get(key);
     const t=texture(128,Math.min(1024,128*floors),(c,w,h)=>{
@@ -259,7 +335,8 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     const out=[];for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length],dx=q[0]-p[0],dz=q[1]-p[1],l=Math.hypot(dx,dz);if(l<.2)continue;const tx=dx/l,tz=dz/l,nx=(signed>0?1:-1)*tz,nz=(signed>0?-1:1)*tx;out.push({p,q,l,tx,tz,nx,nz,rot:Math.atan2(-tz,tx),angle:Math.atan2(nx,nz)})}return out;
   }
   function frontEdge(b,es){
-    if(Number(b.id)===52404043){const p=b.points[0],q=b.points[1];const exact=es.find(e=>e.p===p&&e.q===q);if(exact)return exact;}
+    const fixed={52404043:0,52404042:4,'-1219882900':3,52387381:1,49009835:3,52387397:19};
+    if(Object.hasOwn(fixed,b.id)){const i=fixed[b.id],p=b.points[i],q=b.points[(i+1)%b.points.length];const exact=es.find(e=>e.p===p&&e.q===q);if(exact)return exact;}
     let best=null,score=Infinity;const target=profile(b)==='piggy'?'солянка':street(b),preferred=roadPaths.filter(o=>target&&String(o.r.name||'').toLowerCase().includes(target));
     const major=preferred.filter(o=>!['path','footway','steps','service','cycleway'].includes(o.r.type));
     const roads=major.length?major:preferred.length?preferred:roadPaths.filter(o=>!['path','footway','steps','service','cycleway'].includes(o.r.type));
@@ -373,6 +450,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   function detail(b){
     const es=edges(b),front=frontEdge(b,es),d=config(b),h=b.height,trim=M(d.trim),base=M(d.base),roof=M(d.roof),frame=d.frame;
     for(const e of es){if(e.l<2.5||e.l>140)continue;const k=kit(e),l=e.l,isFront=e===front;
+      if(heritageIds.has(Number(b.id))){heritageDetail(b,e,k);continue;}
       const photo=isFront?photoFacades.get(Number(b.id)):null;
       if(d.style==='piggy'){if(photo){photoPanel(b,e,k,photo,trim,base);continue}piggy(e,k,b,isFront,trim,base);continue}
       if(isFront)k.panel(M(d.wall,.92),l/2,h/2,l,h,.018,.026);
@@ -472,6 +550,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     }
   }
   function roof(b){
+    if(heritageIds.has(Number(b.id))&&heritageRoof(b))return;
     const d=config(b);if(d.style==='church'){if(!(cityMap.buildingParts||[]).some(p=>p.parent===b.id&&p.height>b.height+.5))churchRoof(b,d);return;}if(!d.pitch||b.holes?.length||b.points.length>14)return;
     const pts=b.points.filter((p,i,a)=>Math.hypot(p[0]-a[(i+1)%a.length][0],p[1]-a[(i+1)%a.length][1])>.12);if(pts.length<3)return;
     let winding=0;for(let i=0;i<pts.length;i++){const a=pts[i],q=pts[(i+1)%pts.length],r=pts[(i+2)%pts.length],cross=(q[0]-a[0])*(r[1]-q[1])-(q[1]-a[1])*(r[0]-q[0]);if(Math.abs(cross)<.02)continue;if(winding&&Math.sign(cross)!==winding)return;winding=Math.sign(cross)}
@@ -483,5 +562,5 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   }
   const pigFront=frontEdge(mainPig,edges(mainPig));
   const piggyView=pigFront?{x:(pigFront.p[0]+pigFront.q[0])/2,z:(pigFront.p[1]+pigFront.q[1])/2,nx:pigFront.nx,nz:pigFront.nz,width:pigFront.l}:null;
-  return {profile,material,facadeMaterial,mapWalls,photoCount:()=>photoBuilt.size,photoAvailable:()=>photoFacades.size,frontView:b=>{const e=frontEdge(b,edges(b));return e?{x:(e.p[0]+e.q[0])/2,z:(e.p[1]+e.q[1])/2,nx:e.nx,nz:e.nz,width:e.l,height:b.height}:null},surveyCount:()=>cityMap.buildings.filter(b=>survey[b.id]).length,atlasCount:()=>atlasIds.size,detail,roof,piggyView,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
+  return {profile,material,facadeMaterial,mapWalls,heritageCount:()=>heritageBuilt.size,heritageIds,photoCount:()=>photoBuilt.size,photoAvailable:()=>photoFacades.size,frontView:b=>{const e=frontEdge(b,edges(b));return e?{x:(e.p[0]+e.q[0])/2,z:(e.p[1]+e.q[1])/2,nx:e.nx,nz:e.nz,width:e.l,height:b.height}:null},surveyCount:()=>cityMap.buildings.filter(b=>survey[b.id]).length,atlasCount:()=>atlasIds.size,detail,roof,piggyView,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
 }
