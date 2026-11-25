@@ -48,7 +48,13 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   // OSM sometimes has the footprint but not an address tag. The baked reference
   // position is the business location; choose the containing or nearest footprint.
   const reference=cityMap.places.find(p=>p.name.includes('Piggy'));
-  const ref=reference?.position;
+  const bounds=cityMap.bounds,bbox=cityMap.bbox;
+  const ref=Array.isArray(bounds)&&bounds.length===4&&Array.isArray(bbox)&&bbox.length===4?(()=>{
+    const [south,west,north,east]=bbox,lat=55.753706,lon=37.637219;
+    const u=(lon-west)/(east-west),v=(lat-south)/(north-south);
+    const [sw,se,,nw]=bounds;
+    return [sw[0]+(se[0]-sw[0])*u+(nw[0]-sw[0])*v,sw[1]+(se[1]-sw[1])*u+(nw[1]-sw[1])*v];
+  })():reference?.position;
   function contains(p,ring){let inside=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])inside=!inside}return inside}
   function distance(p,ring){let best=Infinity;for(let i=0;i<ring.length;i++){const a=ring[i],b=ring[(i+1)%ring.length],dx=b[0]-a[0],dz=b[1]-a[1],t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dz)/(dx*dx+dz*dz||1)));best=Math.min(best,Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dz))}return best}
   function area(r){return Math.abs(r.reduce((s,p,i)=>{const q=r[(i+1)%r.length];return s+p[0]*q[1]-q[0]*p[1]},0))/2}
@@ -184,5 +190,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     for(let i=0;i<pts.length;i++){const j=(i+1)%pts.length;tri(pts[i],h,pts[j],h,inner[j],top);tri(pts[i],h,inner[j],top,inner[i],top);tri(inner[i],top,inner[j],top,[cx,cz],top)}
     const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.computeVertexNormals();const m=M(d.roof,.87);m.side=T.DoubleSide;const o=new T.Mesh(g,m);o.castShadow=true;o.receiveShadow=true;scene.add(o);
   }
-  return {profile,material,detail,roof,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
+  const pigFront=frontEdge(mainPig,edges(mainPig));
+  const piggyView=pigFront?{x:(pigFront.p[0]+pigFront.q[0])/2,z:(pigFront.p[1]+pigFront.q[1])/2,nx:pigFront.nx,nz:pigFront.nz,width:pigFront.l}:null;
+  return {profile,material,detail,roof,piggyView,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
 }

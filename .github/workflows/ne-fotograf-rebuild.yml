@@ -142,6 +142,7 @@ jobs:
             await page.locator('#placeList button').filter({hasText:'Маросейка'}).click();
             const visited=await page.evaluate(()=>NF_NEW.inspect());if(visited.driving||Math.hypot(visited.position[0],visited.position[2]+14)<40||errors.length)throw Error('Location '+JSON.stringify(visited));
             const frame=await page.evaluate(()=>NF_NEW.capture());
+            writeFileSync('/tmp/nf-piggy.png',Buffer.from((await page.evaluate(()=>NF_NEW.test.capturePiggy())).split(',')[1],'base64'));
             writeFileSync('/tmp/nf-rebuild.png',Buffer.from(frame.split(',')[1],'base64'));
             await page.screenshot({path:'/tmp/nf-screen.png'});
           }finally{await browser.close()}
@@ -164,6 +165,7 @@ jobs:
           path: |
             /tmp/nf-rebuild.png
             /tmp/nf-hero.png
+            /tmp/nf-piggy.png
       - name: Publish new scene separately
         run: |
           set -e
