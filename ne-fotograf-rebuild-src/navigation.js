@@ -7,7 +7,8 @@ const [sw,se,,nw]=city.bounds,el=Math.hypot(se[0]-sw[0],se[1]-sw[1]),nl=Math.hyp
 const worldDelta=(u,v)=>[ex*u+nx*v,ez*u+nz*v];
 const nodes=[],ids=new Map(),edges=[];
 function node(p){const k=Math.round(p[0]*10)+','+Math.round(p[1]*10);if(ids.has(k))return ids.get(k);const i=nodes.length;ids.set(k,i);nodes.push(p);edges.push([]);return i}
-for(const r of city.roads){if(!allowed.has(r.type)||r.access==='private'||r.access==='no')continue;for(let j=1;j<r.points.length;j++){const a=node(r.points[j-1]),b=node(r.points[j]),l=Math.hypot(nodes[a][0]-nodes[b][0],nodes[a][1]-nodes[b][1]);if(a===b||l<.03)continue;const car=carTypes.has(r.type);edges[a].push({b,l,car,carOK:r.oneway!=='-1'});edges[b].push({b:a,l,car,carOK:!['yes','1','true'].includes(r.oneway)})}}
+for(const r of city.roads){// This is a game, not public pedestrian directions: include in-game traversable private lanes (the actual spawn is one). Omit explicitly closed ways.
+if(!allowed.has(r.type)||r.access==='no')continue;for(let j=1;j<r.points.length;j++){const a=node(r.points[j-1]),b=node(r.points[j]),l=Math.hypot(nodes[a][0]-nodes[b][0],nodes[a][1]-nodes[b][1]);if(a===b||l<.03)continue;const car=carTypes.has(r.type);edges[a].push({b,l,car,carOK:r.oneway!=='-1'});edges[b].push({b:a,l,car,carOK:!['yes','1','true'].includes(r.oneway)})}}
 // Snap to several nearby public way vertices, then choose the connected route
 // with the lowest combined network and endpoint access distance. A nearby
 // isolated courtyard must not prevent routing along the adjacent main street.
