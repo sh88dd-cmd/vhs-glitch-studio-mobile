@@ -114,7 +114,7 @@ const generic=[
 ];
 function hash(b){return [...String(b.id)].reduce((h,c)=>Math.imul(h^c.charCodeAt(0),16777619)>>>0,2166136261);}
 export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths,nearPath}){
-  const palette=new Map(),signs=new Map(),windowMats=new Map(),facadeMats=new Map();
+  const palette=new Map(),signs=new Map(),windowMats=new Map(),facadeMats=new Map(),atlasIds=new Set();
   const M=(c,rough=.85,metal=0)=>{const key=c+':'+rough+':'+metal;if(!palette.has(key))palette.set(key,mat(c,rough,metal));return palette.get(key)};
   const dark=M(0x393c38,.8),metal=M(0x494d4b,.5,.4),gold=M(0xbca04c,.65),iron=M(0x34352e,.6,.3);
   // OSM sometimes has the footprint but not an address tag. The baked reference
@@ -152,7 +152,7 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   // Every wall receives a façade at initial load. No blank building shell waits for streaming.
   // One shared repeated bay per palette / floor count, not 915 individual textures.
   function facadeMaterial(b){
-    const d=config(b),floors=floorCount(b,d),key=[d.wall,d.trim,d.style,floors].join(':');
+    const d=config(b),floors=floorCount(b,d),key=[d.wall,d.trim,d.style,floors].join(':');if(d.style==='piggy')return material(b);
     if(facadeMats.has(key))return facadeMats.get(key);
     const t=texture(128,Math.min(1024,128*floors),(c,w,h)=>{
       const fh=h/floors,modern=d.style==='modern',church=d.style==='church';
@@ -176,17 +176,17 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     const m=new T.MeshStandardMaterial({map:t,roughness:.87});facadeMats.set(key,m);return m;
   }
   function mapWalls(b,g){
-    const uv=g.attributes.uv,p=g.attributes.position,d=config(b);
+    const uv=g.attributes.uv,p=g.attributes.position,d=config(b);let mapped=0;
     // ExtrudeGeometry side walls are non-indexed quads (two triangles).
     for(const group of g.groups){if(group.materialIndex!==1)continue;
       for(let i=group.start;i+5<group.start+group.count;i+=6){
         let ax=p.getX(i),az=p.getZ(i),bx=ax,bz=az,dist=0;
         for(let j=i+1;j<i+6;j++){const x=p.getX(j),z=p.getZ(j),l=Math.hypot(x-ax,z-az);if(l>dist){dist=l;bx=x;bz=z}}
-        if(dist<.001)continue;
+        if(dist<.001)continue;mapped++;
         const dx=(bx-ax)/dist,dz=(bz-az)/dist,bays=Math.max(1,Math.round(dist/(d.style==='modern'?2.15:2.85)));
         for(let j=i;j<i+6;j++){const u=((p.getX(j)-ax)*dx+(p.getZ(j)-az)*dz)/dist*bays;uv.setXY(j,u,Math.max(0,Math.min(1,p.getY(j)/b.height)))}
       }
-    }uv.needsUpdate=true;
+    }uv.needsUpdate=true;if(mapped>0)atlasIds.add(b.id);
   }
 
   function texture(w,h,paint){const c=document.createElement('canvas');c.width=w;c.height=h;paint(c.getContext('2d'),w,h);const t=new T.CanvasTexture(c);t.colorSpace=T.SRGBColorSpace;t.anisotropy=2;return t}
@@ -245,24 +245,33 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
     const l=e.l,h=b.height,frame=0x5d5044;
     k.line(base,l/2,.44,l,.88,.19);cornice(k,e,h,trim);k.line(trim,l/2,3.18,l,.16,.24);k.line(trim,l/2,3.38,l,.12,.29);
     if(!front){const count=Math.max(1,Math.floor(l/3.7));for(let j=0;j<count;j++)window(k,(j+.5)*l/count,1.91,Math.min(1.65,l/count*.60),2.08,trim,frame,j%3,false,true);return}
-    const from=k.fromLeft,sections=[{f:.20,title:'БРАТЬЯ КАРАВАЕВЫ'},{f:.52,title:'ПИГГИ · PIGGY'},{f:.83,title:'КУЛЬТУРА'}];
+    const from=k.fromLeft,sections=[{f:.20,title:'БРАТЬЯ КАРАВАЕВЫ'},{f:.60,title:'ПИГГИ · PIGGY'}];
     for(const {f,title} of sections){
       const u=from(f),span=Math.min(l*.24,5.0),w=Math.min(1.35,span*.35);
       door(k,u,1.52,w,2.55,trim,frame);
       for(const side of [-1,1])window(k,u+side*span*.33,1.92,Math.min(1.12,span*.26),1.85,trim,frame,side===1?1:2,false,true);
       k.face(signMaterial(title,'#c9bca1','#53483a'),u,2.98,span,.43,.20);
       // Stone entrance stairs and dark handrails, without altering road colliders.
-      if(f===.52){for(let i=0;i<3;i++)k.panel(base,u,.055+i*.09,w+.60,.11,.26,.58-i*.18);k.panel(iron,u-w*.59,.55,.065,.9,.08,.46);k.panel(iron,u+w*.59,.55,.065,.9,.08,.46)}
+      if(f===.60||f===.20){for(let i=0;i<3;i++)k.panel(base,u,.055+i*.09,w+.60,.11,.26,.58-i*.18);k.panel(iron,u-w*.59,.55,.065,.9,.08,.46);k.panel(iron,u+w*.59,.55,.065,.9,.08,.46)}
     }
-    for(const f of [.30,.65]){const u=from(f);gable(k,u,3.53,Math.min(4.0,l*.24),.72,trim);k.panel(trim,u,3.56,Math.min(1.65,l*.12),.42,.13,.13)}
-    for(const f of [.09,.46,.88]){const u=from(f),w=Math.min(2.6,l*.16);k.panel(trim,u,4.56,w+.18,.87,.13,.075);k.panel(gold,u,4.56,w,.70,.08,.16)}
+    for(const f of [.23,.66]){const u=from(f);gable(k,u,3.53,Math.min(4.0,l*.24),.72,trim);k.panel(trim,u,3.56,Math.min(1.65,l*.12),.42,.13,.13)}
+    for(const f of [.09,.45,.89]){const u=from(f),w=Math.min(2.6,l*.16);k.panel(trim,u,4.56,w+.18,.87,.13,.075);k.panel(gold,u,4.56,w,.70,.08,.16)}
     for(const f of [.04,.95])k.panel(trim,from(f),h/2,.28,h-.16,.24,.13);
+    
     k.panel(metal,from(.91),h/2,.10,h,.10,.30);
+    // The gold pig sign visible above the right-hand cornice in the CC0 photo.
+    const u=from(.90),v=new T.Vector3(e.p[0]+e.tx*u+e.nx*.40,3.96,e.p[1]+e.tz*u+e.nz*.40),g=new T.Group(),m=M(0xc49544,.4,.58);
+    function ell(x,y,z,sx,sy,sz){const o=new T.Mesh(new T.SphereGeometry(1,12,8),m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);g.add(o);}
+    ell(0,.25,0,.42,.28,.22);ell(-.36,.30,0,.23,.22,.18);ell(-.55,.27,0,.14,.09,.12);
+    for(const x of [-.23,.24])for(const z of [-.13,.13])ell(x,.03,z,.06,.14,.065);
+    ell(-.30,.50,-.11,.07,.13,.06);ell(-.30,.50,.11,.07,.13,.06);
+    g.position.copy(v);g.rotation.y=e.rot+(e.tx*e.nz-e.tz*e.nx<0?Math.PI:0);scene.add(g);
   }
   function detail(b){
     const es=edges(b),front=frontEdge(b,es),d=config(b),h=b.height,trim=M(d.trim),base=M(d.base),roof=M(d.roof),frame=d.frame;
     for(const e of es){if(e.l<2.5||e.l>140)continue;const k=kit(e),l=e.l,isFront=e===front;
       if(d.style==='piggy'){piggy(e,k,b,isFront,trim,base);continue}
+      if(isFront)k.panel(M(d.wall,.92),l/2,h/2,l,h,.018,.026);
       if(!isFront){cornice(k,e,h,trim);continue} // other faces retain complete lightweight atlas
       const historic=d.style!=='modern',ornate=d.style==='ornate',floors=floorCount(b,d),fh=h/floors;
       const count=Math.max(1,Math.min(42,Math.round(l/(historic?2.85:2.15)))),bay=l/count;
@@ -270,7 +279,17 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
       if(historic&&isFront){
         k.line(trim,l/2,fh-.15,l,.16,.24);
         for(const u of [.15,l-.15])k.panel(trim,u,h*.50,.25,h-.40,.23,.12);
+        
         if(ornate||profile(b)==='salt')for(let j=1;j<count;j+=2)k.panel(trim,j*bay,h*.56,.24,h*.80,.20,.11);
+        // Distinctive deep ground-floor rustication on the merchant society buildings.
+        if(profile(b)==='salt'){for(let y=.95;y<fh*2;y+=.53)k.line(M(d.base),l/2,y,l,.035,.08);}
+        // Empire portico on the documented Guardianship Council building.
+        if(Number(b.id)===-1736197700&&l>18){const width=Math.min(l*.62,26),center=l/2,top=Math.min(h-1,fh*2.3);
+          for(let j=0;j<8;j++){const u=center-width*.43+j*width*.86/7,rad=.32;const x=e.p[0]+e.tx*u+e.nx*.48,z=e.p[1]+e.tz*u+e.nz*.48;
+            object(new T.CylinderGeometry(rad,rad*1.08,top-.7,12),trim,x,(top+.7)/2,z);k.panel(trim,u,.45,.83,.33,.92,.41);k.panel(trim,u,top,.84,.24,.88,.41)}
+          k.panel(trim,center,top+.22,width,.32,.80,.43);gable(k,center,top+.37,width,Math.min(2.2,width*.1),trim);
+        }
+
       }
       if(historic&&floors>2)k.line(trim,l/2,h-fh-.10,l,.14,.18);
       for(let row=0;row<floors;row++){
@@ -293,7 +312,24 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
         const w=Math.min(l*.43,7.0),u=l/2,y=fh+.08;k.panel(trim,u,y,w,.20,.85,.40);k.panel(iron,u,y+.68,w,.10,.09,.80);
         for(let j=0;j<Math.ceil(w/.28);j++)k.panel(trim,u-w/2+j*.28,y+.34,.085,.55,.09,.78);
       }
+      
       if(historic&&l>8)k.panel(metal,l-.32,h/2,.095,h-.12,.10,.26);
+      if(profile(b)==='atlantes'&&isFront&&l>13){
+        // Sculptural supports flanking the main central portal; modeled, not flat stickers.
+        const u=l/2,y=Math.min(fh,3.3),w=Math.min(5.2,l*.36);
+        k.panel(trim,u,y+.05,w,.30,.80,.40);
+        for(const off of [-w*.39,w*.39]){
+          const at=u+off,x=e.p[0]+e.tx*at+e.nx*.44,z=e.p[1]+e.tz*at+e.nz*.44;
+          object(new T.SphereGeometry(.23,10,8),trim,x,y-.47,z);
+          const torso=object(new T.CylinderGeometry(.29,.19,1.10,9),trim,x,y-1.10,z);torso.rotation.z=.08;
+          for(const t of [-1,1]){const a=object(new T.CylinderGeometry(.095,.12,.75,8),trim,x+e.tx*t*.27,y-.62,z+e.tz*t*.27);a.rotation.z=t*.40;object(new T.CylinderGeometry(.12,.14,.85,8),trim,x+e.tx*t*.12,y-2.02,z+e.tz*t*.12)}
+          k.panel(trim,at,.43,.75,.75,.75,.32);
+        }
+      }
+      // Address sign is tied to actual OSM address rather than fictional business.
+      if(isFront&&b.number&&b.street&&profile(b)!=='piggy'&&l>6){
+        const num=String(b.number).replace(/c/g,'с');k.face(signMaterial(num,'#324e68','#f4f0e6'),l-.65,Math.min(2.65,h-.35),.85,.34,.23);
+      }
     }
   }
 
@@ -330,5 +366,5 @@ export function createArchitecture({scene,staticMeshes,box,mat,cityMap,roadPaths
   }
   const pigFront=frontEdge(mainPig,edges(mainPig));
   const piggyView=pigFront?{x:(pigFront.p[0]+pigFront.q[0])/2,z:(pigFront.p[1]+pigFront.q[1])/2,nx:pigFront.nx,nz:pigFront.nz,width:pigFront.l}:null;
-  return {profile,material,facadeMaterial,mapWalls,detail,roof,piggyView,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
+  return {profile,material,facadeMaterial,mapWalls,atlasCount:()=>atlasIds.size,detail,roof,piggyView,mainPig:!!mainPig,piggyInfo:{id:mainPig.id,street:mainPig.street,number:mainPig.number,points:mainPig.points,height:mainPig.height,reference:ref,candidates:candidates.map(x=>({id:x.b.id,d:x.d,inside:x.inside,area:x.area,height:x.b.height,street:x.b.street,number:x.b.number}))}};
 }

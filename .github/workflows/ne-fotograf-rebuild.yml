@@ -145,6 +145,11 @@ jobs:
             const visited=await page.evaluate(()=>NF_NEW.inspect());if(visited.driving||Math.hypot(visited.position[0],visited.position[2]+14)<40||errors.length)throw Error('Location '+JSON.stringify(visited));
             const frame=await page.evaluate(()=>NF_NEW.capture());
             writeFileSync('/tmp/nf-piggy.png',Buffer.from((await page.evaluate(()=>NF_NEW.test.capturePiggy())).split(',')[1],'base64'));
+            for(const [name,file] of [['Солянка','solyanka'],['Маросейка','maroseyka'],['Лубянский проезд','lubyansky'],['Зарядье','zaryadye']]){
+              const image=await page.evaluate(name=>NF_NEW.test.captureStreet(name),name);
+              writeFileSync('/tmp/nf-'+file+'.png',Buffer.from(image.split(',')[1],'base64'));
+            }
+            writeFileSync('/tmp/nf-architecture-audit.json',JSON.stringify(await page.evaluate(()=>NF_NEW.inspect()),null,2));
             writeFileSync('/tmp/nf-rebuild.png',Buffer.from(frame.split(',')[1],'base64'));
             await page.screenshot({path:'/tmp/nf-screen.png'});
           }finally{await browser.close()}
@@ -159,6 +164,9 @@ jobs:
           print('Render mean:',st.mean,'std:',st.stddev)
           assert max(st.mean)>30 and max(st.stddev)>18, 'Empty or uniform WebGL render'
           assert len(im.resize((96,96)).getcolors(10000))>150, 'Missing visual detail'
+          for name in ('piggy','solyanka','maroseyka','lubyansky','zaryadye'):
+              img=Image.open('/tmp/nf-'+name+'.png').convert('RGB')
+              assert max(ImageStat.Stat(img).stddev)>12, 'Blank district screenshot '+name
           PY
       - name: Screenshot
         uses: actions/upload-artifact@v4
@@ -168,6 +176,11 @@ jobs:
             /tmp/nf-rebuild.png
             /tmp/nf-hero.png
             /tmp/nf-piggy.png
+            /tmp/nf-solyanka.png
+            /tmp/nf-maroseyka.png
+            /tmp/nf-lubyansky.png
+            /tmp/nf-zaryadye.png
+            /tmp/nf-architecture-audit.json
       - name: Publish new scene separately
         run: |
           set -e
