@@ -24,7 +24,7 @@ export function installDistrict({scene,cityMap,mat,ribbon,shapeMesh,roadPaths,ne
    // Fine kerbs on both sides of the named roads; separate pavement and carriageway.
    for(const side of [-1,1])ribbon(r.points,.16,side*(w/2+.06),.079,curb);
    if(w>=7&&!['service','pedestrian','living_street'].includes(r.type)){
-    for(let t=3;t<path.length-4;t+=8){const a=atPath(path,t),b=atPath(path,Math.min(t+3.0,path.length));ribbon([[a.x,a.z],[b.x,b.z]],.095,0,.024,paint)}
+    for(let t=3;t<path.length-4;t+=8){const a=atPath(path,t),b=atPath(path,Math.min(t+3.0,path.length));ribbon([[a.x,a.z],[b.x,b.z]],.095,0,.071,paint)}
    }
    for(const side of [-1,1])for(let t=7;t<path.length-7;t+=23){
      const p=atPath(path,t,side*(w/2+.95));
