@@ -2,7 +2,10 @@
 function captureAuditFacade(entry){
  const b=cityMap.buildings.find(x=>x.id===entry.osmId);
  if(!b)return {error:'Footprint missing'};
- const f=entry.front||{},p=b.points[f.edge],q=b.points[(f.edge+1)%b.points.length];
+ const edges=b.points.map((p,i)=>({edge:i,width:Math.hypot(b.points[(i+1)%b.points.length][0]-p[0],b.points[(i+1)%b.points.length][1]-p[1])})).sort((a,b)=>b.width-a.width);
+ const f=entry.auditView==='alternate' ? edges.find(e=>e.edge!==entry.front?.edge&&e.width>=1) : (entry.front||edges[0]);
+ if(!f)return {error:'No usable footprint edge'};
+ const p=b.points[f.edge],q=b.points[(f.edge+1)%b.points.length];
  if(!p||!q)return {error:'Frontage missing'};
  const dx=q[0]-p[0],dz=q[1]-p[1],width=Math.hypot(dx,dz);
  if(width<1)return {error:'Frontage degenerate'};
@@ -38,7 +41,7 @@ function captureAuditFacade(entry){
    camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
    sun.target.position.set(cx,0,cz);sun.position.set(cx-14,22,cz-11);sun.shadow.needsUpdate=true;
    render();
-   return {image:cv.toDataURL('image/jpeg',.86),width,height:h,visibleSamples:best.visible,totalSamples:samples.length,viewpoint:[best.x,2.45,best.z],target:[cx,lookY,cz],status:best.visible<samples.length?'partly-obstructed':'viewpoint-unobstructed'};
+   return {edge:f.edge,viewKind:entry.front?.edge===f.edge?'recorded-front':'unclassified-wall',image:cv.toDataURL('image/jpeg',.86),width,height:h,visibleSamples:best.visible,totalSamples:samples.length,viewpoint:[best.x,2.45,best.z],target:[cx,lookY,cz],status:best.visible<samples.length?'partly-obstructed':'viewpoint-unobstructed'};
  }finally{
    pos.copy(oldPos);camera.position.copy(oldCamera);camera.quaternion.copy(oldQ);camera.fov=oldFov;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);hero.root.visible=vis;
    sun.position.copy(oldSun);sun.target.position.copy(oldTarget);sun.shadow.needsUpdate=true;
